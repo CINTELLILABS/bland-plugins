@@ -1,0 +1,25 @@
+{
+  "name": "bland-local",
+  "description": "Local marketplace for Bland Claude Code plugins (development).",
+  "owner": {
+    "name": "Bland",
+    "email": "kyle@bland.ai"
+  },
+  "plugins": [
+    {
+      "name": "norm",
+      "source": "./plugins/norm",
+      "description": "Bland Norm: activate the super_norm custom agent over the first-class Bland MCP API.",
+      "version": "0.4.2",
+      "category": "productivity",
+      "keywords": [
+        "bland",
+        "norm",
+        "supernorm",
+        "mcp",
+        "pathways",
+        "voice-agents"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "tasks": {
+    "appointment-booking-agent": {
+      "title": "Appointment Booking Agent",
+      "minimum_nodes": 5,
+      "minimum_edges": 4,
+      "required_concepts": [
+        "greet",
+        "appointment",
+        "reschedule",
+        "cancel",
+        "name",
+        "phone",
+        "reason",
+        "preferred date",
+        "preferred time",
+        "availability",
+        "confirm",
+        "transfer",
+        "end"
+      ],
+      "required_variables": [
+        "name",
+        "phone",
+        "reason",
+        "preferred_date",
+        "preferred_time"
+      ],
+      "required_tool_concepts": [
+        "availability",
+        "schedule"
+      ],
+      "required_test_concepts": [
+        "cleaning",
+        "next Tuesday",
+        "afternoon"
+      ]
+    }
+  }
+}

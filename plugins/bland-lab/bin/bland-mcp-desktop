@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ -z "${NODE_BIN:-}" ]]; then
+  for candidate in \
+    "$HOME/.nvm/versions/node/v22.2.0/bin/node" \
+    "$HOME/.claude/local/node" \
+    "/opt/homebrew/bin/node" \
+    "/usr/local/bin/node" \
+    "/usr/bin/node"; do
+    if [[ -x "$candidate" ]]; then
+      NODE_BIN="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "${NODE_BIN:-}" ]]; then
+  echo "Could not find a Node.js binary for Bland MCP. Set NODE_BIN in Claude Desktop config." >&2
+  exit 127
+fi
+
+export BLAND_PLUGIN_ROOT="$PLUGIN_ROOT"
+export BLAND_PLUGIN_DATA="${BLAND_PLUGIN_DATA:-$HOME/Library/Application Support/Claude/bland-norm-data}"
+export BLAND_API_URL="${BLAND_API_URL:-http://localhost:3000}"
+
+mkdir -p "$BLAND_PLUGIN_DATA"
+
+exec "$NODE_BIN" "$PLUGIN_ROOT/bin/bland-mcp-proxy.cjs"

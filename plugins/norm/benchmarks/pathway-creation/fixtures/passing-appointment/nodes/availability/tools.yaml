@@ -1,0 +1,8 @@
+tools:
+  - name: check_availability
+    type: rest_api
+    description: "Stub schedule availability lookup for appointment booking."
+    input:
+      reason: "{{reason}}"
+      preferred_date: "{{preferred_date}}"
+      preferred_time: "{{preferred_time}}"
