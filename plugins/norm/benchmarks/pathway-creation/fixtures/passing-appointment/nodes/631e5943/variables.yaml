@@ -1,0 +1,16 @@
+variables:
+  - name: name
+    type: string
+    description: Patient name.
+  - name: phone
+    type: string
+    description: Patient phone number.
+  - name: reason
+    type: string
+    description: Appointment reason.
+  - name: preferred_date
+    type: string
+    description: Preferred date.
+  - name: preferred_time
+    type: string
+    description: Preferred time window.

@@ -1,0 +1,14 @@
+name: Booking flow smoke test
+caller_goal: Book a cleaning next Tuesday afternoon.
+expected_path:
+  - c0e8c122
+  - "631e5943"
+  - 14b7bae5
+  - 92fcc9b1
+  - b8699cc9
+expected_node_names:
+  - Greeting and intent
+  - Patient intake
+  - Availability check
+  - Confirmation
+  - End call

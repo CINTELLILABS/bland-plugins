@@ -1,20 +1,33 @@
 {
   "name": "norm",
   "displayName": "Bland Norm",
-  "version": "0.4.2",
+  "version": "1.0.0",
   "description": "Claude Code plugin for activating Norm: Bland's super_norm custom agent over the first-class Bland MCP API.",
   "author": {
     "name": "Bland",
     "email": "kyle@bland.ai"
   },
-  "keywords": ["bland", "norm", "supernorm", "mcp", "pathways", "voice-agents", "agents"],
+  "homepage": "https://bland.ai",
+  "repository": "https://github.com/<org>/norm",
+  "keywords": [
+    "bland",
+    "norm",
+    "supernorm",
+    "mcp",
+    "pathways",
+    "voice-agents",
+    "agents",
+    "voice-ai",
+    "conversational-ai"
+  ],
   "defaultEnabled": true,
+  "hooks": "./hooks/hooks.json",
   "userConfig": {
     "bland_api_url": {
       "type": "string",
       "title": "Bland API URL",
-      "description": "Bland API base URL. Use http://localhost:3000 for local development.",
-      "default": "http://localhost:3000",
+      "description": "Bland API base URL.",
+      "default": "https://api.bland.ai",
       "required": true
     },
     "bland_api_key": {

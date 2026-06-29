@@ -1,0 +1,108 @@
+#!/usr/bin/env node
+"use strict";
+
+/**
+ * Bland Norm — SessionStart hook (offline orientation).
+ *
+ * Prints a short orientation banner so the session knows the Norm workflow and
+ * which /norm:* commands exist. This is OFFLINE: it makes no network calls and
+ * never reads secrets. It is FAIL-SOFT: any error is swallowed and the process
+ * always exits 0 so it can never block a session from starting.
+ *
+ * Reads the SessionStart hook payload as JSON from stdin (ignored beyond best
+ * effort) and emits SessionStart additionalContext on stdout.
+ */
+
+function readStdin() {
+	return new Promise((resolve) => {
+		let buffer = "";
+		// If nothing is piped in, don't hang the session.
+		const timer = setTimeout(() => resolve(buffer), 250);
+		if (timer.unref) timer.unref();
+		try {
+			process.stdin.setEncoding("utf8");
+			process.stdin.on("data", (chunk) => {
+				buffer += chunk;
+			});
+			process.stdin.on("end", () => {
+				clearTimeout(timer);
+				resolve(buffer);
+			});
+			process.stdin.on("error", () => {
+				clearTimeout(timer);
+				resolve(buffer);
+			});
+		} catch {
+			clearTimeout(timer);
+			resolve(buffer);
+		}
+	});
+}
+
+function findWorkspaceDir() {
+	const fs = require("node:fs");
+	const path = require("node:path");
+	let dir = process.cwd();
+	for (let i = 0; i < 8; i += 1) {
+		try {
+			if (fs.existsSync(path.join(dir, ".pathways"))) return dir;
+		} catch {
+			/* ignore */
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	return null;
+}
+
+async function main() {
+	// Best-effort parse; we don't actually need anything from the payload.
+	try {
+		const raw = await readStdin();
+		if (raw && raw.trim()) JSON.parse(raw);
+	} catch {
+		/* fail soft */
+	}
+
+	const lines = [
+		"Bland Norm active.",
+		"Workflow: prose files (node.md / condition.md / edge labels / global_prompt.md) are edited natively; structured surfaces (variables, model, node tools, unit tests) go through Bland MCP set_* tools; server round-trips go through /norm:* commands.",
+		"Commands: /norm:norm (orchestrate via super_norm), /norm:list, /norm:clone <pathway_id|new>, /norm:validate, /norm:test [node], /norm:commit, /norm:status.",
+		"Start real pathway work by cloning a workspace: /norm:clone <pathway_id> to edit, or /norm:clone new to create.",
+	];
+
+	let workspaceNote = "No pathway workspace detected in the current directory tree. Run /norm:list then /norm:clone to begin.";
+	try {
+		const ws = findWorkspaceDir();
+		if (ws) {
+			workspaceNote = `A pathway workspace appears to be mounted at ${ws}. Run /norm:status to check version and drift before editing.`;
+		}
+	} catch {
+		/* fail soft */
+	}
+	lines.push(workspaceNote);
+
+	const context = lines.join("\n");
+
+	try {
+		process.stdout.write(
+			`${JSON.stringify({
+				hookSpecificOutput: {
+					hookEventName: "SessionStart",
+					additionalContext: context,
+				},
+			})}\n`,
+		);
+	} catch {
+		/* fail soft */
+	}
+}
+
+main()
+	.catch(() => {
+		/* fail soft — never throw */
+	})
+	.finally(() => {
+		process.exit(0);
+	});

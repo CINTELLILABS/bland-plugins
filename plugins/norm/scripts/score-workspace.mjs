@@ -84,24 +84,27 @@ function scoreWorkspace(files, taskId, task, workspaceRoot) {
   const allText = Object.values(files).join("\n").toLowerCase();
   const nodeFiles = Object.keys(files).filter((filePath) => /^nodes\/[^/]+\/node\.md$/.test(filePath));
   const edgeFiles = Object.keys(files).filter((filePath) => /^edges\/[^/]+\.md$/.test(filePath));
-  const promptFiles = Object.keys(files).filter((filePath) => /^nodes\/[^/]+\/prompt\.md$/.test(filePath));
   const toolFiles = Object.keys(files).filter((filePath) => filePath.endsWith("/tools.yaml") || filePath.includes("tool"));
-  const testFiles = Object.keys(files).filter((filePath) => /^tests\/.+\.(ya?ml|md|json)$/.test(filePath));
+  // Canonical format: unit tests live per-node at nodes/<slug>/unit-tests.yaml (no top-level tests/ dir).
+  const testFiles = Object.keys(files).filter((filePath) => /^nodes\/[^/]+\/unit-tests\.yaml$/.test(filePath));
 
   const requiredConcepts = scoreRequiredMatches(task.required_concepts, allText);
   const requiredVariables = scoreRequiredMatches(task.required_variables, variableText(files));
   const requiredToolConcepts = scoreRequiredMatches(task.required_tool_concepts, toolFiles.map((filePath) => files[filePath]).join("\n").toLowerCase());
   const requiredTestConcepts = scoreRequiredMatches(task.required_test_concepts, testFiles.map((filePath) => files[filePath]).join("\n").toLowerCase());
 
+  // Canonical format has no manifest.yaml — the manifest is rebuilt live from node/edge
+  // files at compile time, so it is not part of the scored workspace. The 8 points the
+  // old manifest_present check carried are folded into required_concepts (25 -> 33).
+  const avgPromptLength = averagePromptLength(nodeFiles, files);
   const checks = [
-    check("manifest_present", 8, Boolean(files["manifest.yaml"]), "manifest.yaml exists"),
     check("minimum_nodes", 18, nodeFiles.length >= task.minimum_nodes, `${nodeFiles.length}/${task.minimum_nodes} node files`),
     check("minimum_edges", 14, edgeFiles.length >= task.minimum_edges, `${edgeFiles.length}/${task.minimum_edges} edge files`),
-    proportional("required_concepts", 25, requiredConcepts),
+    proportional("required_concepts", 33, requiredConcepts),
     proportional("required_variables", 14, requiredVariables),
     proportional("tool_surface", 9, requiredToolConcepts),
     proportional("test_scenario", 8, requiredTestConcepts),
-    check("prompt_depth", 4, averagePromptLength(promptFiles, files) >= 120, `average prompt length ${averagePromptLength(promptFiles, files)} chars`)
+    check("prompt_depth", 4, avgPromptLength >= 120, `average node prompt length ${avgPromptLength} chars`)
   ];
 
   const score = Math.round(checks.reduce((sum, item) => sum + item.points_awarded, 0));
@@ -119,7 +122,6 @@ function scoreWorkspace(files, taskId, task, workspaceRoot) {
       file_count: Object.keys(files).length,
       node_count: nodeFiles.length,
       edge_count: edgeFiles.length,
-      prompt_count: promptFiles.length,
       tool_file_count: toolFiles.length,
       test_file_count: testFiles.length
     },
@@ -135,8 +137,9 @@ function scoreWorkspace(files, taskId, task, workspaceRoot) {
 }
 
 function variableText(files) {
+  // Canonical format: variables are redistributed per-node at nodes/<slug>/variables.yaml.
   return Object.entries(files)
-    .filter(([filePath]) => filePath === "variables.yaml" || filePath.includes("variable"))
+    .filter(([filePath]) => /^nodes\/[^/]+\/variables\.yaml$/.test(filePath) || filePath.includes("variable"))
     .map(([, content]) => content)
     .join("\n")
     .toLowerCase();
@@ -177,10 +180,12 @@ function normalize(value) {
     .trim();
 }
 
-function averagePromptLength(promptFiles, files) {
-  if (promptFiles.length === 0) return 0;
-  const total = promptFiles.reduce((sum, filePath) => sum + stripFrontmatter(files[filePath]).trim().length, 0);
-  return Math.round(total / promptFiles.length);
+// Prompt depth is measured from each node.md body (the prompt is folded into the body
+// below the frontmatter in the canonical format — there is no separate prompt.md).
+function averagePromptLength(nodeFiles, files) {
+  if (nodeFiles.length === 0) return 0;
+  const total = nodeFiles.reduce((sum, filePath) => sum + stripFrontmatter(files[filePath]).trim().length, 0);
+  return Math.round(total / nodeFiles.length);
 }
 
 function stripFrontmatter(content) {

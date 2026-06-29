@@ -1,8 +1,0 @@
-name: Booking flow smoke test
-caller_goal: Book a cleaning next Tuesday afternoon.
-expected_nodes:
-  - start
-  - intake
-  - availability
-  - confirm
-  - end

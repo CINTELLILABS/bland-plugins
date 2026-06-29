@@ -5,27 +5,28 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Bland Norm active: use /norm:norm or the super_norm agent. Real pathway work should begin with begin_pathway_generation or begin_pathway_edit.'"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/hook-status.cjs\""
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__plugin_norm_bland__(create_file|write_file|str_replace_based_edit_tool|delete_file|set_variables|set_model_config|set_unit_tests|set_node_tools|set_tool_config|set_pipeline_steps|set_pipeline_variables)",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Bland Norm: pathway workspace changed; run validate_pathway before commit_pathway_workspace.'"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/hook-lint.cjs\""
           }
         ]
-      },
+      }
+    ],
+    "Stop": [
       {
-        "matcher": "mcp__plugin_norm_bland__commit_pathway_workspace",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Bland Norm: pathway workspace committed. Report the returned pathway_id/version, validation status, and tests run.'"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/hook-dirty.cjs\""
           }
         ]
       }

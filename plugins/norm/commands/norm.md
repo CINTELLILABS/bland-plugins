@@ -1,12 +1,19 @@
 ---
-description: Activate Norm to create, edit, simulate, test, debug, and publish Bland agents.
+description: Activate Norm — invoke the super_norm agent to create, edit, simulate, test, debug, and publish Bland agents end to end.
 allowed-tools:
-  - "mcp__plugin_norm_bland__*"
+  - "Task"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs\":*)"
+  - "Read"
+  - "Write"
+  - "Edit"
+  - "Glob"
+  - "Grep"
+  - "mcp__bland__*"
 ---
 
 # Norm
 
-Use the `super_norm` agent and Bland MCP tools for the user's request.
+Orchestrate the user's Bland agent request through the `super_norm` agent. You are the entry point; `super_norm` owns the workflow doctrine (file model, semantics-first, validate-before-ready, auto-commit, drift handling).
 
 User request:
 
@@ -14,23 +21,15 @@ User request:
 $ARGUMENTS
 ```
 
-Norm operating mode:
+Steps:
 
-1. Classify the request as create, edit, simulate/test, debug, publish, or inspect.
-2. Use Bland MCP as the source of truth.
-3. If tool availability, auth, or environment is unclear, call `get_bland_mcp_setup` and/or `list_bland_mcp_tools` before choosing the workflow.
-4. For new pathways, call `begin_pathway_generation`.
-5. For existing pathways, call `list_pathways` or `get_pathway` if the target is unclear, then call `begin_pathway_edit`.
-6. Use file, structured-editor, semantics, validation, testing, and commit tools directly.
-7. For "simulate a conversation", "test chat", or end-to-end behavior checks, use Agent-to-Agent Testing tools:
-   - `create_agent_test_scenario`
-   - `run_agent_test_scenario`
-   - `get_agent_test_run`
-8. For focused node/runtime checks, use Test Bed:
-   - `run_pathway_node_test`
-   - `get_pathway_node_test_results`
-9. Before any real call, message, delete, publish, promote, cancel, or other high-impact action, ask the user for explicit confirmation.
-10. After create/edit/fix work validates with no errors, call `commit_pathway_workspace` in the same run.
-11. Final answer must include persisted pathway id/version when applicable, production/promotion status, validation status, tests run, and remaining warnings.
+1. Launch the `super_norm` agent (via the `Task` tool, `subagent_type: super_norm`) and hand it the user request verbatim. Let it classify the work as create, edit, simulate/test, debug, publish, or inspect and drive the lanes:
+   - Prose surfaces (`node.md`, `condition.md`, edge labels, `.pathways/global_prompt.md`) → native `Read`/`Write`/`Edit`.
+   - Structured surfaces (variables, model, node tools, unit tests) → Bland MCP `set_*` tools only.
+   - Server round-trips (clone, validate, test, commit, status) → the `/norm:*` commands, which shell out to the bundled sync engine at `${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs`.
+2. If MCP availability, auth, or environment is unclear, have the agent call `get_bland_mcp_setup` before choosing a workflow.
+3. Before any real outbound call, message, delete, publish, promote, or other high-impact action, get explicit user confirmation. Simulations, validation, and read-only inspection never need it.
+4. After create/edit/fix work validates with no errors, commit in the same run (`/norm:commit`). Do not stop at a clean local workspace — a clean file tree is not a saved pathway.
+5. Final answer must include the persisted pathway id/version when applicable, production/promotion status, validation status, tests run, and any remaining warnings or placeholder values the user must replace.
 
-Do not hand-simulate if Bland testing tools are available. Do not invent IDs or test results.
+Do not hand-simulate conversations or invent IDs, validation results, or test outcomes when Bland tooling is available.
