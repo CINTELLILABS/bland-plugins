@@ -2,38 +2,31 @@
 "use strict";
 
 /**
- * Bland Norm — Stop hook (warn-if-dirty).
+ * Bland Norm — Stop hook: autosave the pathway workspace.
  *
- * Runs when the agent finishes responding. If a pathway workspace is mounted and
- * has uncommitted local edits, it prints an advisory reminder to validate and
- * commit so the user doesn't lose work in an unsaved workspace.
+ * Same model as super_norm: a pathway is ONE workspace. When the turn changed
+ * anything, commit the whole workspace. `commit_pathway_workspace` already
+ * validates and FAILS CLOSED on errors (it won't persist a broken pathway), so
+ * this hook does NOT pre-validate or gate — it just commits and reports the
+ * outcome. Commits go to the WORKING version; production is untouched.
  *
- * Dirtiness is determined OFFLINE, in this order of preference:
- *   1. A sync-engine state file `.pathways/.norm-sync.json` (if the bundled
- *      `norm-sync.cjs` recorded the last-committed version + a content hash /
- *      dirty flag). We trust an explicit `dirty: true/false` if present.
- *   2. Otherwise, `git status --porcelain` scoped to the workspace dir, if it is
- *      inside a git repo. Any tracked/untracked change under the workspace counts.
- *
- * This hook NEVER calls the network and NEVER reads secrets. It is FAIL-SOFT and
- * always exits 0 — it can only ever print a warning, never block the Stop.
- *
- * Reads the Stop payload as JSON from stdin (used only to avoid re-entrancy).
+ * FAIL-SOFT: always exits 0; every subprocess has a hard timeout, so it can never
+ * block or hang the turn. Dirtiness is a LOCAL `norm-sync status` (no network);
+ * only the commit step touches the network, and only when there's something to save.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
 const { execFileSync } = require("node:child_process");
+const path = require("node:path");
 
 function readStdin() {
 	return new Promise((resolve) => {
 		let buffer = "";
-		const timer = setTimeout(() => resolve(buffer), 250);
+		const timer = setTimeout(() => resolve(buffer), 200);
 		if (timer.unref) timer.unref();
 		try {
 			process.stdin.setEncoding("utf8");
-			process.stdin.on("data", (chunk) => {
-				buffer += chunk;
+			process.stdin.on("data", (c) => {
+				buffer += c;
 			});
 			process.stdin.on("end", () => {
 				clearTimeout(timer);
@@ -50,125 +43,69 @@ function readStdin() {
 	});
 }
 
-function findWorkspaceRoot() {
-	let dir = process.cwd();
-	for (let i = 0; i < 10; i += 1) {
+/** Run `norm-sync.cjs <args>` and return its last JSON stdout line, or null. */
+function runSync(args, timeout) {
+	const root = process.env.CLAUDE_PLUGIN_ROOT;
+	if (!root) return null;
+	const bin = path.join(root, "plugins", "norm", "bin", "norm-sync.cjs");
+	const parseLast = (s) => {
 		try {
-			if (fs.existsSync(path.join(dir, ".pathways"))) return dir;
+			const line = String(s).trim().split("\n").filter(Boolean).pop();
+			return line ? JSON.parse(line) : null;
 		} catch {
-			/* ignore */
+			return null;
 		}
-		const parent = path.dirname(dir);
-		if (parent === dir) break;
-		dir = parent;
-	}
-	return null;
-}
-
-function readSyncState(workspaceRoot) {
+	};
 	try {
-		const file = path.join(workspaceRoot, ".pathways", ".norm-sync.json");
-		if (!fs.existsSync(file)) return null;
-		const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-		return parsed && typeof parsed === "object" ? parsed : null;
-	} catch {
+		const out = execFileSync(process.execPath, [bin, ...args], {
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+			timeout: timeout || 8000,
+			// Inherits CLAUDE_PROJECT_DIR + CLAUDE_PLUGIN_OPTION_bland_api_key/_url,
+			// which norm-sync reads — no secret is handled here directly.
+			env: process.env,
+		});
+		return parseLast(out);
+	} catch (e) {
+		// norm-sync emits a JSON error envelope on stdout even on a non-zero exit.
+		if (e && e.stdout) return parseLast(e.stdout);
 		return null;
 	}
 }
 
-function gitDirty(workspaceRoot) {
-	// Returns { dirty:boolean, files:string[] } or null if not determinable.
+function emit(message) {
 	try {
-		const out = execFileSync("git", ["status", "--porcelain", "--", "."], {
-			cwd: workspaceRoot,
-			encoding: "utf8",
-			stdio: ["ignore", "pipe", "ignore"],
-			timeout: 2000,
-		});
-		const files = out
-			.split("\n")
-			.map((l) => l.trim())
-			.filter(Boolean)
-			// Ignore the sync state file itself.
-			.filter((l) => !l.endsWith(".norm-sync.json"));
-		return { dirty: files.length > 0, files };
+		process.stdout.write(`${JSON.stringify({ systemMessage: message })}\n`);
 	} catch {
-		return null; // not a git repo, or git unavailable -> can't tell this way
+		/* fail soft */
 	}
 }
 
 async function main() {
+	// Re-entrancy guard: don't act if a prior hook already continued the Stop.
 	try {
 		const raw = await readStdin();
 		if (raw && raw.trim()) {
 			const payload = JSON.parse(raw);
-			// Avoid loops if Stop was already continued by a prior hook.
 			if (payload && payload.stop_hook_active === true) return;
 		}
 	} catch {
 		/* fail soft */
 	}
 
-	let workspaceRoot = null;
-	try {
-		workspaceRoot = findWorkspaceRoot();
-	} catch {
-		return;
-	}
-	if (!workspaceRoot) return; // no workspace -> nothing to warn about
+	// Local, no-network dirty check.
+	const status = runSync(["status"], 6000);
+	if (!status || status.ok === false) return; // no workspace / undeterminable
+	if (status.clean === true) return; // nothing changed → silent
 
-	let dirty = false;
-	let files = [];
-	let pathwayId = "";
-	let versionId = "";
-	// Whether the sync-engine state file gave an authoritative dirty answer.
-	// If it did, we trust it and DO NOT fall back to git (an explicit dirty:false
-	// from norm-sync must stay quiet).
-	let authoritative = false;
-
-	try {
-		const state = readSyncState(workspaceRoot);
-		if (state) {
-			pathwayId = typeof state.pathway_id === "string" ? state.pathway_id : "";
-			versionId = typeof state.version_id === "string" ? state.version_id : "";
-			if (typeof state.dirty === "boolean") {
-				dirty = state.dirty;
-				authoritative = true;
-				if (Array.isArray(state.dirty_files)) files = state.dirty_files.slice(0, 10);
-			}
-		}
-	} catch {
-		/* fall through to git */
-	}
-
-	// Only fall back to git when the sync state gave no authoritative answer.
-	if (!authoritative) {
-		try {
-			const g = gitDirty(workspaceRoot);
-			if (g) {
-				dirty = g.dirty;
-				files = g.files.slice(0, 10);
-			}
-		} catch {
-			/* fail soft */
-		}
-	}
-
-	if (!dirty) return; // clean (or undeterminable) -> stay quiet
-
-	const idNote = pathwayId
-		? ` (pathway ${pathwayId}${versionId ? `, version ${versionId}` : ""})`
-		: "";
-	const fileNote = files.length ? `\nChanged: ${files.join(", ")}` : "";
-	const message =
-		`Bland Norm: the local pathway workspace${idNote} has uncommitted edits. ` +
-		`Run /norm:validate then /norm:commit to persist — an unsaved local workspace is not a saved pathway.${fileNote}`;
-
-	try {
-		// systemMessage surfaces a non-blocking warning to the user on Stop.
-		process.stdout.write(`${JSON.stringify({ systemMessage: message })}\n`);
-	} catch {
-		/* fail soft */
+	// Changed → commit the whole workspace. commit fails closed on its own.
+	const res = runSync(["commit"], 25000);
+	if (res && res.ok) {
+		const v = res.new_version != null ? ` (working version ${res.new_version})` : "";
+		emit(`Bland Norm: auto-saved your pathway${v}. Production is unchanged.`);
+	} else {
+		const why = res && (res.error || res.message) ? ` (${res.error || res.message})` : "";
+		emit(`Bland Norm: couldn't auto-save${why} — fix it and it saves on the next turn.`);
 	}
 }
 
