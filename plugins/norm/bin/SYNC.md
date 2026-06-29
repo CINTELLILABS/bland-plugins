@@ -79,14 +79,31 @@ edits that mutate in place).
 
 ## Transport abstraction
 
-`getAdapter(transport)` returns an adapter implementing
-`getPathway`, `listPathways`, `createPathway`, `updatePathway`, `publish`.
-`manifest.transport` is `'rest' | 'mcp'`.
+`getAdapter(transport)` returns an adapter. The orchestration (clone/commit/validate/status)
+drives both transports through three transport-agnostic capabilities —
+`cloneTree(id)`, `commitTree(id, {treeMap, changedPaths, previousVersionId})`, and
+`validateTree(id, {treeMap, …})` — plus the read methods (`getPathway`, `listPathways`).
+`manifest.transport` is `'rest' | 'mcp'` and `clone --transport mcp` selects MCP for a fresh
+clone (persisted into the manifest for all later commands).
 
-- **REST adapter (implemented):** hits `/v1/pathway/*` with Bearer auth.
-- **MCP adapter (stubbed):** fails fast with `MCP_ADAPTER_STUB`. When the `set_*` tool shims
-  land it will route structured-surface writes through Bland MCP tools instead of the raw
-  REST upsert. The interface is identical, so the sync engine itself is transport-agnostic.
+- **REST adapter:** hits `/v1/pathway/*` with Bearer auth. `cloneTree` = `GET` → `generateFiles`;
+  `commitTree` = `rebuildGraph` → ONE inline-validated `POST` upsert → re-read. Behavior is
+  unchanged from the original single-call commit.
+- **MCP adapter:** routes through the Bland pathway shims on `/v1/mcp` (Streamable HTTP, gated
+  server-side behind `ENABLE_NORM_PATHWAY_TOOLS`). One `Mcp-Session-Id` threads a whole edit:
+  - `cloneTree` → `initialize` → `get_pathway` → `begin_pathway_edit` → `get_files` (the whole
+    fileMap in one round-trip).
+  - `commitTree` → `begin_pathway_edit` → per changed file `write_file` (prose) **or** the
+    matching `set_*` tool (structured) → `validate_pathway` → `commit_pathway_workspace`.
+  - `validateTree` → push edits into a throwaway workspace → `validate_pathway` (no commit).
+
+  Structured surfaces (`variables.yaml` → `set_variables`, `model.yaml` → `set_model_config`,
+  `tag.yaml` → `set_model_config`, `unit-tests.yaml` → `set_unit_tests`, `tools.yaml` →
+  `set_node_tools` per entry) MUST go through `set_*`, not `write_file` — the server's preSave
+  validator rejects raw structured YAML. `.pathways/layout.yaml` + `.pathways/config.yaml` are
+  derived and skipped. Tool errors (failed write/validate/commit) surface verbatim. File
+  deletions cannot be expressed over the workspace tools and fail with `MCP_DELETE_UNSUPPORTED`
+  (re-clone to take server state).
 
 ## Endpoints used (REST adapter)
 
@@ -140,4 +157,6 @@ not author them); **derived/layout** is never pushed — the server recomputes i
 
 Common codes: `NO_API_KEY`, `NO_MANIFEST`, `BAD_ARGS`, `NETWORK_ERROR`, `RATE_LIMITED`,
 `HTTP_ERROR`, `SERVER_VALIDATION` → mapped to `VALIDATION_FAILED`, `CONFLICT`,
-`ROUNDTRIP_DRIFT`, `MCP_ADAPTER_STUB`, `UNKNOWN_COMMAND`.
+`ROUNDTRIP_DRIFT`, `UNKNOWN_COMMAND`. MCP-specific: `MCP_RPC_ERROR` (transport-level JSON-RPC
+error), `MCP_TOOL_ERROR` (a shim returned an error envelope — message surfaced verbatim),
+`MCP_DELETE_UNSUPPORTED`, `MCP_NO_CREATE`, `MCP_NO_PUBLISH`.
