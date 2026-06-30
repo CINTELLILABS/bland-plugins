@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/hook-status.cjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/hook-status.cjs\""
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/hook-lint.cjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/hook-lint.cjs\""
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/hook-dirty.cjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/hook-dirty.cjs\""
           }
         ]
       }

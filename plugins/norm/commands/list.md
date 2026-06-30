@@ -1,7 +1,7 @@
 ---
 description: List the Bland pathways available to the configured account so you can pick one to clone or edit.
 allowed-tools:
-  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs\":*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\":*)"
   - "Read"
   - "mcp__bland__*"
 ---
@@ -21,7 +21,7 @@ Steps:
 3. Mark which pathway, if any, is currently cloned locally. To find that, read the local workspace state:
 
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs" status
+   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" status
    ```
 
    and match its `pathway_id` against the listed entries.

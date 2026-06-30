@@ -1,7 +1,7 @@
 ---
 description: Commit the local Bland pathway workspace back to the server, persisting a working version (and promoting production for new pathways).
 allowed-tools:
-  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs\":*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\":*)"
   - "Read"
   - "Glob"
 ---
@@ -18,7 +18,7 @@ Steps:
 2. Run the sync engine and read its JSON stdout. The engine performs a 3-way drift check, makes one update call, and re-pulls the baseline:
 
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs" commit
+   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" commit
    ```
 
 3. Interpret the JSON result:

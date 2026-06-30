@@ -1,7 +1,7 @@
 ---
 description: Test the local Bland pathway — a focused node/runtime check when a node is named, or a full agent-to-agent simulation otherwise. Usage — /norm:test [node]
 allowed-tools:
-  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs\":*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\":*)"
   - "Read"
   - "Glob"
   - "mcp__bland__*"
@@ -19,8 +19,8 @@ Steps:
 2. Run the sync engine's offline round-trip self-check, then resolve the active pathway/version:
 
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs" test
-   node "${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs" status --server
+   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" test
+   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" status --server
    ```
 
    The engine's `test` is an offline tree↔graph round-trip self-check (catches structural corruption, not runtime behavior). Read the `status` JSON for `pathway_id`/`version_id`; if it reports the server is ahead, stop and re-clone via `/norm:clone` before testing.

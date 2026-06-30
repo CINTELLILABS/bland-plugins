@@ -1,7 +1,7 @@
 ---
 description: Show the current Bland Norm workspace state — active pathway, working version, local vs server drift, dirty files, and pending warnings.
 allowed-tools:
-  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs\":*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\":*)"
   - "Read"
   - "Glob"
 ---
@@ -15,7 +15,7 @@ Steps:
 1. Run the sync engine and read its JSON stdout. Add `--server` to also fetch the live server version for a drift check:
 
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs" status --server
+   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" status --server
    ```
 
    (Omit `--server` for a fast, zero-network local-hash diff against the manifest.)

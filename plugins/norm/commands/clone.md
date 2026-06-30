@@ -1,7 +1,7 @@
 ---
 description: Clone a Bland pathway into a local workspace of files (or scaffold a brand-new one). Usage — /norm:clone <pathway_id|new>
 allowed-tools:
-  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs\":*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\":*)"
   - "Read"
   - "Glob"
 ---
@@ -19,13 +19,13 @@ Steps:
    - To check out an existing pathway by id:
 
      ```bash
-     node "${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs" clone <pathway_id>
+     node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" clone <pathway_id>
      ```
 
    - To scaffold a new pathway (when `$ARGUMENTS` begins with `new`), pass the desired name with `--new`:
 
      ```bash
-     node "${CLAUDE_PLUGIN_ROOT}/plugins/norm/bin/norm-sync.cjs" clone --new "<name>"
+     node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" clone --new "<name>"
      ```
 
    Map `$ARGUMENTS` to one of these two forms: a bare id → `clone <id>`; `new ...` → `clone --new "<name>"`.
