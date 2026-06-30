@@ -2,14 +2,38 @@
 "use strict";
 
 /**
- * Optional stdio bridge for clients that cannot connect to HTTP MCP directly.
- * This is not a simulator: every JSON-RPC message is forwarded to Bland's
- * Streamable HTTP MCP endpoint and the server-owned Mcp-Session-Id is reused.
+ * stdio↔HTTP bridge so the Bland MCP works as a LOCAL stdio MCP server. This is
+ * how the Claude DESKTOP app must consume it: a `type:"http"` connector is treated
+ * as a custom OAuth connector ("Connect" button) and cannot attach to Bland's
+ * static-API-key endpoint, whereas a `type:"stdio"` server is just launched as a
+ * local process — no OAuth, no URL validator, no https requirement. Every JSON-RPC
+ * line on stdin is forwarded to Bland's Streamable HTTP MCP endpoint with the
+ * Bearer key, and the server-owned Mcp-Session-Id is reused.
+ *
+ * The desktop does NOT pass plugin userConfig env to a launched stdio server, so
+ * we resolve the url + key from the persisted config via the shared resolver
+ * (env → ~/.claude/settings.json pluginConfigs → .credentials.json → keychain),
+ * exactly like the other bin tools. The key is never printed.
  */
 
-const RAW_API_URL = (process.env.BLAND_API_URL || "http://localhost:3000").trim();
-const API_URL = RAW_API_URL.replace(/\/$/, "");
-const API_KEY = (process.env.BLAND_API_KEY || "").trim();
+const path = require("node:path");
+let API_URL = "https://api.bland.ai";
+let API_KEY = "";
+try {
+	const creds =
+		require(path.join(__dirname, "_credentials.cjs")).resolveCredentials();
+	API_URL = creds.apiUrl;
+	API_KEY = creds.apiKey;
+} catch {
+	API_URL = (process.env.BLAND_API_URL || "https://api.bland.ai")
+		.trim()
+		.replace(/\/$/, "");
+	API_KEY = (
+		process.env.BLAND_API_KEY ||
+		process.env.CLAUDE_PLUGIN_OPTION_bland_api_key ||
+		""
+	).trim();
+}
 const MCP_URL = API_URL.endsWith("/v1/mcp") ? API_URL : `${API_URL}/v1/mcp`;
 
 let mcpSessionId = "";
