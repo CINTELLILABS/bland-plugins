@@ -68,7 +68,10 @@ async function main() {
 	const lines = [
 		"Bland Norm active.",
 		"Workflow: prose files (node.md / condition.md / edge labels / global_prompt.md) are edited natively; structured surfaces (variables, model, node tools, unit tests) go through Bland MCP set_* tools; server round-trips go through /norm:* commands.",
-		"Commands: /norm:norm (orchestrate via super_norm), /norm:list, /norm:clone <pathway_id|new>, /norm:validate, /norm:test [node], /norm:commit, /norm:status.",
+		"Pathway commands: /norm:norm (orchestrate via super_norm), /norm:list, /norm:clone <pathway_id|new>, /norm:validate, /norm:test [node], /norm:commit, /norm:status.",
+		"Build other parts: /norm:evals (build + run evals), /norm:review (mount + inspect real calls), /norm:tools (custom REST/code tools), /norm:persona (voices + personas + linking), /norm:knowledge (knowledge bases), /norm:triage (issue tracking), /norm:analytics (call analytics + reports).",
+		"Raw API: /norm:api — hyper-focused raw Bland REST API usage guided by the docs (docs tools + a loopback caller only, none of the high-level tools).",
+		"Convergence: /norm:loop <pathway_id> (--from-call <id> | --transcript <file> | --goal '<objective>') — keeps editing + re-testing the pathway until it passes the target; an evaluator-optimizer loop gated by the Stop hook until it converges, hits max iterations, or stalls.",
 		"Start real pathway work by cloning a workspace: /norm:clone <pathway_id> to edit, or /norm:clone new to create.",
 	];
 

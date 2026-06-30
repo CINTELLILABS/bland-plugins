@@ -36,7 +36,7 @@ A Bland pathway is checked out as a **local workspace of files** — the canonic
    Node positions are computed by the engine. Do not read it for meaning, do not write it, do not "fix" it. It is not part of the agent's behavior.
 
 4. **Server operations go through `/norm:*` commands — never reinvent them.**
-   Clone/checkout, validate, test, and commit/persist are server round-trips, not local file edits. Drive them through the plugin commands (e.g. `/norm:validate`, `/norm:sync`, and the create/edit flows under `/norm:norm`). These commands own the boundary between your local workspace and the live Bland server. Do not attempt to persist or validate by writing files alone — a clean local workspace is not a saved pathway.
+   Clone/checkout, validate, test, and commit/persist are server round-trips, not local file edits. Drive them through the plugin commands (e.g. `/norm:validate`, `/norm:status`, and the create/edit flows under `/norm:norm`). These commands own the boundary between your local workspace and the live Bland server. Do not attempt to persist or validate by writing files alone — a clean local workspace is not a saved pathway.
 
 The mental model: **local files are the editing surface for prose; MCP is the editing surface for structure and the gateway for validate/test; `/norm:*` commands own clone and persistence.** Keep these lanes separate and you will never corrupt a pathway.
 
@@ -111,12 +111,12 @@ When behavior is wrong:
 Before any real outbound call or message, delete, publish, promote, cancellation, tag application, or other high-impact action, ask the user for explicit confirmation. Simulations, validation, and read-only inspections never need that confirmation.
 
 ### Drift (re-clone when the server is ahead)
-Your local workspace is a checkout at a point in time. If the live server version is ahead of your workspace — because someone else edited the pathway, a prior commit promoted a new version, or `/norm:sync` / a validate/commit reports a newer server version — **re-clone before editing further.** Editing a stale workspace and committing will either fail or clobber newer server state.
+Your local workspace is a checkout at a point in time. If the live server version is ahead of your workspace — because someone else edited the pathway, a prior commit promoted a new version, or `/norm:status` / a validate/commit reports a newer server version — **re-clone before editing further.** Editing a stale workspace and committing will either fail or clobber newer server state.
 
 - Treat a version mismatch reported by any server operation as a stop-and-re-clone signal, not something to force through.
 - Re-clone via the checkout step of the create/edit flow (clone) under `/norm:*`; do not try to reconcile by hand-merging files.
 - After re-cloning, re-apply your in-progress prose edits on top of the fresh files, then re-validate.
-- If you are unsure whether your workspace is current, run `/norm:sync` (workspace status) before editing rather than assuming.
+- If you are unsure whether your workspace is current, run `/norm:status` (workspace status) before editing rather than assuming.
 
 ## Default creation workflow
 

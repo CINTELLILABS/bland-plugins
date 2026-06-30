@@ -314,9 +314,27 @@ function ensureDir(dir) {
 	fs.mkdirSync(dir, { recursive: true });
 }
 
+/**
+ * Join `rel` under `root`, refusing any path that escapes it. Server/MCP-supplied
+ * file paths are not fully trusted, so a `..` segment must never write outside the
+ * intended workspace (clone tree or call mount).
+ */
+function safeJoinUnder(root, rel) {
+	const cleaned = String(rel || "").replace(/^\/+/, "");
+	const abs = path.resolve(root, cleaned);
+	const base = path.resolve(root);
+	if (abs !== base && !abs.startsWith(base + path.sep)) {
+		throw new NormError(
+			"UNSAFE_PATH",
+			`Refusing to write outside the workspace: ${rel}`,
+		);
+	}
+	return abs;
+}
+
 function writeFileTree(root, files) {
 	for (const f of files) {
-		const abs = path.join(root, f.path);
+		const abs = safeJoinUnder(root, f.path);
 		ensureDir(path.dirname(abs));
 		fs.writeFileSync(abs, f.content, "utf8");
 	}
@@ -1245,6 +1263,117 @@ function createMcpAdapter() {
 			};
 		},
 
+		// Pull a call's full log workspace to the LOCAL disk so native Read / Grep /
+		// Glob can inspect it directly. The MCP call_log_* tools only see the
+		// SERVER-side mount; this mirrors the pathway clone so the call becomes real
+		// files. lookup_call attaches the call -> list_call_logs enumerates its files
+		// -> read_call_log pulls each file's content.
+		async mountCall(callIds) {
+			await handshake();
+			// callTool may hand back a parsed object or a JSON string depending on the
+			// host envelope — parse defensively.
+			const parse = (v) => {
+				if (v == null) return null;
+				if (typeof v === "string") {
+					try {
+						return JSON.parse(v);
+					} catch {
+						return { content: v };
+					}
+				}
+				return v;
+			};
+			// Pull the currently-mounted call's files. call_log_read is paged and
+			// line-numbered, so page through and strip the "   N\t" cat-style prefix to
+			// recover the raw file content.
+			const pullMountedFiles = async () => {
+				const globbed = parse(
+					await callTool("call_log_glob", { pattern: "**/*" }),
+				);
+				const paths =
+					(globbed && (globbed.filenames || globbed.files)) ||
+					(Array.isArray(globbed) ? globbed : []);
+				const files = [];
+				for (const p of paths) {
+					if (!p || typeof p !== "string") continue;
+					const lines = [];
+					let offset = 1;
+					let total = null;
+					for (let guard = 0; guard < 100; guard += 1) {
+						await throttle();
+						const chunk = parse(
+							await callTool("call_log_read", { path: p, offset, limit: 2000 }),
+						);
+						const numbered = (chunk && chunk.content) || "";
+						if (numbered) {
+							for (const ln of String(numbered).split("\n")) {
+								lines.push(ln.replace(/^\s*\d+\t/, ""));
+							}
+						}
+						const got =
+							chunk && typeof chunk.num_lines === "number" ? chunk.num_lines : 0;
+						total =
+							chunk && typeof chunk.total_lines === "number"
+								? chunk.total_lines
+								: total;
+						// Stop on a short/empty page (EOF) or past total_lines. A full page
+						// implies more may remain even when total_lines is omitted.
+						if (
+							got === 0 ||
+							got < 2000 ||
+							(total != null && offset - 1 + got >= total)
+						) {
+							break;
+						}
+						offset += got;
+					}
+					files.push({ path: p, content: lines.join("\n") });
+				}
+				return files;
+			};
+			const ids = (Array.isArray(callIds) ? callIds : [callIds]).filter(Boolean);
+			const out = [];
+			for (const id of ids) {
+				const summaryRaw = await callTool("lookup_call", { call_id: id });
+				// lookup_call accumulates attached calls, so re-mount ONLY this call to
+				// isolate its files in the glob (correct per-call dirs when mounting many).
+				await callTool("mount_call_log_workspace", {
+					refresh: true,
+					call_ids: [id],
+				});
+				const files = await pullMountedFiles();
+				const sum = parse(summaryRaw);
+				const summaryLine =
+					sum && sum.summary
+						? String(sum.summary).split("\n")[0].slice(0, 180)
+						: "";
+				out.push({ call_id: id, summary_line: summaryLine, files });
+			}
+			return { calls: out };
+		},
+
+		// Resolve the N most recent call ids for `mount-call --recent N`.
+		async listRecentCallIds(n) {
+			await handshake();
+			const raw = await callTool("list_recent_calls", {
+				limit: Math.max(1, Math.min(25, n || 5)),
+			});
+			let data = raw;
+			if (typeof raw === "string") {
+				try {
+					data = JSON.parse(raw);
+				} catch {
+					data = {};
+				}
+			}
+			const calls =
+				(data && (data.calls || data.recent_calls)) ||
+				(Array.isArray(data) ? data : []);
+			return calls
+				.map((c) => (typeof c === "string" ? c : c.call_id || c.c_id))
+				.filter(Boolean);
+		},
+
 		// No create shim exists on the MCP surface yet — generation goes through
 		// begin_pathway_generation, which is out of scope for the sync adapter.
 		async createPathway() {
@@ -1653,6 +1782,130 @@ async function cmdClone(args) {
 	});
 }
 
+/**
+ * mount-call <call_id> — pull a call's full log workspace into LOCAL files under
+ * calls/<call_id>/ so Claude's native Read / Grep / Glob can inspect the transcript,
+ * routing/decision logs, variables, and tool/webhook logs directly (no call_log_*
+ * MCP wrappers needed). Read-only: it never mutates the call. Call-log tools are
+ * MCP-only, so this always uses the MCP adapter regardless of the manifest transport.
+ */
+async function cmdMountCall(args) {
+	const adapter = createMcpAdapter();
+	let callIds;
+	const recentIdx = args.indexOf("--recent");
+	if (recentIdx !== -1) {
+		const n = parseInt(args[recentIdx + 1], 10) || 5;
+		callIds = await adapter.listRecentCallIds(n);
+		if (!callIds.length) {
+			throw new NormError("NO_CALLS", "No recent calls found to mount.");
+		}
+	} else {
+		callIds = args.filter((a) => !a.startsWith("--"));
+		if (!callIds.length) {
+			throw new NormError(
+				"BAD_ARGS",
+				"mount-call requires a call id (or --recent N): mount-call <call_id> [<call_id> ...]",
+			);
+		}
+	}
+
+	const { calls } = await adapter.mountCall(callIds);
+	const callsRoot = path.join(PROJECT_DIR, "calls");
+	const mounted = [];
+	for (const c of calls) {
+		const root = path.join(callsRoot, c.call_id);
+		// Clean re-pull each time so the local snapshot matches the server exactly.
+		try {
+			fs.rmSync(root, { recursive: true, force: true });
+		} catch {
+			/* ignore */
+		}
+		let written = 0;
+		const flagged = [];
+		for (const f of c.files) {
+			// Faithful, path-safe mirror under calls/<id>/ so native Glob/Grep/Read
+			// see the same tree the server exposed.
+			const abs = safeJoinUnder(root, f.path);
+			ensureDir(path.dirname(abs));
+			fs.writeFileSync(abs, f.content, "utf8");
+			written += 1;
+			const rel = path.relative(root, abs).split(path.sep).join("/");
+			// Files the server annotated with [!!!] are the ones to read first.
+			if (/\[!!!\]/.test(rel) || /\[!!!\]/.test(f.content.slice(0, 400))) {
+				flagged.push(rel);
+			}
+		}
+		mounted.push({
+			call_id: c.call_id,
+			dir: root,
+			files_written: written,
+			flagged_files: flagged,
+			summary: c.summary_line || "",
+		});
+	}
+
+	// Top-level index so Claude can orient across one OR many mounted calls.
+	writeCallsIndex(callsRoot, mounted);
+
+	ok({
+		command: "mount-call",
+		calls_dir: callsRoot,
+		index: path.join(callsRoot, "_index.md"),
+		total_calls: mounted.length,
+		total_files: mounted.reduce((a, m) => a + m.files_written, 0),
+		mounted: mounted.map((m) => ({
+			call_id: m.call_id,
+			dir: m.dir,
+			files_written: m.files_written,
+			flagged_files: m.flagged_files,
+			summary: m.summary,
+		})),
+		hint: `Inspect with native Read / Grep / Glob over ${path.relative(PROJECT_DIR, callsRoot)}/. Start with _index.md, then read any [!!!]-flagged files first. Use analyze_call (MCP) for semantic verdicts and generate_from_call to turn a bug into a regression test.`,
+	});
+}
+
+/** Write a top-level index of all mounted calls for fast orientation. */
+function writeCallsIndex(callsRoot, mounted) {
+	const lines = [
+		"# Mounted Call Logs",
+		"",
+		`${mounted.length} call(s) mounted as local files for native Read / Grep / Glob inspection.`,
+		"Read any [!!!]-flagged files first. Each call lives under `calls/<id>/`.",
+		"",
+		"| Call ID | Files | Flagged | Summary |",
+		"| ------- | ----- | ------- | ------- |",
+	];
+	for (const m of mounted) {
+		const sum = String(m.summary || "")
+			.replace(/\|/g, "\\|")
+			.slice(0, 120);
+		lines.push(
+			`| \`${m.call_id}\` | ${m.files_written} | ${m.flagged_files.length} | ${sum} |`,
+		);
+	}
+	lines.push("");
+	for (const m of mounted) {
+		lines.push(`## ${m.call_id}`);
+		lines.push(`- Dir: \`calls/${m.call_id}/\``);
+		lines.push(
+			"- Start: `call_logs/_overview.md` and `workspace_manifest.md` inside that dir",
+		);
+		if (m.flagged_files.length) {
+			lines.push(
+				`- ⚠️ Read first: ${m.flagged_files.map((f) => `\`${f}\``).join(", ")}`,
+			);
+		}
+		if (m.summary) lines.push(`- Summary: ${m.summary}`);
+		lines.push("");
+	}
+	ensureDir(callsRoot);
+	fs.writeFileSync(
+		path.join(callsRoot, "_index.md"),
+		`${lines.join("\n")}\n`,
+		"utf8",
+	);
+}
+
 /** Compute 3-way drift: baseline (last pull) vs local (working tree) vs server. */
 function computeDrift(manifest, localTree, serverTree) {
 	const baselineHashes = manifest.files || {};
@@ -1922,6 +2175,10 @@ async function main() {
 			case "status":
 				await cmdStatus(args);
 				break;
+			case "mount-call":
+			case "review":
+				await cmdMountCall(args);
+				break;
 			case "touch":
 				cmdTouch(args);
 				break;
@@ -1930,13 +2187,14 @@ async function main() {
 			case "-h":
 				ok({
 					command: "help",
-					usage: "norm-sync <clone|commit|validate|test|status|touch> [args]",
+					usage: "norm-sync <clone|commit|validate|test|status|mount-call|touch> [args]",
 					subcommands: {
 						clone: "clone <id> | clone --new \"<name>\"  — pull pathway into pathway/ + snapshot baseline",
 						commit: "commit [--force]                    — 3-way drift -> ONE update call -> re-pull baseline",
 						validate: "validate                          — send tree to server inline validation, map errors->files",
 						test: "test                                  — offline tree<->graph round-trip self-check",
 						status: "status [--server]                   — local hash diff vs manifest (0 net) [+ server version]",
+						"mount-call": "mount-call <call_id>           — pull a call's logs into calls/<id>/ for native Read/Grep/Glob inspection",
 						touch: "touch <file>                         — normalize + bump a file so status notices it",
 					},
 					env: {
@@ -1948,7 +2206,7 @@ async function main() {
 				break;
 			default:
 				fail("UNKNOWN_COMMAND", `Unknown subcommand: ${sub}`, {
-					valid: ["clone", "commit", "validate", "test", "status", "touch"],
+					valid: ["clone", "commit", "validate", "test", "status", "mount-call", "touch"],
 				});
 		}
 	} catch (err) {

@@ -47,7 +47,10 @@ function readStdin() {
 function runSync(args, timeout) {
 	const root = process.env.CLAUDE_PLUGIN_ROOT;
 	if (!root) return null;
-	const bin = path.join(root, "plugins", "norm", "bin", "norm-sync.cjs");
+	// ${CLAUDE_PLUGIN_ROOT} already resolves to the plugin dir (.../plugins/norm),
+	// so the engine sits at <root>/bin/, NOT <root>/plugins/norm/bin/.
+	const bin = path.join(root, "bin", "norm-sync.cjs");
+	if (!require("node:fs").existsSync(bin)) return null;
 	const parseLast = (s) => {
 		try {
 			const line = String(s).trim().split("\n").filter(Boolean).pop();
