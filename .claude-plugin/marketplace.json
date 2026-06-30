@@ -6,7 +6,7 @@
     "email": "kyle@bland.ai"
   },
   "homepage": "https://bland.ai",
-  "repository": "https://github.com/<org>/norm",
+  "repository": "https://github.com/CINTELLILABS/bland-plugins",
   "plugins": [
     {
       "name": "norm",
