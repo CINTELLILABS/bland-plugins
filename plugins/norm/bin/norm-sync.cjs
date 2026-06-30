@@ -35,21 +35,17 @@ const crypto = require("crypto");
 // Config / env
 // ============================================================================
 
+// Credentials resolve from env first, then the persisted Claude config
+// (~/.claude/settings.json), because Claude Code injects userConfig into the MCP
+// client but NOT into the env of agent/command Bash calls. See _credentials.cjs.
+const { resolveCredentials } = require("./_credentials.cjs");
+
 function readEnvUrl() {
-	const raw = (
-		process.env.BLAND_API_URL ||
-		process.env.CLAUDE_PLUGIN_OPTION_bland_api_url ||
-		"https://api.bland.ai"
-	).trim();
-	return raw.replace(/\/+$/, "");
+	return resolveCredentials().apiUrl;
 }
 
 function readEnvKey() {
-	return (
-		process.env.BLAND_API_KEY ||
-		process.env.CLAUDE_PLUGIN_OPTION_bland_api_key ||
-		""
-	).trim();
+	return resolveCredentials().apiKey.trim();
 }
 
 function projectDir() {
@@ -721,7 +717,7 @@ function createRestAdapter() {
 	if (!API_KEY) {
 		throw new NormError(
 			"NO_API_KEY",
-			"Missing API key. Set BLAND_API_KEY or CLAUDE_PLUGIN_OPTION_bland_api_key.",
+			"Missing API key. Set BLAND_API_KEY / CLAUDE_PLUGIN_OPTION_bland_api_key, or configure bland_api_key in the plugin (also read from ~/.claude/settings.json).",
 		);
 	}
 	const authHeader = API_KEY.toLowerCase().startsWith("bearer ") ? API_KEY : `Bearer ${API_KEY}`;
@@ -1116,7 +1112,7 @@ function createMcpAdapter() {
 	if (!API_KEY) {
 		throw new NormError(
 			"NO_API_KEY",
-			"Missing API key. Set BLAND_API_KEY or CLAUDE_PLUGIN_OPTION_bland_api_key.",
+			"Missing API key. Set BLAND_API_KEY / CLAUDE_PLUGIN_OPTION_bland_api_key, or configure bland_api_key in the plugin (also read from ~/.claude/settings.json).",
 		);
 	}
 	const authHeader = API_KEY.toLowerCase().startsWith("bearer ") ? API_KEY : `Bearer ${API_KEY}`;

@@ -33,15 +33,8 @@ function flagValue(name) {
 const method = (argv[0] || "").toUpperCase();
 const rawPath = argv[1] && !argv[1].startsWith("--") ? argv[1] : "";
 
-const base = (
-	process.env.BLAND_API_URL ||
-	process.env.CLAUDE_PLUGIN_OPTION_bland_api_url ||
-	"https://api.bland.ai"
-).replace(/\/+$/, "");
-const key =
-	process.env.BLAND_API_KEY ||
-	process.env.CLAUDE_PLUGIN_OPTION_bland_api_key ||
-	"";
+const { resolveCredentials } = require("./_credentials.cjs");
+const { apiKey: key, apiUrl: base } = resolveCredentials();
 
 if (!method || !rawPath) {
 	emit({
@@ -53,7 +46,7 @@ if (!method || !rawPath) {
 if (!key) {
 	emit({
 		ok: false,
-		error: "No API key in env. Set BLAND_API_KEY (or CLAUDE_PLUGIN_OPTION_bland_api_key).",
+		error: "No Bland API key found. Set BLAND_API_KEY / CLAUDE_PLUGIN_OPTION_bland_api_key, or configure bland_api_key in the plugin (also read from ~/.claude/settings.json).",
 	});
 	process.exit(1);
 }
