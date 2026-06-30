@@ -157,6 +157,45 @@ function normalizeUrl(url) {
 	return url.trim().replace(/\/+$/, "");
 }
 
+/** The plugin's .mcp.json lives at the plugin root, one level up from bin/. */
+function mcpJsonPath() {
+	return path.join(__dirname, "..", ".mcp.json");
+}
+
+/**
+ * Point the NATIVE MCP connector at `baseUrl`. The desktop validates the
+ * connector URL literally (it does NOT substitute ${user_config.*}), so the only
+ * way to override the env for the connector is to rewrite the literal in
+ * .mcp.json — we set mcpServers.bland.url to `<baseUrl>/v1/mcp`. Note: a plain
+ * http URL (e.g. http://localhost:3000) is accepted here but the desktop will
+ * refuse to connect it (https-only) — use an https tunnel for a dev connector.
+ * Returns {updated, changed, url}; `changed` => a reload is needed to apply it.
+ */
+function updateMcpConnectorUrl(baseUrl) {
+	const file = mcpJsonPath();
+	let mcp;
+	try {
+		mcp = JSON.parse(fs.readFileSync(file, "utf8"));
+	} catch {
+		return { updated: false, changed: false, url: null };
+	}
+	const server = mcp && mcp.mcpServers && mcp.mcpServers.bland;
+	if (!server || typeof server !== "object") {
+		return { updated: false, changed: false, url: null };
+	}
+	const newUrl = `${baseUrl.replace(/\/+$/, "")}/v1/mcp`;
+	const changed = server.url !== newUrl;
+	server.url = newUrl;
+	if (changed) {
+		try {
+			fs.writeFileSync(file, `${JSON.stringify(mcp, null, 2)}\n`);
+		} catch {
+			return { updated: false, changed: false, url: newUrl };
+		}
+	}
+	return { updated: true, changed, url: newUrl };
+}
+
 function cmdSet(argv) {
 	// Key precedence: explicit --key flag, else first non-flag positional, else stdin.
 	let key = getFlag(argv, "--key");
@@ -172,13 +211,8 @@ function cmdSet(argv) {
 	if (!key) key = readStdinKey();
 	key = (key || "").trim();
 
-	if (!key) {
-		fail(
-			"No API key provided. Pass it as `set --key <KEY>`, as a positional arg, or pipe it on stdin. The key is never printed.",
-		);
-	}
 	// Guard against obvious accidents (e.g. a flag name slipping in as the key).
-	if (key.startsWith("--")) {
+	if (key && key.startsWith("--")) {
 		fail("API key looks like a flag; pass the real key value.");
 	}
 
@@ -225,12 +259,25 @@ function cmdSet(argv) {
 		entry.options = {};
 	}
 
+	// Key: provided > existing. Lets `set --url <X>` switch envs without
+	// re-pasting the key. Fail only if there is no key anywhere.
+	const finalKey =
+		key ||
+		(typeof entry.options[KEY_FIELD] === "string"
+			? entry.options[KEY_FIELD].trim()
+			: "");
+	if (!finalKey) {
+		fail(
+			"No API key provided and none stored. Pass `set --key <KEY>` (or a positional/stdin) the first time. The key is never printed.",
+		);
+	}
+
 	// Resolve final URL: explicit choice > existing value > prod default.
 	const finalUrl =
 		urlChoice || normalizeUrl(entry.options[URL_FIELD]) || PROD_URL;
 
 	entry.options[URL_FIELD] = finalUrl;
-	entry.options[KEY_FIELD] = key;
+	entry.options[KEY_FIELD] = finalKey;
 
 	// Make sure the plugin is enabled so the MCP client/loads it.
 	if (!settings.enabledPlugins || typeof settings.enabledPlugins !== "object") {
@@ -244,12 +291,19 @@ function cmdSet(argv) {
 		fail(`Failed to write settings: ${err.message}`);
 	}
 
+	// Also point the NATIVE MCP connector at this url (rewrites the literal in
+	// .mcp.json, since the desktop won't substitute it). Needs a reload to apply.
+	const connector = updateMcpConnectorUrl(finalUrl);
+
 	emit({
 		ok: true,
 		action: "set",
 		plugin_id: PLUGIN_ID,
 		settings_path: file,
 		api_url: finalUrl,
+		connector_url: connector.url,
+		connector_updated: connector.updated,
+		reload_needed: connector.changed,
 		key_written: true,
 		is_dev: finalUrl === DEV_URL || /localhost|127\.0\.0\.1/.test(finalUrl),
 	});

@@ -82,10 +82,14 @@ $ARGUMENTS
      enabled, file mode `0600`.
    - The resolved `api_url` (from the helper's output).
    - Whether `GET /v1/me` succeeded (and the org it resolved to, if shown).
-   - **Reload note:** the bin tools and `/norm:*` commands work immediately, but the
-     live MCP connection only re-reads config on reload — tell the user to run
-     `/reload-plugins` (or restart) so the `bland` MCP server picks up the new
-     credentials. Then suggest verifying with the MCP tool `get_bland_mcp_setup`.
+   - **Connector + reload note:** the helper ALSO repoints the native MCP connector
+     in `.mcp.json` to the chosen URL — it reports `connector_url` and `reload_needed`.
+     The bin tools and `/norm:*` commands work immediately, but the live connector only
+     re-reads its URL + credentials on reload — when `reload_needed` is true, tell the
+     user to run `/reload-plugins` (or restart the desktop app) so the `bland` connector
+     picks up the new URL/key. Then suggest verifying with the MCP tool
+     `get_bland_mcp_setup`. To switch envs later WITHOUT re-pasting the key, use
+     `/norm:config set --url https://<host>` (or `--prod` / `--dev`).
    - **Dev caveat:** if `--dev` (localhost) was used, note that the native HTTP-MCP
      transport requires `https`, so the live MCP connection won't establish against
      `http://localhost:3000`; Norm still works via the bin/REST loopback. For a live
