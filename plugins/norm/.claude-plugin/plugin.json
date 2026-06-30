@@ -25,10 +25,10 @@
   "userConfig": {
     "bland_api_url": {
       "type": "string",
-      "title": "Bland API URL",
-      "description": "Bland API base URL.",
+      "title": "Bland API URL (optional)",
+      "description": "Optional. Defaults to production (https://api.bland.ai); only set this to point at a dev/staging server. Not a secret.",
       "default": "https://api.bland.ai",
-      "required": true
+      "required": false
     },
     "bland_api_key": {
       "type": "string",
