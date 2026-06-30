@@ -11,7 +11,7 @@
  * Subcommands:
  *   clone <id> | clone --new "<name>"   pull a pathway (or create a shell) into pathway/
  *   commit                              3-way drift -> ONE batched POST /v1/pathway/:id -> re-pull baseline
- *   validate                            send current tree to server inline validation, map errors -> files
+ *   validate                            NON-DESTRUCTIVE client-side structural check (no server write)
  *   test                                local round-trip self-check (parse tree -> rebuild nodes/edges)
  *   status                              local hash diff vs manifest (0 network) [+ --server version check]
  *   touch <file>                        bump a file's mtime/normalize so status notices it (helper)
@@ -701,6 +701,349 @@ function rebuildGraph(treeMap) {
 }
 
 // ============================================================================
+// Client-side structural validation (NON-DESTRUCTIVE, zero network)
+//
+// There is NO read-only pathway-validation endpoint on the Bland REST API — the
+// docs expose only the GET read (`GET /v1/pathway/:id`) and the upsert POST
+// (`POST /v1/pathway/:id`), which MUTATES. So `validate` cannot lean on the
+// server without writing. Instead we validate the local file tree the same way a
+// compile pass would, entirely on disk:
+//   - every node.md frontmatter parses and carries an id + type
+//   - exactly one start node (warn, not error, if zero — a fresh shell has none)
+//   - every edge endpoint (source/target slug or preserved id) resolves to a
+//     known node
+//   - required per-node files are well-formed (condition.md / variables.yaml /
+//     model.yaml / unit-tests.yaml / tag.yaml / tools.yaml parse)
+//   - the tree round-trips: rebuildGraph(tree) -> generateFiles -> same prose
+//
+// Returns { valid, errors:[{message,file}], warnings:[...] }. Pure + offline.
+// ============================================================================
+
+function structurallyValidateTree(treeMap) {
+	const errors = [];
+	const warnings = [];
+
+	// --- 1. Frontmatter parses; collect node ids + slugs. -------------------
+	const nodePaths = Object.keys(treeMap)
+		.filter((p) => /^nodes\/[^/]+\/node\.md$/.test(p))
+		.sort();
+
+	const slugToId = new Map(); // slug -> node id
+	const knownSlugs = new Set();
+	const knownIds = new Set();
+	let startCount = 0;
+
+	for (const np of nodePaths) {
+		const slug = np.split("/")[1];
+		let fm;
+		try {
+			fm = parseFrontmatter(treeMap[np]).frontmatter;
+		} catch (err) {
+			errors.push({ message: `Frontmatter failed to parse: ${err.message}`, file: np });
+			continue;
+		}
+		if (!fm.id) {
+			errors.push({ message: "Node is missing a frontmatter `id`.", file: np });
+		} else {
+			slugToId.set(slug, String(fm.id));
+			knownIds.add(String(fm.id));
+		}
+		if (!fm.type) {
+			errors.push({ message: "Node is missing a frontmatter `type`.", file: np });
+		}
+		knownSlugs.add(slug);
+		if (fm.isStart) startCount += 1;
+	}
+
+	if (nodePaths.length === 0) {
+		warnings.push("No node.md files found — the pathway tree is empty.");
+	} else if (startCount === 0) {
+		// A freshly-created shell legitimately has no start node yet; warn only.
+		warnings.push("No start node (no node.md has `isStart: true`).");
+	} else if (startCount > 1) {
+		errors.push({ message: `Found ${startCount} start nodes; exactly one is allowed.`, file: "(pathway-level)" });
+	}
+
+	// --- 2. Per-node structured files are well-formed YAML. -----------------
+	const yamlNodeFiles = ["condition.md", "variables.yaml", "model.yaml", "unit-tests.yaml", "tag.yaml", "tools.yaml"];
+	for (const rel of Object.keys(treeMap)) {
+		const m = rel.match(/^nodes\/([^/]+)\/([^/]+)$/);
+		if (!m) continue;
+		const base = m[2];
+		if (base === "node.md") continue;
+		if (!yamlNodeFiles.includes(base)) continue;
+		try {
+			if (base === "condition.md") {
+				parseFrontmatter(treeMap[rel]);
+			} else {
+				yamlParse(treeMap[rel]);
+			}
+		} catch (err) {
+			errors.push({ message: `Malformed ${base}: ${err.message}`, file: rel });
+		}
+	}
+
+	// --- 3. Every edge endpoint resolves to a known node. -------------------
+	const edgePaths = Object.keys(treeMap)
+		.filter((p) => /^edges\/.+\.md$/.test(p))
+		.sort();
+	for (const ep of edgePaths) {
+		let fm;
+		try {
+			fm = parseFrontmatter(treeMap[ep]).frontmatter;
+		} catch (err) {
+			errors.push({ message: `Edge frontmatter failed to parse: ${err.message}`, file: ep });
+			continue;
+		}
+		// An endpoint resolves if its slug is a known node slug, OR the preserved
+		// originating id (_sourceId/_targetId) / raw slug value is a known node id.
+		const resolves = (slug, preservedId) => {
+			if (slug != null && knownSlugs.has(String(slug))) return true;
+			if (preservedId != null && knownIds.has(String(preservedId))) return true;
+			if (slug != null && knownIds.has(String(slug))) return true;
+			return false;
+		};
+		if (!resolves(fm.source, fm._sourceId)) {
+			errors.push({ message: `Edge source "${fm.source}" does not resolve to any node.`, file: ep });
+		}
+		if (!resolves(fm.target, fm._targetId)) {
+			errors.push({ message: `Edge target "${fm.target}" does not resolve to any node.`, file: ep });
+		}
+	}
+
+	// --- 4. JSON round-trips: rebuild graph, regenerate prose, compare. -----
+	// A non-round-tripping prose file means a hand edit corrupted a structured
+	// surface (frontmatter that no longer reconstructs). Layout/derived files are
+	// intentionally lossy and skipped (mirrors cmdTest).
+	try {
+		const { nodes, edges } = rebuildGraph(treeMap);
+		const regen = {};
+		for (const f of generateFiles(nodes, edges)) regen[f.path] = f.content;
+		for (const p of Object.keys(treeMap)) {
+			if (p.startsWith(".pathways/")) continue;
+			if (!(p in regen)) continue; // edge filename may differ if slugs changed; node files always present
+			if (sha256(treeMap[p]) !== sha256(regen[p])) {
+				warnings.push(`File does not round-trip cleanly (edit a structured surface via the set_* tools, not raw YAML): ${p}`);
+			}
+		}
+	} catch (err) {
+		errors.push({ message: `Tree could not be rebuilt into a pathway graph: ${err.message}`, file: "(pathway-level)" });
+	}
+
+	return { valid: errors.length === 0, errors, warnings };
+}
+
+// ============================================================================
+// Call-log materializer (client-side) — REST call detail -> local file tree
+//
+// The old mount-call relied on the server-side call_log workspace tools
+// (lookup_call / mount_call_log_workspace / call_log_glob / call_log_read) which
+// are GONE from the /v1/mcp surface (they return -32602). We rebuild the same
+// file LAYOUT here from the public `GET /v1/calls/:id` payload, which already
+// carries transcripts, variables, analysis, summary, pathway_logs (the decision
+// logs), error_message, recording_url and call metadata.
+//
+// Layout mirrors callLogGenerator.ts as closely as the REST data allows:
+//   call_logs/<shortId>/_summary.md
+//   call_logs/<shortId>/transcript/_overview.md
+//   call_logs/<shortId>/transcript/turn_NNN.md
+//   call_logs/<shortId>/variables.md
+//   call_logs/<shortId>/analysis.md            (if analysis present)
+//   call_logs/<shortId>/errors.md              (if error_message present)
+//   call_logs/<shortId>/pathway/raw_pathway_logs.json
+//   call_logs/<shortId>/pathway/_decisions.md  (readable decision log)
+//   call_logs/<shortId>/call_context.json
+// plus a workspace-level call_logs/_overview.md, workspace_manifest.json and
+// workspace_manifest.md (the same orientation files the old tools wrote).
+//
+// REST GAP: tool_logs, post-call webhook logs, disposition runs, contact memory,
+// call notes, config snapshot and quality metrics came from SERVER-internal DB
+// services (not the public call payload), so those per-call files are NOT
+// materialized here. The transcript / decision logs / variables / analysis —
+// the load-bearing surfaces for reviewing a call — are all present.
+// ============================================================================
+
+function clTimeOnly(dateStr) {
+	try {
+		return new Date(dateStr).toISOString().substring(11, 19);
+	} catch {
+		return String(dateStr || "");
+	}
+}
+
+function clRenderSummary(call) {
+	const lines = ["# Call Summary\n", "| Field | Value |", "|-------|-------|"];
+	lines.push(`| **Call ID** | \`${call.call_id || call.c_id || ""}\` |`);
+	lines.push(`| **Status** | ${call.status ?? call.queue_status ?? "unknown"} |`);
+	lines.push(`| **Completed** | ${call.completed ? "Yes" : "No"} |`);
+	lines.push(`| **Direction** | ${call.inbound ? "Inbound" : "Outbound"} |`);
+	lines.push(`| **From** | ${call.from ?? "N/A"} |`);
+	lines.push(`| **To** | ${call.to ?? "N/A"} |`);
+	lines.push(`| **Started** | ${call.started_at ?? "N/A"} |`);
+	lines.push(`| **Created** | ${call.created_at ?? "N/A"} |`);
+	lines.push(`| **Ended By** | ${call.call_ended_by ?? "N/A"} |`);
+	const pl = Array.isArray(call.pathway_logs) ? call.pathway_logs : [];
+	lines.push(`| **Has Pathway Logs** | ${pl.length > 0 ? "Yes" : "No"} |`);
+	lines.push(`| **Pathway ID** | ${call.pathway_id ? `\`${call.pathway_id}\`` : "N/A"} |`);
+	lines.push(`| **Pathway Version** | ${call.pathway_version ?? "N/A"} |`);
+	if (call.recording_url) lines.push(`| **Recording** | ${call.recording_url} |`);
+	if (call.summary) {
+		lines.push("\n## AI Summary\n");
+		lines.push(String(call.summary));
+	}
+	if (call.error_message) {
+		lines.push("\n## Error\n");
+		lines.push(`> **[!!!] ${call.error_message}**`);
+	}
+	return lines.join("\n") + "\n";
+}
+
+function clRenderTranscript(transcripts) {
+	const turns = Array.isArray(transcripts) ? transcripts : [];
+	if (turns.length === 0) {
+		return { overview: "# Transcript Overview\n\nNo transcript entries found.\n", files: [] };
+	}
+	const roles = new Set(turns.map((t) => t.user));
+	const first = clTimeOnly(turns[0].created_at);
+	const last = clTimeOnly(turns[turns.length - 1].created_at);
+	const ov = [
+		`# Transcript Overview (${turns.length} turns)\n`,
+		"| Field | Value |",
+		"|-------|-------|",
+		`| **Turns** | ${turns.length} |`,
+		`| **Participants** | ${[...roles].join(", ")} |`,
+		`| **First turn** | ${first} |`,
+		`| **Last turn** | ${last} |`,
+		"",
+		"## Turn Summary",
+		"",
+	];
+	const files = [];
+	turns.forEach((t, i) => {
+		const num = String(i + 1).padStart(3, "0");
+		const role = String(t.user || "").charAt(0).toUpperCase() + String(t.user || "").slice(1);
+		const time = clTimeOnly(t.created_at);
+		const text = String(t.text == null ? "" : t.text);
+		const preview = text.substring(0, 80).replace(/\n/g, " ");
+		ov.push(`- **turn_${num}.md** — ${role} (${time}): ${preview}${text.length > 80 ? "…" : ""}`);
+		files.push({
+			fileName: `turn_${num}.md`,
+			content: [`# Turn ${num} — ${role}\n`, `**${role}** (${time}):\n`, text, ""].join("\n"),
+		});
+	});
+	return { overview: ov.join("\n") + "\n", files };
+}
+
+function clRenderJsonBlock(title, obj) {
+	return [`# ${title}\n`, "```json", JSON.stringify(obj, null, 2), "```", ""].join("\n");
+}
+
+function clRenderDecisions(pathwayLogs) {
+	const logs = Array.isArray(pathwayLogs) ? pathwayLogs : [];
+	const lines = [`# Pathway Decision Log (${logs.length} entries)\n`];
+	if (logs.length === 0) {
+		lines.push("No pathway decision logs for this call.\n");
+		return lines.join("\n");
+	}
+	lines.push("| # | Time | Chosen Node | Role | Decision |");
+	lines.push("|---|------|-------------|------|----------|");
+	logs.forEach((l, i) => {
+		const time = clTimeOnly(l.created_at);
+		const node = l.chosen_node_id ? `\`${String(l.chosen_node_id).substring(0, 8)}\`` : "N/A";
+		const role = l.role ?? "";
+		let decision = "";
+		if (l.decision != null) decision = typeof l.decision === "string" ? l.decision : JSON.stringify(l.decision);
+		decision = String(decision).replace(/\|/g, "\\|").replace(/\n/g, " ").slice(0, 80);
+		lines.push(`| ${i + 1} | ${time} | ${node} | ${role} | ${decision} |`);
+	});
+	// Per-turn detail for any entry that carries text / decision / pathway_info.
+	lines.push("\n## Turn Detail\n");
+	logs.forEach((l, i) => {
+		const num = String(i + 1).padStart(3, "0");
+		lines.push(`### Entry ${num} — ${clTimeOnly(l.created_at)}`);
+		if (l.chosen_node_id) lines.push(`- **Chosen node:** \`${l.chosen_node_id}\``);
+		if (l.role) lines.push(`- **Role:** ${l.role}`);
+		if (l.tag != null) lines.push(`- **Tag:** ${typeof l.tag === "string" ? l.tag : JSON.stringify(l.tag)}`);
+		if (l.text != null) lines.push(`- **Text:** ${String(l.text).replace(/\n/g, " ")}`);
+		if (l.decision != null) {
+			lines.push("- **Decision:**");
+			lines.push("```json");
+			lines.push(typeof l.decision === "string" ? l.decision : JSON.stringify(l.decision, null, 2));
+			lines.push("```");
+		}
+		if (l.pathway_info != null) {
+			lines.push("- **Pathway info:**");
+			lines.push("```json");
+			lines.push(typeof l.pathway_info === "string" ? l.pathway_info : JSON.stringify(l.pathway_info, null, 2));
+			lines.push("```");
+		}
+		lines.push("");
+	});
+	return lines.join("\n");
+}
+
+/**
+ * Build the local file tree for one call from its `GET /v1/calls/:id` payload.
+ * Returns an array of { path, content } rooted at call_logs/<shortId>/, mirroring
+ * the old mount_call_log_workspace layout. Pure — no I/O, no network.
+ */
+function generateCallFiles(call) {
+	const callId = String(call.call_id || call.c_id || "");
+	const shortId = callId.substring(0, 8) || "unknown";
+	const prefix = `call_logs/${shortId}`;
+	const files = [];
+	const flagged = [];
+
+	files.push({ path: `${prefix}/_summary.md`, content: clRenderSummary(call) });
+	if (call.error_message) flagged.push(`${prefix}/_summary.md`);
+
+	const tr = clRenderTranscript(call.transcripts);
+	files.push({ path: `${prefix}/transcript/_overview.md`, content: tr.overview });
+	for (const f of tr.files) {
+		files.push({ path: `${prefix}/transcript/${f.fileName}`, content: f.content });
+	}
+
+	if (call.variables && typeof call.variables === "object" && Object.keys(call.variables).length > 0) {
+		files.push({ path: `${prefix}/variables.md`, content: clRenderJsonBlock("Extracted Variables", call.variables) });
+	}
+	if (call.analysis && typeof call.analysis === "object" && Object.keys(call.analysis).length > 0) {
+		files.push({ path: `${prefix}/analysis.md`, content: clRenderJsonBlock("Post-Call Analysis", call.analysis) });
+	}
+	if (call.error_message) {
+		const errPath = `${prefix}/errors.md`;
+		files.push({ path: errPath, content: `# Call Errors\n\n> **[!!!] ${call.error_message}**\n` });
+		flagged.push(errPath);
+	}
+
+	// Pathway decision logs — the verbatim array + a readable rendering.
+	const pl = Array.isArray(call.pathway_logs) ? call.pathway_logs : [];
+	files.push({ path: `${prefix}/pathway/raw_pathway_logs.json`, content: JSON.stringify(pl, null, 2) + "\n" });
+	files.push({ path: `${prefix}/pathway/_decisions.md`, content: clRenderDecisions(pl) });
+
+	// Orientation context (mirrors the old call_context.json).
+	const context = {
+		call_id: callId,
+		pathway_id: call.pathway_id ?? null,
+		pathway_version: call.pathway_version ?? null,
+		status: call.status ?? call.queue_status ?? null,
+		summary: call.summary ?? null,
+		has_pathway_logs: pl.length > 0,
+		has_transcript: Array.isArray(call.transcripts) && call.transcripts.length > 0,
+	};
+	files.push({ path: `${prefix}/call_context.json`, content: JSON.stringify(context, null, 2) + "\n" });
+
+	return {
+		callId,
+		shortId,
+		files,
+		flagged,
+		hasPathwayLogs: pl.length > 0,
+		hasTranscript: context.has_transcript,
+		summaryLine: call.summary ? String(call.summary).split("\n")[0].slice(0, 180) : "",
+	};
+}
+
+// ============================================================================
 // Transport adapters
 // ============================================================================
 
@@ -784,6 +1127,52 @@ function createRestAdapter() {
 		// GET /v1/pathway -> [{ id, name, description, production_version_number, ... }]
 		async listPathways() {
 			return request("GET", "/v1/pathway");
+		},
+
+		// GET /v1/calls/:id -> full call detail (transcripts, variables, analysis,
+		// summary, pathway_logs, error_message, recording_url, metadata).
+		async getCall(callId) {
+			return request("GET", `/v1/calls/${encodeURIComponent(callId)}`);
+		},
+
+		// GET /v1/calls?limit=N -> { calls:[{ call_id, c_id, created_at, ... }], ... }
+		// (default sort: created_at descending, so the newest calls come first).
+		async listRecentCallIds(n) {
+			const limit = Math.max(1, Math.min(100, n || 5));
+			const res = await request("GET", `/v1/calls?limit=${limit}`);
+			const calls = (res && (res.calls || res.data)) || (Array.isArray(res) ? res : []);
+			return calls
+				.map((c) => (typeof c === "string" ? c : c.call_id || c.c_id))
+				.filter(Boolean)
+				.slice(0, limit);
+		},
+
+		// Pull each call's full detail via REST and materialize the same file
+		// LAYOUT the old server-side call-log workspace produced (transcript /
+		// decision logs / variables / analysis), entirely client-side. READ-ONLY:
+		// GET only, never mutates the call.
+		async mountCall(callIds) {
+			const ids = (Array.isArray(callIds) ? callIds : [callIds]).filter(Boolean);
+			const out = [];
+			for (const id of ids) {
+				const res = await this.getCall(id);
+				// /v1/calls/:id returns the call object directly (no { data } wrapper).
+				const call = res && (res.call || res.data || res);
+				if (!call || (call.errors && !call.call_id && !call.c_id)) {
+					throw new NormError("CALL_NOT_FOUND", `Could not fetch call "${id}" via GET /v1/calls/${id}.`, { call_id: id, response: res });
+				}
+				if (!call.call_id && !call.c_id) call.call_id = id;
+				const bundle = generateCallFiles(call);
+				out.push({
+					call_id: bundle.callId || id,
+					summary_line: bundle.summaryLine,
+					files: bundle.files,
+					flagged: bundle.flagged,
+					has_pathway_logs: bundle.hasPathwayLogs,
+					has_transcript: bundle.hasTranscript,
+				});
+			}
+			return { calls: out };
 		},
 
 		// POST /v1/pathway/create -> { data: { pathway_id }, errors }
@@ -883,32 +1272,19 @@ function createRestAdapter() {
 		},
 
 		/**
-		 * validateTree(id, { treeMap }) -> { valid, warnings, errorMessage? }
-		 * Non-destructive validation. On REST the only inline-validation surface is
-		 * the update upsert, so this mirrors the original cmdValidate behavior: send
-		 * the tree (server validates inline) and report the outcome. On a validation
-		 * failure it throws a SERVER_VALIDATION NormError (same as commitTree) so the
-		 * caller maps it to files; success returns warnings.
+		 * validateTree(id, { treeMap }) -> { valid, warnings, errors }
+		 *
+		 * NON-DESTRUCTIVE. The Bland REST API has NO read-only pathway-validation
+		 * endpoint (the only inline-validation surface is the upsert POST, which
+		 * MUTATES — and a freshly-cloned, UNEDITED pathway would FAIL that upsert,
+		 * "Error updating pathway"). So validate runs entirely client-side via
+		 * structurallyValidateTree: frontmatter parses, edge endpoints resolve, the
+		 * structured files are well-formed, and the tree round-trips. ZERO writes,
+		 * zero network. Returns structured errors so the caller can attribute each to
+		 * a file directly (no server message-scraping needed).
 		 */
-		async validateTree(id, { treeMap }) {
-			const serverPathway = await this.getPathway(id);
-			const { nodes, edges } = rebuildGraph(treeMap);
-			const res = await this.updatePathway(id, {
-				name: serverPathway.name,
-				description: serverPathway.description,
-				nodes,
-				edges,
-			});
-			if (res && res.status === "error") {
-				const verr = new NormError(
-					"SERVER_VALIDATION",
-					res.message || "Server validation failed",
-					{ response: res },
-				);
-				verr.serverMessage = res.message || "Server validation failed";
-				throw verr;
-			}
-			return { valid: true, warnings: (res && res.warnings) || [] };
+		async validateTree(_id, { treeMap }) {
+			return structurallyValidateTree(treeMap);
 		},
 	};
 }
@@ -1259,115 +1635,20 @@ function createMcpAdapter() {
 			};
 		},
 
-		// Pull a call's full log workspace to the LOCAL disk so native Read / Grep /
-		// Glob can inspect it directly. The MCP call_log_* tools only see the
-		// SERVER-side mount; this mirrors the pathway clone so the call becomes real
-		// files. lookup_call attaches the call -> list_call_logs enumerates its files
-		// -> read_call_log pulls each file's content.
+		// Mount a call's logs to local files. The server-side call-log workspace
+		// tools (lookup_call / mount_call_log_workspace / call_log_glob /
+		// call_log_read) are GONE from /v1/mcp, so call mounting is REST-only now —
+		// delegate to the REST adapter (GET /v1/calls/:id -> client-side file tree).
+		// cmdMountCall already uses the REST adapter directly; this delegation keeps
+		// the MCP adapter's interface intact for any other caller.
 		async mountCall(callIds) {
-			await handshake();
-			// callTool may hand back a parsed object or a JSON string depending on the
-			// host envelope — parse defensively.
-			const parse = (v) => {
-				if (v == null) return null;
-				if (typeof v === "string") {
-					try {
-						return JSON.parse(v);
-					} catch {
-						return { content: v };
-					}
-				}
-				return v;
-			};
-			// Pull the currently-mounted call's files. call_log_read is paged and
-			// line-numbered, so page through and strip the "   N\t" cat-style prefix to
-			// recover the raw file content.
-			const pullMountedFiles = async () => {
-				const globbed = parse(
-					await callTool("call_log_glob", { pattern: "**/*" }),
-				);
-				const paths =
-					(globbed && (globbed.filenames || globbed.files)) ||
-					(Array.isArray(globbed) ? globbed : []);
-				const files = [];
-				for (const p of paths) {
-					if (!p || typeof p !== "string") continue;
-					const lines = [];
-					let offset = 1;
-					let total = null;
-					for (let guard = 0; guard < 100; guard += 1) {
-						await throttle();
-						const chunk = parse(
-							await callTool("call_log_read", { path: p, offset, limit: 2000 }),
-						);
-						const numbered = (chunk && chunk.content) || "";
-						if (numbered) {
-							for (const ln of String(numbered).split("\n")) {
-								lines.push(ln.replace(/^\s*\d+\t/, ""));
-							}
-						}
-						const got =
-							chunk && typeof chunk.num_lines === "number" ? chunk.num_lines : 0;
-						total =
-							chunk && typeof chunk.total_lines === "number"
-								? chunk.total_lines
-								: total;
-						// Stop on a short/empty page (EOF) or past total_lines. A full page
-						// implies more may remain even when total_lines is omitted.
-						if (
-							got === 0 ||
-							got < 2000 ||
-							(total != null && offset - 1 + got >= total)
-						) {
-							break;
-						}
-						offset += got;
-					}
-					files.push({ path: p, content: lines.join("\n") });
-				}
-				return files;
-			};
-			const ids = (Array.isArray(callIds) ? callIds : [callIds]).filter(Boolean);
-			const out = [];
-			for (const id of ids) {
-				const summaryRaw = await callTool("lookup_call", { call_id: id });
-				// lookup_call accumulates attached calls, so re-mount ONLY this call to
-				// isolate its files in the glob (correct per-call dirs when mounting many).
-				await callTool("mount_call_log_workspace", {
-					refresh: true,
-					call_ids: [id],
-				});
-				const files = await pullMountedFiles();
-				const sum = parse(summaryRaw);
-				const summaryLine =
-					sum && sum.summary
-						? String(sum.summary).split("\n")[0].slice(0, 180)
-						: "";
-				out.push({ call_id: id, summary_line: summaryLine, files });
-			}
-			return { calls: out };
+			return createRestAdapter().mountCall(callIds);
 		},
 
 		// Resolve the N most recent call ids for `mount-call --recent N`.
+		// REST-only (list_recent_calls is gone): GET /v1/calls?limit=N, newest first.
 		async listRecentCallIds(n) {
-			await handshake();
-			const raw = await callTool("list_recent_calls", {
-				limit: Math.max(1, Math.min(25, n || 5)),
-			});
-			let data = raw;
-			if (typeof raw === "string") {
-				try {
-					data = JSON.parse(raw);
-				} catch {
-					data = {};
-				}
-			}
-			const calls =
-				(data && (data.calls || data.recent_calls)) ||
-				(Array.isArray(data) ? data : []);
-			return calls
-				.map((c) => (typeof c === "string" ? c : c.call_id || c.c_id))
-				.filter(Boolean);
+			return createRestAdapter().listRecentCallIds(n);
 		},
 
 		// No create shim exists on the MCP surface yet — generation goes through
@@ -1533,64 +1814,17 @@ function createMcpAdapter() {
 		},
 
 		/**
-		 * validateTree(id, { treeMap, changedPaths, previousVersionId }) ->
-		 *   { valid, warnings, errors }
+		 * validateTree(id, { treeMap }) -> { valid, warnings, errors }
 		 *
-		 * Non-destructive: open the workspace, push the changed files (so the
-		 * working version reflects the local edits), run validate_pathway on the
-		 * working version, and DO NOT commit. The workspace is discarded when the
-		 * MCP session ends (TTL), so production is never touched. A failed
-		 * validation throws a SERVER_VALIDATION NormError (parity with REST) so the
-		 * caller maps the errors to files.
+		 * NON-DESTRUCTIVE. The MCP pathway-edit shims (begin_pathway_edit /
+		 * write_file / validate_pathway / commit_pathway_workspace) are NO LONGER on
+		 * the /v1/mcp surface, and there is no read-only validation tool either.
+		 * Validation is therefore identical to REST: a pure, offline structural pass
+		 * over the local tree. No workspace is opened, nothing is written, the
+		 * session is never touched.
 		 */
-		async validateTree(id, { treeMap, changedPaths, previousVersionId }) {
-			await handshake();
-
-			let versionId = previousVersionId;
-			if (!versionId) {
-				const meta = await this.getPathway(id);
-				versionId = meta && meta._recommendedVersionId;
-			}
-			if (!versionId) {
-				throw new NormError("VALIDATE_FAILED", `No editable version id for pathway "${id}".`, { id });
-			}
-			const begun = await callTool("begin_pathway_edit", {
-				pathway_id: id,
-				pathway_version_id: String(versionId),
-			});
-			const workingVersionId =
-				(begun && (begun.working_pathway_version_id || begun.pathway_version_id)) || String(versionId);
-
-			const paths = Array.isArray(changedPaths) && changedPaths.length > 0
-				? changedPaths
-				: Object.keys(treeMap);
-			for (const relPath of paths.slice().sort()) {
-				const content = treeMap[relPath];
-				const cls = classifyMcpFile(relPath);
-				if (cls.kind === "skip") continue;
-				if (content === undefined) continue; // deletions are handled at commit time.
-				if (cls.kind === "structured") {
-					for (const c of mapStructuredFileToSetCalls(cls.slug, cls.surface, content)) {
-						await callTool(c.tool, c.input);
-					}
-				} else {
-					await callTool("write_file", { path: relPath, content });
-				}
-			}
-
-			const validation = await callTool("validate_pathway", {
-				pathwayVersionId: String(workingVersionId),
-			});
-			if (validation && validation.valid === false) {
-				const errs = (validation.errors || []).join("; ") || "validation failed";
-				const verr = new NormError("SERVER_VALIDATION", errs, {
-					errors: validation.errors || [],
-					warnings: validation.warnings || [],
-				});
-				verr.serverMessage = errs;
-				throw verr;
-			}
-			return { valid: true, warnings: (validation && validation.warnings) || [] };
+		async validateTree(_id, { treeMap }) {
+			return structurallyValidateTree(treeMap);
 		},
 	};
 
@@ -1781,12 +2015,13 @@ async function cmdClone(args) {
 /**
  * mount-call <call_id> — pull a call's full log workspace into LOCAL files under
  * calls/<call_id>/ so Claude's native Read / Grep / Glob can inspect the transcript,
- * routing/decision logs, variables, and tool/webhook logs directly (no call_log_*
- * MCP wrappers needed). Read-only: it never mutates the call. Call-log tools are
- * MCP-only, so this always uses the MCP adapter regardless of the manifest transport.
+ * routing/decision logs, variables, and analysis directly (no call_log_* MCP
+ * wrappers needed). READ-ONLY: it issues only GET /v1/calls/:id and never mutates
+ * the call. The old server-side call-log workspace tools are gone from /v1/mcp, so
+ * this rebuilds the same file layout client-side over REST regardless of transport.
  */
 async function cmdMountCall(args) {
-	const adapter = createMcpAdapter();
+	const adapter = createRestAdapter();
 	let callIds;
 	const recentIdx = args.indexOf("--recent");
 	if (recentIdx !== -1) {
@@ -1826,8 +2061,8 @@ async function cmdMountCall(args) {
 			fs.writeFileSync(abs, f.content, "utf8");
 			written += 1;
 			const rel = path.relative(root, abs).split(path.sep).join("/");
-			// Files the server annotated with [!!!] are the ones to read first.
-			if (/\[!!!\]/.test(rel) || /\[!!!\]/.test(f.content.slice(0, 400))) {
+			// Files with an error annotation [!!!] are the ones to read first.
+			if ((Array.isArray(c.flagged) && c.flagged.includes(f.path)) || /\[!!!\]/.test(f.content.slice(0, 400))) {
 				flagged.push(rel);
 			}
 		}
@@ -1856,7 +2091,7 @@ async function cmdMountCall(args) {
 			flagged_files: m.flagged_files,
 			summary: m.summary,
 		})),
-		hint: `Inspect with native Read / Grep / Glob over ${path.relative(PROJECT_DIR, callsRoot)}/. Start with _index.md, then read any [!!!]-flagged files first. Use analyze_call (MCP) for semantic verdicts and generate_from_call to turn a bug into a regression test.`,
+		hint: `Inspect with native Read / Grep / Glob over ${path.relative(PROJECT_DIR, callsRoot)}/. Start with _index.md, then each call's call_logs/<shortId>/_summary.md and transcript/_overview.md; read any [!!!]-flagged files first. Pathway routing is under call_logs/<shortId>/pathway/_decisions.md (+ raw_pathway_logs.json).`,
 	});
 }
 
@@ -1881,10 +2116,14 @@ function writeCallsIndex(callsRoot, mounted) {
 	}
 	lines.push("");
 	for (const m of mounted) {
+		const shortId = String(m.call_id).substring(0, 8);
 		lines.push(`## ${m.call_id}`);
 		lines.push(`- Dir: \`calls/${m.call_id}/\``);
 		lines.push(
-			"- Start: `call_logs/_overview.md` and `workspace_manifest.md` inside that dir",
+			`- Start: \`call_logs/${shortId}/_summary.md\` and \`call_logs/${shortId}/transcript/_overview.md\``,
+		);
+		lines.push(
+			`- Routing: \`call_logs/${shortId}/pathway/_decisions.md\` (raw: \`pathway/raw_pathway_logs.json\`)`,
 		);
 		if (m.flagged_files.length) {
 			lines.push(
@@ -2007,45 +2246,31 @@ async function cmdCommit(args) {
 
 async function cmdValidate() {
 	const manifest = readManifest();
-	const adapter = getAdapter(manifest.transport);
 	const id = manifest.pathway_id;
 	const localTree = readTree(PATHWAY_DIR);
 	const { nodes, edges } = rebuildGraph(localTree);
 
-	// validateTree is transport-agnostic and non-destructive: REST inline-validates
-	// via the upsert; MCP pushes edits into a throwaway workspace, runs
-	// validate_pathway on the working version, and never commits. Both throw a
-	// SERVER_VALIDATION NormError on failure (mapped back to files here).
-	let res;
-	try {
-		res = await adapter.validateTree(id, {
-			treeMap: localTree,
-			changedPaths: Object.keys(localTree),
-			previousVersionId: manifest.version_id || null,
+	// NON-DESTRUCTIVE: validation is a pure, offline structural pass over the local
+	// tree — frontmatter parses, edge endpoints resolve, structured files are
+	// well-formed, the tree round-trips. There is NO read-only validation endpoint
+	// on either transport, so we never touch the server (a clean clone validates
+	// without any write). This is identical for REST and MCP, so we call the
+	// validator directly rather than routing through an adapter that could mutate.
+	const res = structurallyValidateTree(localTree);
+
+	if (!res.valid) {
+		// errors already carry { message, file } — surface them as-is.
+		fail("VALIDATION_FAILED", "Pathway failed structural validation", {
+			errors: res.errors,
+			warnings: res.warnings,
 		});
-	} catch (err) {
-		if (err instanceof NormError && err.code === "SERVER_VALIDATION") {
-			const mapped = mapErrorsToFiles([err.serverMessage], localTree);
-			// Refresh baseline anyway so status stays accurate (REST upsert may have
-			// touched server state; a no-op on MCP).
-			try {
-				const refreshed = await adapter.cloneTree(id);
-				snapshotTreeToDisk(adapter, id, refreshed);
-			} catch {
-				/* best-effort baseline refresh */
-			}
-			fail("VALIDATION_FAILED", "Pathway failed server validation", { errors: mapped });
-			return;
-		}
-		throw err;
+		return;
 	}
 
-	const refreshed = await adapter.cloneTree(id);
-	snapshotTreeToDisk(adapter, id, refreshed);
 	ok({
 		command: "validate",
 		status: "valid",
-		warnings: (res && res.warnings) || [],
+		warnings: res.warnings || [],
 		nodes: nodes.length,
 		edges: edges.length,
 	});
@@ -2187,7 +2412,7 @@ async function main() {
 					subcommands: {
 						clone: "clone <id> | clone --new \"<name>\"  — pull pathway into pathway/ + snapshot baseline",
 						commit: "commit [--force]                    — 3-way drift -> ONE update call -> re-pull baseline",
-						validate: "validate                          — send tree to server inline validation, map errors->files",
+						validate: "validate                          — non-destructive client-side structural check (no server write)",
 						test: "test                                  — offline tree<->graph round-trip self-check",
 						status: "status [--server]                   — local hash diff vs manifest (0 net) [+ server version]",
 						"mount-call": "mount-call <call_id>           — pull a call's logs into calls/<id>/ for native Read/Grep/Glob inspection",
@@ -2232,5 +2457,7 @@ if (require.main === module) {
 		yamlParse,
 		generateFiles,
 		rebuildGraph,
+		structurallyValidateTree,
+		generateCallFiles,
 	};
 }

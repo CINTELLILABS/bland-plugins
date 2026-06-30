@@ -1,19 +1,18 @@
 ---
-description: Review and debug a real Bland call — mount it into the workspace as files for native Read/Grep/Glob inspection, get a semantic verdict, and turn a confirmed bug into a regression test.
+description: Review and debug a real Bland call — fetch its transcript, routing/decision logs, variables, recording, and summary, then form a semantic verdict (was the goal met, where did it fail) by reading the fetched data.
 allowed-tools:
   - "Task"
-  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\":*)"
   - "Read"
-  - "Write"
-  - "Edit"
-  - "Glob"
-  - "Grep"
-  - "mcp__bland__*"
+  - "get_call_log"
+  - "bland_api_get"
+  - "search_bland_docs"
+  - "get_bland_doc"
+  - "query_docs_filesystem_bland"
 ---
 
 # Norm Call Review
 
-Mount a real Bland call into the local workspace as files and review it through the `norm_review` agent, which owns the doctrine (mount → native Read/Grep/Glob → analyze_call → generate_from_call).
+Review and debug a real Bland call through the `norm_review` agent, which owns the doctrine (fetch the call's full log set → read transcript + routing logs turn by turn → form the semantic verdict yourself → hand a confirmed bug off as a reconstructed regression scenario).
 
 User request:
 
@@ -23,15 +22,11 @@ $ARGUMENTS
 
 Steps:
 
-1. If `$ARGUMENTS` contains a call id, mount it locally first by running the bundled sync engine, and read its JSON stdout (`calls_dir`, `files_written`, `flagged_files`):
+1. Launch the `norm_review` agent (via the `Task` tool, `subagent_type: norm_review`) and hand it the user request verbatim. If `$ARGUMENTS` contains a call id, pass it through; if not, the agent finds the call via the passthrough first (`bland_api_get /v1/calls` with a `limit`).
+2. The agent fetches the call's full detail with the curated `get_call_log` tool — the transcript (`concatenated_transcript` + `transcripts[]`), the node-by-node routing/decision log (`pathway_logs[]`), the extracted `variables`, `recording_url`, `summary`, `metadata`, and outcome. It reads them turn by turn, reconstructs which node was active and which edge/decision fired, and forms its OWN semantic verdict — was the goal met, what was extracted, exactly where it broke. There is no server-side analyzer; the reasoning is the agent's.
+3. The agent ties the root cause to a specific node / edge / variable / tool, and cross-references the pathway with `/norm:clone <pathway_id>` (from the call's `pathway_id`) when the fix lives in the pathway.
+4. Regression tests: there is no curated tool or `/v1` endpoint that auto-generates a Helix test from a call on this surface (the old `generate_from_call` is gone). For a confirmed bug the agent reconstructs the scenario by hand from the transcript and verdict and hands it to `/norm:evals` or `/norm:test`; it does not claim an auto-generated test.
+5. This command is read-only: it never places a call, sends a message, or re-fires a webhook.
+6. Final answer must include the call id, the goal verdict (explicitly the agent's own analysis of the fetched transcript + logs), the root cause tied to a specific node/edge/variable/tool, the decisive evidence (quoted transcript turns and `pathway_logs` decision lines), and the call's `pathway_id` for follow-up.
 
-   ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" mount-call <call_id>
-   ```
-
-   The call's transcript, routing/decision logs, variables, and tool/webhook logs land under `calls/<call_id>/`. If no id was given, launch the agent to find the call first (`search_calls` / `list_recent_calls`), then mount it.
-2. Launch the `norm_review` agent (via the `Task` tool, `subagent_type: norm_review`) and hand it the user request verbatim plus the mounted `calls_dir`. It inspects the logs with native `Glob` / `Grep` / `Read` (reading the `[!!!]`-flagged files first), gets the semantic verdict with `analyze_call`, diagnoses the root cause node by node, and — for a confirmed bug — calls `generate_from_call` to create a regression test.
-3. Before any high-impact action (`stop_call`, `resend_postcall_webhook`), get explicit user confirmation.
-4. Final answer must include the call id, the goal verdict, the root cause tied to a specific node/edge/variable/tool, the decisive evidence, the local `calls/<call_id>/` path, and any regression test id created.
-
-Do not use the MCP `call_log_glob` / `call_log_grep` / `call_log_read` wrappers — the call is local files; inspect with native `Read` / `Grep` / `Glob`.
+Endpoints are discovered from the official docs (`search_bland_docs` → `get_bland_doc`, and `query_docs_filesystem_bland`), never guessed. The call's data is fetched JSON, not local files — there is no mount step.
