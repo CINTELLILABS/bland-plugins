@@ -33,7 +33,8 @@
     "bland_api_key": {
       "type": "string",
       "title": "Bland API key",
-      "description": "Bland API key. Stored in ~/.claude/settings.json via /norm:setup so both the MCP client and the bundled bin tools can read it; never committed.",
+      "description": "Your Bland API key from app.bland.ai. Masked on entry and stored in the system keychain.",
+      "sensitive": true,
       "required": true
     }
   }
