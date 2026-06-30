@@ -163,15 +163,20 @@ function mcpJsonPath() {
 }
 
 /**
- * Point the NATIVE MCP connector at `baseUrl`. The desktop validates the
- * connector URL literally (it does NOT substitute ${user_config.*}), so the only
- * way to override the env for the connector is to rewrite the literal in
- * .mcp.json — we set mcpServers.bland.url to `<baseUrl>/v1/mcp`. Note: a plain
- * http URL (e.g. http://localhost:3000) is accepted here but the desktop will
- * refuse to connect it (https-only) — use an https tunnel for a dev connector.
+ * Make the NATIVE MCP connector fully SELF-CONTAINED for the desktop app, which
+ * substitutes NOTHING in a plugin connector — not the url, not the auth header
+ * (it even validates the literal url, rejecting non-https and the raw ${...}
+ * template). So we bake BOTH literals into the INSTALLED .mcp.json:
+ *   mcpServers.bland.url                     = <baseUrl>/v1/mcp
+ *   mcpServers.bland.headers.Authorization   = Bearer <key>
+ * Now the connector connects with zero substitution, no install prompt, and no
+ * Configure-options UI. Only the installed copy gets the literal key; the
+ * committed source keeps the ${user_config.*} template. The file is written 0600
+ * because it now contains the key. A plain-http url is written but the desktop
+ * still won't connect it (https-only) — use an https tunnel for a dev connector.
  * Returns {updated, changed, url}; `changed` => a reload is needed to apply it.
  */
-function updateMcpConnectorUrl(baseUrl) {
+function updateMcpConnector(baseUrl, key) {
 	const file = mcpJsonPath();
 	let mcp;
 	try {
@@ -184,11 +189,25 @@ function updateMcpConnectorUrl(baseUrl) {
 		return { updated: false, changed: false, url: null };
 	}
 	const newUrl = `${baseUrl.replace(/\/+$/, "")}/v1/mcp`;
-	const changed = server.url !== newUrl;
+	const newAuth = `Bearer ${key}`;
+	server.headers =
+		server.headers && typeof server.headers === "object" ? server.headers : {};
+	const changed =
+		server.url !== newUrl || server.headers.Authorization !== newAuth;
 	server.url = newUrl;
+	server.headers.Authorization = newAuth;
 	if (changed) {
 		try {
-			fs.writeFileSync(file, `${JSON.stringify(mcp, null, 2)}\n`);
+			fs.writeFileSync(file, `${JSON.stringify(mcp, null, 2)}\n`, {
+				mode: 0o600,
+			});
+			// writeFileSync's mode only applies on create; force 0600 on the
+			// pre-existing file too, since it now holds the literal key.
+			try {
+				fs.chmodSync(file, 0o600);
+			} catch {
+				/* best effort */
+			}
 		} catch {
 			return { updated: false, changed: false, url: newUrl };
 		}
@@ -291,9 +310,9 @@ function cmdSet(argv) {
 		fail(`Failed to write settings: ${err.message}`);
 	}
 
-	// Also point the NATIVE MCP connector at this url (rewrites the literal in
-	// .mcp.json, since the desktop won't substitute it). Needs a reload to apply.
-	const connector = updateMcpConnectorUrl(finalUrl);
+	// Make the native MCP connector self-contained: bake the literal url AND key
+	// into .mcp.json (the desktop substitutes neither). Needs a reload to apply.
+	const connector = updateMcpConnector(finalUrl, finalKey);
 
 	emit({
 		ok: true,
