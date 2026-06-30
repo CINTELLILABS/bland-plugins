@@ -11,24 +11,57 @@ Norm plugin = Claude Code UX
 
 The plugin should not simulate Bland locally or own pathway state. Bland MCP owns capabilities and state; Norm provides `/norm`, `super_norm`, skills, and hooks so Claude uses those capabilities correctly.
 
-## Local Setup
+## Setup
 
-Start the Bland API locally from a server build that exposes `/v1/mcp`.
-
-Configure the plugin with:
-
-- `bland_api_url`: `http://localhost:3000`
-- `bland_api_key`: a Bland API key for the org being tested
-
-The plugin MCP config points at:
+Three commands, all run inside Claude (Desktop or CLI). No `settings.json` editing, no "Configure options" UI.
 
 ```text
-${bland_api_url}/v1/mcp
+/plugin marketplace add CINTELLILABS/bland-plugins
+/plugin install norm@bland
+/norm:setup YOUR_BLAND_API_KEY
 ```
 
-Claude Code connects directly over HTTP MCP. Claude Desktop or other stdio-only
-hosts can use `bin/bland-mcp-desktop`, which forwards stdio JSON-RPC to the same
-HTTP endpoint.
+`/norm:setup` writes your key (and API URL) to `settings.json` for you, then prints a one-line reload note. After it runs:
+
+```text
+/reload-plugins
+```
+
+This reconnects the Bland MCP client so it picks up the key. The `/norm:*` commands and bin tools read the key instantly — they work even before the reload.
+
+Verify with either:
+
+```text
+/norm:status
+```
+
+or ask Claude to call the `get_bland_mcp_setup` Bland MCP tool, which reports auth/session state and the exposed tool surface.
+
+### Why `/norm:setup` instead of the Configure UI
+
+In the **Claude Desktop app**, the plugin's "Configure options" panel does not reliably onboard you:
+
+- it does not prompt for the key at install time,
+- its saved values can drop on restart, and
+- it rejects any API URL that isn't `https://…` — so you cannot point it at a local server.
+
+`/norm:setup` sidesteps all of that by writing the config to a file directly. Both the MCP client and the plugin's bin tools read from that same location, so one command fully onboards a Desktop user.
+
+### Dev / localhost override
+
+To point Norm at a local server build that exposes `/v1/mcp`:
+
+```text
+/norm:setup --dev YOUR_BLAND_API_KEY
+```
+
+`--dev` sets `bland_api_url` to `http://localhost:3000`. The `/norm:*` commands, bin tools, and the `/v1/*` REST passthrough all honor this over loopback, so Norm works against localhost.
+
+The one exception is the **live native MCP connection**: Claude's HTTP-MCP transport hard-requires `https`, so it won't establish a socket to `http://localhost`. Norm still functions via the loopback/REST path. If you need a live native MCP connection to a dev server, expose it over `https` (e.g. a tunnel) and point at it explicitly:
+
+```text
+/norm:setup --url https://your-tunnel.example.com YOUR_BLAND_API_KEY
+```
 
 The server accepts both auth header formats:
 
@@ -37,13 +70,18 @@ Authorization: Bearer <BLAND_API_KEY>
 Authorization: <BLAND_API_KEY>
 ```
 
-After setup, ask Claude to call:
+### Where the key is stored
+
+`/norm:setup` writes to `settings.json` under:
 
 ```text
-Use Bland MCP tool get_bland_mcp_setup, then list_bland_mcp_tools.
+pluginConfigs["norm@bland"].options.bland_api_key
+pluginConfigs["norm@bland"].options.bland_api_url
 ```
 
-Those tools verify auth/session state and show the exposed tool surface.
+(`norm@bland` = plugin `norm` from marketplace `bland`.) This is the single location read by **both** the MCP client (via `${user_config.*}` substitution in `.mcp.json`) and the plugin's bin tools. The setup helper merges into the file — it preserves your other settings — and writes it `0600`.
+
+The key is stored in **plaintext at rest** (mode `0600`). It is not put in the OS keychain, because the bin tools and the `/v1` REST passthrough cannot read the keychain. Rotate the key if the file is ever shared, and never commit `settings.json`.
 
 ## User Flow
 

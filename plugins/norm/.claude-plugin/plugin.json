@@ -8,7 +8,7 @@
     "email": "kyle@bland.ai"
   },
   "homepage": "https://bland.ai",
-  "repository": "https://github.com/<org>/norm",
+  "repository": "https://github.com/CINTELLILABS/bland-plugins",
   "keywords": [
     "bland",
     "norm",
@@ -33,8 +33,7 @@
     "bland_api_key": {
       "type": "string",
       "title": "Bland API key",
-      "description": "Bland API key used by the Bland MCP server.",
-      "sensitive": true,
+      "description": "Bland API key. Stored in ~/.claude/settings.json via /norm:setup so both the MCP client and the bundled bin tools can read it; never committed.",
       "required": true
     }
   }

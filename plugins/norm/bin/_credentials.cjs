@@ -8,32 +8,54 @@
  * into the MCP client via `.mcp.json` ${user_config.*} substitution, but it does
  * NOT put it in the env of Bash tool calls made by the plugin's agents/commands.
  * So scripts that read process.env alone fail with "no API key" when run by an
- * agent. This resolver layers three sources, in order:
+ * agent. Onboarding can also land the key in a few different places depending on
+ * platform and which desktop/CLI bug bit the user. This resolver checks EVERY
+ * place onboarding might land the key/url, in priority order:
  *
  *   1. process.env (BLAND_API_KEY / CLAUDE_PLUGIN_OPTION_bland_api_key, + _url)
- *   2. the persisted Claude config files where userConfig actually lives
- *      (~/.claude/settings.json etc.) — same place the MCP client reads from
- *   3. sensible defaults (prod base URL)
+ *   2. the EXACT design config path in settings.json:
+ *      pluginConfigs["norm@bland"].options.bland_api_key / .bland_api_url
+ *      (this is where /norm:setup writes; preferred over the recursive scan so a
+ *      stray top-level key or a sibling plugin like "norm@bland-local" can't win)
+ *   3. recursive find of the key anywhere in those same settings.json files
+ *      (backward-compat with older configs)
+ *   4. ~/.claude/.credentials.json — the sensitive-userConfig fallback file
+ *      (exact nested path first, then recursive find)
+ *   5. (macOS only, key only) the login keychain via `security find-generic-password`
+ *      — best-effort over the service/account names Claude Code plausibly uses
+ *      for a sensitive plugin option; never errors if absent
+ *   6. sensible defaults (prod base URL)
  *
  * The key is resolved and used for auth; it is NEVER printed or returned by any
- * caller's stdout. Fail-soft: unreadable/missing config files are ignored.
+ * caller's stdout. Fail-soft throughout: unreadable/missing config files, an
+ * absent `security` binary, or a non-zero keychain lookup are all ignored.
  */
 
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 
+// The marketplace+plugin id this plugin is published under. Both the MCP client
+// substitution and /norm:setup key the persisted config under this exact id.
+const PLUGIN_ID = "norm@bland";
+const KEY_OPTION = "bland_api_key";
+const URL_OPTION = "bland_api_url";
+const DEFAULT_API_URL = "https://api.bland.ai";
+
+function nonEmptyString(v) {
+	return typeof v === "string" && v.trim() ? v : null;
+}
+
+/** Recursively find the first non-empty string value stored under `key`. */
 function deepFind(obj, key, seen) {
 	if (!obj || typeof obj !== "object") return null;
 	seen = seen || new Set();
 	if (seen.has(obj)) return null;
 	seen.add(obj);
-	if (
-		Object.prototype.hasOwnProperty.call(obj, key) &&
-		typeof obj[key] === "string" &&
-		obj[key].trim()
-	) {
-		return obj[key];
+	if (Object.prototype.hasOwnProperty.call(obj, key)) {
+		const direct = nonEmptyString(obj[key]);
+		if (direct) return direct;
 	}
 	for (const v of Object.values(obj)) {
 		const r = deepFind(v, key, seen);
@@ -42,22 +64,112 @@ function deepFind(obj, key, seen) {
 	return null;
 }
 
-function fromConfigFiles(key) {
+/** Read the exact design path: root.pluginConfigs[PLUGIN_ID].options[option]. */
+function exactPluginOption(root, option) {
+	const opts =
+		root &&
+		root.pluginConfigs &&
+		root.pluginConfigs[PLUGIN_ID] &&
+		root.pluginConfigs[PLUGIN_ID].options;
+	return opts ? nonEmptyString(opts[option]) : null;
+}
+
+/**
+ * The settings.json files to consult, most-specific first.
+ *
+ * When CLAUDE_CONFIG_DIR is set we use ONLY that directory — isolation for tests
+ * and alternate config homes. (Previously this always also probed ~/.claude,
+ * so isolation silently leaked into the real config.)
+ */
+function settingsCandidates() {
+	if (process.env.CLAUDE_CONFIG_DIR) {
+		const dir = process.env.CLAUDE_CONFIG_DIR;
+		return [
+			path.join(dir, "settings.json"),
+			path.join(dir, "settings.local.json"),
+		];
+	}
 	const home = os.homedir();
-	const candidates = [
-		process.env.CLAUDE_CONFIG_DIR
-			? path.join(process.env.CLAUDE_CONFIG_DIR, "settings.json")
-			: null,
+	return [
 		path.join(home, ".claude", "settings.json"),
 		path.join(home, ".claude", "settings.local.json"),
 		path.join(home, ".claude.json"),
-	].filter(Boolean);
-	for (const f of candidates) {
-		try {
-			const v = deepFind(JSON.parse(fs.readFileSync(f, "utf8")), key);
-			if (v) return v;
-		} catch {
-			/* missing/unreadable/invalid — try the next */
+	];
+}
+
+/** The sensitive-userConfig fallback credentials file (same dir as settings). */
+function credentialsCandidates() {
+	if (process.env.CLAUDE_CONFIG_DIR) {
+		return [path.join(process.env.CLAUDE_CONFIG_DIR, ".credentials.json")];
+	}
+	return [path.join(os.homedir(), ".claude", ".credentials.json")];
+}
+
+function readJson(file) {
+	try {
+		return JSON.parse(fs.readFileSync(file, "utf8"));
+	} catch {
+		return null; // missing/unreadable/invalid — caller falls through
+	}
+}
+
+/**
+ * Resolve `option` from the persisted config files. For each settings file we
+ * prefer the EXACT design path, then fall back to a recursive find within that
+ * same file (so the most-specific source always wins before we widen). After
+ * settings we try .credentials.json the same way (exact path, then recursive).
+ */
+function fromConfigFiles(option) {
+	for (const f of settingsCandidates()) {
+		const root = readJson(f);
+		if (!root) continue;
+		const exact = exactPluginOption(root, option);
+		if (exact) return exact;
+		const found = deepFind(root, option);
+		if (found) return found;
+	}
+	for (const f of credentialsCandidates()) {
+		const root = readJson(f);
+		if (!root) continue;
+		const exact = exactPluginOption(root, option);
+		if (exact) return exact;
+		const found = deepFind(root, option);
+		if (found) return found;
+	}
+	return null;
+}
+
+/**
+ * macOS keychain best-effort lookup for the API KEY only (url is never stored
+ * in the keychain). Claude Code stores sensitive plugin options in the login
+ * keychain, but the exact service/account scheme is not publicly documented and
+ * a known bug (#62442) frequently drops them entirely — so this is a last-resort
+ * fallback that tries the plausible naming combinations and stays silent on any
+ * failure. Returns null off-darwin, if `security` is unavailable, or if no entry
+ * matches.
+ */
+function fromKeychain(option) {
+	if (process.platform !== "darwin") return null;
+	const services = ["Claude Code-credentials", "Claude Code", PLUGIN_ID];
+	const accounts = [
+		option, // bland_api_key
+		`${PLUGIN_ID}:${option}`, // norm@bland:bland_api_key
+		`${PLUGIN_ID}.${option}`, // norm@bland.bland_api_key
+		PLUGIN_ID, // norm@bland
+	];
+	for (const service of services) {
+		for (const account of accounts) {
+			try {
+				const out = execFileSync(
+					"security",
+					["find-generic-password", "-s", service, "-a", account, "-w"],
+					{ encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+				);
+				const v = nonEmptyString(out.replace(/\r?\n$/, ""));
+				if (v) return v;
+			} catch {
+				/* no such entry / no security binary — try the next combination */
+			}
 		}
 	}
 	return null;
@@ -65,15 +177,16 @@ function fromConfigFiles(key) {
 
 function resolveCredentials() {
 	const apiKey =
-		process.env.BLAND_API_KEY ||
-		process.env.CLAUDE_PLUGIN_OPTION_bland_api_key ||
-		fromConfigFiles("bland_api_key") ||
+		nonEmptyString(process.env.BLAND_API_KEY) ||
+		nonEmptyString(process.env.CLAUDE_PLUGIN_OPTION_bland_api_key) ||
+		fromConfigFiles(KEY_OPTION) ||
+		fromKeychain(KEY_OPTION) ||
 		"";
 	const apiUrl = (
-		process.env.BLAND_API_URL ||
-		process.env.CLAUDE_PLUGIN_OPTION_bland_api_url ||
-		fromConfigFiles("bland_api_url") ||
-		"https://api.bland.ai"
+		nonEmptyString(process.env.BLAND_API_URL) ||
+		nonEmptyString(process.env.CLAUDE_PLUGIN_OPTION_bland_api_url) ||
+		fromConfigFiles(URL_OPTION) ||
+		DEFAULT_API_URL
 	).replace(/\/+$/, "");
 	return { apiKey, apiUrl };
 }
