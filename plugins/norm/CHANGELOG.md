@@ -1,9 +1,9 @@
 # Changelog
 
-## 1.2.0 — 2026-07-01
+## 1.3.0 — 2026-07-01
 
-- `/norm:setup` — onboard your Bland API key via a **native OS dialog** (macOS/Windows/Linux); the key never touches the chat/model context. This is the Desktop-app path (the plugin manager collects no config).
-- `bland_api_key` flipped from `sensitive` (OS keychain) to the documented non-sensitive storage (`settings.json`, mode 0600) so `/norm:setup` and `/norm:config` can write it and `${user_config.*}` resolves it. **Migration:** if you installed while it was keychain-stored and the key lived only there, run `/norm:setup` once (or reinstall with `--config bland_api_key=...`).
+- API key stays **encrypted in the OS keychain** (`sensitive: true`). Onboard/rotate via the plugin's interactive install prompt or `claude plugin install norm@bland --config bland_api_key=...`; the key never touches a plaintext file or the chat. (Supersedes a brief 1.2.x that tried plaintext settings.json + a native dialog — reverted for security; the keychain is more secure than a file.)
+- `/norm:config` still switches the non-sensitive `bland_api_url` without reinstalling.
 
 ## 1.1.0 — 2026-07-01
 

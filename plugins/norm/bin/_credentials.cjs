@@ -23,7 +23,8 @@
  *   1. process.env (BLAND_API_KEY / CLAUDE_PLUGIN_OPTION_bland_api_key, + _url)
  *   2. the EXACT design config path in settings.json:
  *      pluginConfigs["norm@bland"].options.bland_api_key / .bland_api_url
- *      (this is where /norm:setup writes; preferred over the recursive scan so a
+ *      (the URL lives here; the KEY is keychain-stored for a sensitive option —
+ *      this exact path is still checked first for a plaintext override, so a
  *      stray top-level key or a sibling plugin like "norm@bland-local" can't win)
  *   3. recursive find of the key anywhere in those same settings.json files
  *      (backward-compat with older configs)
@@ -45,7 +46,7 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 // The marketplace+plugin id this plugin is published under. Both the MCP client
-// substitution and /norm:setup key the persisted config under this exact id.
+// substitution keys the persisted config (and the keychain entry) under this exact id.
 const PLUGIN_ID = "norm@bland";
 const KEY_OPTION = "bland_api_key";
 const URL_OPTION = "bland_api_url";

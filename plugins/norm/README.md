@@ -38,15 +38,26 @@ To point Norm at a dev server that exposes `/v1/mcp`, set `bland_api_url` at ins
 
 ### Installing via the Claude Desktop app
 
-The Desktop plugin browser installs the plugin but does not prompt for its config (its MCP connect UX is OAuth-oriented). So after installing `norm` from **+** → **Plugins** → **Add plugin**, onboard your key with the native-dialog command — no terminal needed:
+The Desktop plugin browser installs the plugin but does not prompt for its config (its MCP connect UX is OAuth-oriented). So after installing `norm` from **+** → **Plugins** → **Add plugin**, onboard your key with one terminal command — it stores the key **encrypted in the OS keychain** and Desktop shares that store:
 
-```text
-/norm:setup
+```bash
+claude plugin marketplace add CINTELLILABS/bland-plugins
+claude plugin install norm@bland --config bland_api_key=YOUR_KEY
 ```
 
-A native OS password dialog appears (macOS/Windows/Linux); type your key from app.bland.ai → API keys. The key goes dialog → local storage — **never through the chat**. Add `--url https://your-tunnel.example.com` to point at a dev server, or set it later with `/norm:config`. Restart the session, then verify with `/norm:status`.
+Add `--config bland_api_url=https://your-tunnel.example.com` to target a dev server. Restart the Desktop app, then verify with `/norm:status`. **Never paste the key into the chat** — the `--config` flag (or the CLI's interactive prompt) keeps it out of the model context and puts it in the keychain, not a file.
 
-CI / headless fallback (no GUI): `printf '%s' YOUR_KEY | node .../bin/norm-setup.cjs --stdin`, or `claude plugin install norm@bland --config bland_api_key=YOUR_KEY`.
+### Rotating or switching your API key
+
+The key lives in the OS keychain (`sensitive: true`), so switching it is a keychain operation, not a settings edit. The reliable path:
+
+```bash
+claude plugin uninstall norm@bland
+# delete the stale keychain entry: Keychain Access → search "claude" → delete
+claude plugin install norm@bland --config bland_api_key=NEW_KEY
+```
+
+Deleting the keychain entry matters: `uninstall` does not always clear it, and a leftover entry is reused on reinstall (so `--config` alone may not take). You can also try the interactive `/plugin` → Installed → norm → configure panel first (CLI only; undocumented on Desktop). `/norm:config` switches the **URL** without any of this — but it cannot change the key, which is keychain-only.
 
 ### Switching environments later
 
@@ -58,7 +69,7 @@ CI / headless fallback (no GUI): `printf '%s' YOUR_KEY | node .../bin/norm-setup
 /norm:config --prod                            → back to https://api.bland.ai
 ```
 
-It edits the documented userConfig storage (`settings.json` → `pluginConfigs`), then you restart the session so the MCP client reconnects. Your API key is unaffected — it lives in the OS keychain and persists across reinstalls (so a reinstall only re-prompts for what's missing). To rotate the key: delete the entry in Keychain Access (search "claude") and reinstall, or `claude plugin uninstall norm@bland && claude plugin install norm@bland --config bland_api_key=NEW_KEY`.
+It edits the non-sensitive `bland_api_url` in `settings.json` → `pluginConfigs`, then you restart the session so the MCP client reconnects. The API key is untouched (keychain). To change the KEY, see "Rotating or switching your API key" above — that's a keychain op, not a settings edit.
 
 The server accepts both auth header formats:
 
