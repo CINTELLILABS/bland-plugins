@@ -36,6 +36,23 @@ Verify with `/norm:status`, or ask Claude to call the `get_bland_mcp_setup` tool
 
 To point Norm at a dev server that exposes `/v1/mcp`, set `bland_api_url` at install (or reinstall) time — e.g. `--config bland_api_url=https://your-tunnel.example.com`. Claude's HTTP-MCP transport requires `https`, so expose a local server through a tunnel rather than `http://localhost`.
 
+### Installing via the Claude Desktop app
+
+The Desktop plugin browser installs the plugin but — as of 2026-07 — **does not collect plugin config**: its MCP connect UX is OAuth-oriented (built for connectors), so it never prompts for your API key, and the Bland MCP connection stays unauthenticated. This is undocumented Desktop behavior, not a plugin bug.
+
+The reliable Desktop onboarding is one terminal command — Desktop shares `~/.claude` (settings + plugin cache) and the OS keychain with the CLI:
+
+```bash
+claude plugin marketplace add CINTELLILABS/bland-plugins
+claude plugin install norm@bland --config bland_api_key=YOUR_KEY
+```
+
+Then restart the Desktop app (or the session) and verify with `/norm:status`. From that point everything works natively in Desktop — including `/norm:config` for URL switching — because the key sits in the keychain and survives updates and reinstalls.
+
+You can also browse/manage the plugin in Desktop: **+** next to the prompt box → **Plugins** (or **Customize** in the sidebar), and `/plugin marketplace add CINTELLILABS/bland-plugins` works in the Desktop composer. Just do the key step in a terminal.
+
+**Never paste your API key into the chat composer** — anything typed there enters the conversation. The `--config` flag (or the CLI's masked interactive prompt) keeps it out of model context entirely.
+
 ### Switching environments later
 
 `/norm:config` switches the target URL any time — no reinstall:
