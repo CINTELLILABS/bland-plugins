@@ -36,6 +36,18 @@ Verify with `/norm:status`, or ask Claude to call the `get_bland_mcp_setup` tool
 
 To point Norm at a dev server that exposes `/v1/mcp`, set `bland_api_url` at install (or reinstall) time — e.g. `--config bland_api_url=https://your-tunnel.example.com`. Claude's HTTP-MCP transport requires `https`, so expose a local server through a tunnel rather than `http://localhost`.
 
+### Switching environments later
+
+`/norm:config` switches the target URL any time — no reinstall:
+
+```text
+/norm:config                                   → show the current URL
+/norm:config https://your-tunnel.example.com   → point at a dev tunnel
+/norm:config --prod                            → back to https://api.bland.ai
+```
+
+It edits the documented userConfig storage (`settings.json` → `pluginConfigs`), then you restart the session so the MCP client reconnects. Your API key is unaffected — it lives in the OS keychain and persists across reinstalls (so a reinstall only re-prompts for what's missing). To rotate the key: delete the entry in Keychain Access (search "claude") and reinstall, or `claude plugin uninstall norm@bland && claude plugin install norm@bland --config bland_api_key=NEW_KEY`.
+
 The server accepts both auth header formats:
 
 ```text
