@@ -38,7 +38,13 @@ To point Norm at a dev server that exposes `/v1/mcp`, set `bland_api_url` at ins
 
 ### Installing via the Claude Desktop app
 
-The Desktop plugin browser installs the plugin but does not prompt for its config (its MCP connect UX is OAuth-oriented). So after installing `norm` from **+** → **Plugins** → **Add plugin**, onboard your key with one terminal command — it stores the key **encrypted in the OS keychain** and Desktop shares that store:
+Installing (Desktop plugin browser or `claude plugin install`) does NOT prompt for config — the installer prints `userConfig options not yet set`. Enter the key in-session with:
+
+```text
+/plugin configure norm@bland
+```
+
+(masked entry → encrypted in the OS keychain). If the configure panel is unavailable in your Desktop build, the terminal fallback stores the same keychain-backed config:
 
 ```bash
 claude plugin marketplace add CINTELLILABS/bland-plugins
@@ -49,7 +55,13 @@ Add `--config bland_api_url=https://your-tunnel.example.com` to target a dev ser
 
 ### Rotating or switching your API key
 
-The key lives in the OS keychain (`sensitive: true`), so switching it is a keychain operation, not a settings edit. The reliable path:
+First choice — the built-in config panel, in any Claude Code session:
+
+```text
+/plugin configure norm@bland
+```
+
+If that panel misbehaves in your build, the manual fallback:
 
 ```bash
 claude plugin uninstall norm@bland
