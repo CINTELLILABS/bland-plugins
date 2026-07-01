@@ -38,20 +38,15 @@ To point Norm at a dev server that exposes `/v1/mcp`, set `bland_api_url` at ins
 
 ### Installing via the Claude Desktop app
 
-The Desktop plugin browser installs the plugin but — as of 2026-07 — **does not collect plugin config**: its MCP connect UX is OAuth-oriented (built for connectors), so it never prompts for your API key, and the Bland MCP connection stays unauthenticated. This is undocumented Desktop behavior, not a plugin bug.
+The Desktop plugin browser installs the plugin but does not prompt for its config (its MCP connect UX is OAuth-oriented). So after installing `norm` from **+** → **Plugins** → **Add plugin**, onboard your key with the native-dialog command — no terminal needed:
 
-The reliable Desktop onboarding is one terminal command — Desktop shares `~/.claude` (settings + plugin cache) and the OS keychain with the CLI:
-
-```bash
-claude plugin marketplace add CINTELLILABS/bland-plugins
-claude plugin install norm@bland --config bland_api_key=YOUR_KEY
+```text
+/norm:setup
 ```
 
-Then restart the Desktop app (or the session) and verify with `/norm:status`. From that point everything works natively in Desktop — including `/norm:config` for URL switching — because the key sits in the keychain and survives updates and reinstalls.
+A native OS password dialog appears (macOS/Windows/Linux); type your key from app.bland.ai → API keys. The key goes dialog → local storage — **never through the chat**. Add `--url https://your-tunnel.example.com` to point at a dev server, or set it later with `/norm:config`. Restart the session, then verify with `/norm:status`.
 
-You can also browse/manage the plugin in Desktop: **+** next to the prompt box → **Plugins** (or **Customize** in the sidebar), and `/plugin marketplace add CINTELLILABS/bland-plugins` works in the Desktop composer. Just do the key step in a terminal.
-
-**Never paste your API key into the chat composer** — anything typed there enters the conversation. The `--config` flag (or the CLI's masked interactive prompt) keeps it out of model context entirely.
+CI / headless fallback (no GUI): `printf '%s' YOUR_KEY | node .../bin/norm-setup.cjs --stdin`, or `claude plugin install norm@bland --config bland_api_key=YOUR_KEY`.
 
 ### Switching environments later
 

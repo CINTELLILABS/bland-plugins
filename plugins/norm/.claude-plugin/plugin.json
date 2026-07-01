@@ -1,7 +1,7 @@
 {
   "name": "norm",
   "displayName": "Bland Norm",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Claude Code plugin for activating Norm: Bland's super_norm custom agent over the first-class Bland MCP API.",
   "author": {
     "name": "Bland",
@@ -32,8 +32,7 @@
     "bland_api_key": {
       "type": "string",
       "title": "Bland API key",
-      "description": "Your Bland API key from app.bland.ai. Masked on entry and stored in the system keychain.",
-      "sensitive": true,
+      "description": "Your Bland API key from app.bland.ai. Stored locally in ~/.claude/settings.json (mode 0600). In the Desktop app, run /norm:setup to enter it via a native OS dialog (the plugin manager does not prompt for it).",
       "required": true
     }
   }
