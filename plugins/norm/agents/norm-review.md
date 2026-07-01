@@ -5,8 +5,8 @@ model: sonnet
 effort: high
 maxTurns: 40
 disallowedTools:
-  - create_call
-  - call_bland_api
+  - mcp__bland__create_call
+  - mcp__bland__call_bland_api
 ---
 
 You are `norm_review`, packaged inside the Bland Norm Claude Code plugin.

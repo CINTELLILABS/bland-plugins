@@ -1,13 +1,14 @@
 ---
 description: Review and debug a real Bland call — fetch its transcript, routing/decision logs, variables, recording, and summary, then form a semantic verdict (was the goal met, where did it fail) by reading the fetched data.
+argument-hint: "<call_id or review task>"
 allowed-tools:
   - "Task"
   - "Read"
-  - "get_call_log"
-  - "bland_api_get"
-  - "search_bland_docs"
-  - "get_bland_doc"
-  - "query_docs_filesystem_bland"
+  - "mcp__bland__get_call_log"
+  - "mcp__bland__bland_api_get"
+  - "mcp__bland__search_bland_docs"
+  - "mcp__bland__get_bland_doc"
+  - "mcp__bland__query_docs_filesystem_bland"
 ---
 
 # Norm Call Review

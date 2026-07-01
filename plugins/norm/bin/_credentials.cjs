@@ -2,7 +2,15 @@
 "use strict";
 
 /**
- * Bland Norm — shared credential resolver for the bin scripts.
+ * Bland Norm — credential resolver for the DESKTOP STDIO BRIDGE ONLY.
+ *
+ * Used exclusively by bland-mcp-proxy.cjs / bland-mcp-desktop (the stdio↔HTTP
+ * bridge for the Claude Desktop app). It is NOT used by any command or agent body
+ * anymore: all command/agent server I/O goes through the MCP passthrough
+ * (mcp__bland__bland_api_get / call_bland_api), where the MCP connection holds the
+ * key. The offline norm-sync.cjs codec does NOT require this file. (The desktop app
+ * does not pass plugin userConfig env to a launched stdio server, so the bridge
+ * still needs to resolve the key from persisted config — hence this resolver.)
  *
  * Claude Code injects the plugin's userConfig (bland_api_key / bland_api_url)
  * into the MCP client via `.mcp.json` ${user_config.*} substitution, but it does

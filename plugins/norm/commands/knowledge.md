@@ -1,5 +1,6 @@
 ---
 description: Build and query Bland knowledge bases the agent can retrieve from and cite mid-call — ingest, verify retrieval, and attach to a persona or pathway.
+argument-hint: "<kb task — ingest, query, or attach>"
 allowed-tools:
   - "Task"
   - "Read"

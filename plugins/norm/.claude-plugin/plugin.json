@@ -21,7 +21,6 @@
     "conversational-ai"
   ],
   "defaultEnabled": true,
-  "hooks": "./hooks/hooks.json",
   "userConfig": {
     "bland_api_url": {
       "type": "string",

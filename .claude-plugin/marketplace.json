@@ -12,7 +12,6 @@
       "name": "norm",
       "source": "./plugins/norm",
       "description": "Bland Norm: activate the super_norm custom agent over the first-class Bland MCP API.",
-      "version": "1.0.0",
       "category": "productivity",
       "keywords": [
         "bland",

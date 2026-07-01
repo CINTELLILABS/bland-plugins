@@ -1,5 +1,6 @@
 ---
 description: Build and run Bland evals — eval agents, workbench setups, test configs, and eval runs — then report pass-rates and per-dimension scores.
+argument-hint: "<eval task — build, run, or inspect>"
 allowed-tools:
   - "Task"
   - "Read"
@@ -7,7 +8,14 @@ allowed-tools:
   - "Edit"
   - "Glob"
   - "Grep"
-  - "mcp__bland__*"
+  - "mcp__bland__list_eval_agents"
+  - "mcp__bland__get_eval_agent"
+  - "mcp__bland__get_eval_run"
+  - "mcp__bland__create_eval_run"
+  - "mcp__bland__bland_api_get"
+  - "mcp__bland__call_bland_api"
+  - "mcp__bland__search_bland_docs"
+  - "mcp__bland__query_docs_filesystem_bland"
 ---
 
 # Norm Evals

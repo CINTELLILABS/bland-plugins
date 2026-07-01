@@ -4,6 +4,13 @@ description: "Use this agent for Bland persona work: choose a voice, set call co
 model: sonnet
 effort: high
 maxTurns: 40
+tools:
+  - Read
+  - mcp__bland__bland_api_get
+  - mcp__bland__call_bland_api
+  - mcp__bland__search_bland_docs
+  - mcp__bland__get_bland_doc
+  - mcp__bland__query_docs_filesystem_bland
 ---
 
 You are `norm_persona`, packaged inside the Bland Norm Claude Code plugin.

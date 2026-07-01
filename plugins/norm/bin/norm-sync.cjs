@@ -2,66 +2,61 @@
 "use strict";
 
 /**
- * norm-sync — Phase 4a sync engine (no-backend MVP spike).
+ * norm-sync — OFFLINE, NETWORKLESS pathway codec.
  *
- * A git-style sync engine between a Bland pathway (server JSON: nodes/edges) and a
- * canonical local file tree under $CLAUDE_PROJECT_DIR/pathway/. State lives under
- * $CLAUDE_PROJECT_DIR/.norm/ (manifest.json + baseline/ snapshot).
+ * A pure JSON <-> files transform between a Bland pathway (server JSON: nodes/edges)
+ * and a canonical local file tree. This script has NO network and NO credentials:
+ * all reads/writes against the Bland server go through the MCP passthrough
+ * (mcp__bland__bland_api_get / mcp__bland__call_bland_api) driven from the
+ * /norm:* command + agent bodies. The local files under pathway/ are the REAL
+ * editing workspace — the agent clones into them, edits them natively, and the
+ * codec reconstructs the {nodes, edges} JSON on commit for a single POST.
  *
- * Subcommands:
- *   clone <id> | clone --new "<name>"   pull a pathway (or create a shell) into pathway/
- *   commit                              3-way drift -> ONE batched POST /v1/pathway/:id -> re-pull baseline
- *   validate                            NON-DESTRUCTIVE client-side structural check (no server write)
- *   test                                local round-trip self-check (parse tree -> rebuild nodes/edges)
- *   status                              local hash diff vs manifest (0 network) [+ --server version check]
- *   touch <file>                        bump a file's mtime/normalize so status notices it (helper)
- *
- * Transport: a small adapter interface. The REST adapter (this file) hits /v1/pathway.
- * An MCP adapter is stubbed for when the set_* shims land (manifest.transport: 'rest' | 'mcp').
+ * Subcommands (all offline — no network, no credentials):
+ *   generate <pathway.json> <out-dir>   JSON file ({nodes,edges}) -> pathway/ tree on disk
+ *   rebuild  <dir>                       pathway/ tree -> {nodes,edges} JSON on stdout
+ *   validate <dir>                       offline structural check -> report on stdout
  *
  * All output is structured JSON on stdout. Errors fail-soft:
  *   { "ok": false, "error": { "code": "...", "message": "...", "details"?: ... } }
  * Process exit code is non-zero on failure so callers can branch on $?.
  *
- * Node >= 18 (uses global fetch). Zero runtime deps — a hand-rolled minimal YAML
- * emitter/parser keeps this self-contained for the spike.
+ * Node >= 18. Zero runtime deps — a hand-rolled minimal YAML emitter/parser keeps
+ * this self-contained.
+ *
+ * Edge write asymmetry: GET /v1/pathway/:id nests edge label/description under
+ * edge.data.{label,description}; the save POST (POST /v1/convo_pathway/update or
+ * /create-version — NOT POST /v1/pathway/:id, which is the SMS router and 400s)
+ * expects them TOP-LEVEL per edge. `rebuild` emits them TOP-LEVEL so the save POST
+ * round-trips. `generate` accepts both shapes on input. See bin/SYNC.md.
  */
 
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
-// ============================================================================
-// Config / env
-// ============================================================================
-
-// Credentials resolve from env first, then the persisted Claude config
-// (~/.claude/settings.json), because Claude Code injects userConfig into the MCP
-// client but NOT into the env of agent/command Bash calls. See _credentials.cjs.
-const { resolveCredentials } = require("./_credentials.cjs");
-
-function readEnvUrl() {
-	return resolveCredentials().apiUrl;
+// The REAL Bland pathway engine (server's generator + exporter), bundled into
+// engine.bundle.cjs by scripts/bundle-engine.mjs. This is the SOURCE OF TRUTH
+// for JSON <-> files: using it (instead of a hand-reimplementation) keeps the
+// plugin's conversion byte-identical to the server, so edits always produce a
+// valid graph (no codec drift — e.g. edge label/description nest under data.*,
+// exactly as the server emits and accepts).
+let engine = null;
+let engineLoadError = null;
+try {
+	engine = require(path.join(__dirname, "engine.bundle.cjs"));
+} catch (err) {
+	engineLoadError = err && err.message ? err.message : String(err);
 }
-
-function readEnvKey() {
-	return resolveCredentials().apiKey.trim();
+function requireEngine() {
+	if (!engine) {
+		throw new NormError(
+			"ENGINE_MISSING",
+			`Bundled pathway engine (bin/engine.bundle.cjs) failed to load: ${engineLoadError}. Re-run scripts/bundle-engine.mjs.`,
+		);
+	}
+	return engine;
 }
-
-function projectDir() {
-	return (process.env.CLAUDE_PROJECT_DIR || process.cwd()).trim();
-}
-
-const API_URL = readEnvUrl();
-const API_KEY = readEnvKey();
-const PROJECT_DIR = projectDir();
-const PATHWAY_DIR = path.join(PROJECT_DIR, "pathway");
-const NORM_DIR = path.join(PROJECT_DIR, ".norm");
-const MANIFEST_PATH = path.join(NORM_DIR, "manifest.json");
-const BASELINE_DIR = path.join(NORM_DIR, "baseline");
-
-// Respect 120 req/min — minimum spacing between outbound calls.
-const MIN_REQUEST_SPACING_MS = Math.ceil(60000 / 120); // 500ms
 
 // ============================================================================
 // Structured output helpers
@@ -165,7 +160,7 @@ function yamlParseScalar(raw) {
 /**
  * Parse the subset of YAML the generator emits: top-level key: value, nested
  * one-level maps, and `- item` arrays. JSON-inlined values are decoded by
- * yamlParseScalar. Good enough for the spike's structured surfaces.
+ * yamlParseScalar.
  */
 function yamlParse(text) {
 	const root = {};
@@ -194,9 +189,9 @@ function yamlParse(text) {
 				// JSON-inlined scalar) starts a MAP whose remaining keys are the
 				// following lines indented past the `- ` marker. This is the shape
 				// the server's `yaml` lib emits for arrays of objects (e.g. the
-				// `variables:` list in variables.yaml from get_files). norm-sync's
+				// `variables:` list in variables.yaml from the GET graph). norm-sync's
 				// own `yamlEmit` JSON-inlines such items (`- {...}`), so this branch
-				// never fires for self-generated trees — REST round-trips unchanged.
+				// never fires for self-generated trees.
 				const looksLikeMapEntry =
 					itemText !== "" &&
 					!itemText.startsWith("{") &&
@@ -311,9 +306,9 @@ function ensureDir(dir) {
 }
 
 /**
- * Join `rel` under `root`, refusing any path that escapes it. Server/MCP-supplied
- * file paths are not fully trusted, so a `..` segment must never write outside the
- * intended workspace (clone tree or call mount).
+ * Join `rel` under `root`, refusing any path that escapes it. File paths
+ * reconstructed from JSON are not fully trusted, so a `..` segment must never
+ * write outside the intended workspace.
  */
 function safeJoinUnder(root, rel) {
 	const cleaned = String(rel || "").replace(/^\/+/, "");
@@ -361,44 +356,6 @@ function readTree(root) {
 	return map;
 }
 
-function hashTree(treeMap) {
-	const hashes = {};
-	for (const [rel, content] of Object.entries(treeMap)) {
-		hashes[rel] = sha256(content);
-	}
-	return hashes;
-}
-
-// ============================================================================
-// Manifest
-// ============================================================================
-
-function readManifest() {
-	if (!fs.existsSync(MANIFEST_PATH)) {
-		throw new NormError(
-			"NO_MANIFEST",
-			`No pathway cloned. Run 'norm-sync clone <id>' first (missing ${MANIFEST_PATH}).`,
-		);
-	}
-	return JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
-}
-
-function writeManifest(m) {
-	ensureDir(NORM_DIR);
-	fs.writeFileSync(MANIFEST_PATH, `${JSON.stringify(m, null, 2)}\n`, "utf8");
-}
-
-function writeBaseline(treeMap) {
-	if (fs.existsSync(BASELINE_DIR)) {
-		fs.rmSync(BASELINE_DIR, { recursive: true, force: true });
-	}
-	ensureDir(BASELINE_DIR);
-	writeFileTree(
-		BASELINE_DIR,
-		Object.entries(treeMap).map(([p, content]) => ({ path: p, content })),
-	);
-}
-
 // ============================================================================
 // Generator (ported subset of engine/generator.ts) — nodes/edges JSON -> files
 // ============================================================================
@@ -441,7 +398,7 @@ function generateNodeMd(node) {
 	if (data.globalLabel) frontmatter.globalLabel = data.globalLabel;
 
 	// Type-specific structured surfaces are passthrough — JSON-inlined for fidelity.
-	// (These are owned by set_* MCP tools / the agent, not hand-edited prose.)
+	// (These are typed config edited via the /norm:* commit flow, not hand-edited prose.)
 	const passthroughByType = {
 		Webhook: ["url", "method", "body", "headers", "auth", "timeoutValue", "max_retries", "responseData", "responsePathways"],
 		"Knowledge Base": ["kb"],
@@ -496,7 +453,7 @@ function generateEdgeMd(edge, idToSlug, idToName) {
 		target: targetSlug,
 		sourceName: idToName.get(edge.source) || sourceSlug,
 		targetName: idToName.get(edge.target) || targetSlug,
-		// Originating ids preserved so commit can reconstruct the graph exactly.
+		// Originating ids preserved so rebuild can reconstruct the graph exactly.
 		_sourceId: edge.source,
 		_targetId: edge.target,
 	};
@@ -575,7 +532,7 @@ function generateFiles(nodes, edges) {
 		});
 	}
 
-	// Derived / layout — written for the human, ignored on commit (rebuilt server-side).
+	// Derived / layout — written for the human, ignored on rebuild (rebuilt server-side).
 	files.push({ path: ".pathways/config.yaml", content: yamlEmit({}) });
 	const positions = {};
 	for (const node of nodes) {
@@ -591,13 +548,17 @@ function generateFiles(nodes, edges) {
 }
 
 // ============================================================================
-// Reverse: local file tree -> nodes/edges JSON (for commit / test)
+// Reverse: local file tree -> nodes/edges JSON (for commit / validate)
 // ============================================================================
 
 /**
  * Rebuild the nodes/edges arrays from the local file tree. The reverse of
  * generateFiles. Structured surfaces are read from JSON-inlined frontmatter,
  * prose from the markdown body, layout from .pathways/layout.yaml.
+ *
+ * Edge label/description are emitted at the TOP LEVEL of each edge (NOT nested
+ * under edge.data) because the save POST (POST /v1/convo_pathway/update or
+ * /create-version) reads them there.
  */
 function rebuildGraph(treeMap) {
 	const nodes = [];
@@ -687,6 +648,7 @@ function rebuildGraph(treeMap) {
 		// Prefer the preserved originating ids; fall back to slug resolution.
 		const source = frontmatter._sourceId || slugToId.get(frontmatter.source) || frontmatter.source;
 		const target = frontmatter._targetId || slugToId.get(frontmatter.target) || frontmatter.target;
+		// label/description TOP-LEVEL — the /v1/convo_pathway/update|create-version save reads them here.
 		const edge = {
 			id: frontmatter.id,
 			source,
@@ -703,11 +665,13 @@ function rebuildGraph(treeMap) {
 // ============================================================================
 // Client-side structural validation (NON-DESTRUCTIVE, zero network)
 //
-// There is NO read-only pathway-validation endpoint on the Bland REST API — the
-// docs expose only the GET read (`GET /v1/pathway/:id`) and the upsert POST
-// (`POST /v1/pathway/:id`), which MUTATES. So `validate` cannot lean on the
-// server without writing. Instead we validate the local file tree the same way a
-// compile pass would, entirely on disk:
+// There is NO read-only pathway-validation endpoint on the Bland REST API. Reads
+// are GET /v1/pathway/:id (lossy production mirror) + POST /v1/convo_pathway/get_one
+// (canonical graph); the save POST is POST /v1/convo_pathway/update (in place) or
+// /create-version (fork) — NOT POST /v1/pathway/:id, which is the SMS router and
+// 400s. The save persists the graph but does NOT run a full validatePathway()
+// inline, so this offline pass is the authoritative structural PRE-CHECK over the
+// local file tree the same way a compile pass would, entirely on disk:
 //   - every node.md frontmatter parses and carries an id + type
 //   - exactly one start node (warn, not error, if zero — a fresh shell has none)
 //   - every edge endpoint (source/target slug or preserved id) resolves to a
@@ -811,10 +775,65 @@ function structurallyValidateTree(treeMap) {
 		}
 	}
 
-	// --- 4. JSON round-trips: rebuild graph, regenerate prose, compare. -----
+	// --- 4. Reachability: every node reachable from the start node. ----------
+	// Build the slug-level adjacency from edges (resolving endpoints to slugs),
+	// then BFS from the start. Unreachable nodes are a warning (the server's
+	// inline validator is authoritative on commit; this is an early heads-up).
+	if (nodePaths.length > 0 && startCount === 1) {
+		const idToSlug = new Map();
+		for (const [slug, id] of slugToId.entries()) idToSlug.set(id, slug);
+		const resolveSlug = (slug, preservedId) => {
+			if (slug != null && knownSlugs.has(String(slug))) return String(slug);
+			if (preservedId != null && idToSlug.has(String(preservedId))) return idToSlug.get(String(preservedId));
+			if (slug != null && idToSlug.has(String(slug))) return idToSlug.get(String(slug));
+			return null;
+		};
+		const adj = new Map();
+		for (const ep of edgePaths) {
+			let fm;
+			try {
+				fm = parseFrontmatter(treeMap[ep]).frontmatter;
+			} catch {
+				continue;
+			}
+			const src = resolveSlug(fm.source, fm._sourceId);
+			const tgt = resolveSlug(fm.target, fm._targetId);
+			if (!src || !tgt) continue;
+			if (!adj.has(src)) adj.set(src, []);
+			adj.get(src).push(tgt);
+		}
+		let startSlug = null;
+		for (const np of nodePaths) {
+			const slug = np.split("/")[1];
+			const fm = parseFrontmatter(treeMap[np]).frontmatter;
+			if (fm.isStart) {
+				startSlug = slug;
+				break;
+			}
+		}
+		if (startSlug) {
+			const seen = new Set([startSlug]);
+			const queue = [startSlug];
+			while (queue.length) {
+				const cur = queue.shift();
+				for (const next of adj.get(cur) || []) {
+					if (!seen.has(next)) {
+						seen.add(next);
+						queue.push(next);
+					}
+				}
+			}
+			const unreachable = [...knownSlugs].filter((s) => !seen.has(s)).sort();
+			for (const s of unreachable) {
+				warnings.push(`Node "${s}" is not reachable from the start node.`);
+			}
+		}
+	}
+
+	// --- 5. JSON round-trips: rebuild graph, regenerate prose, compare. -----
 	// A non-round-tripping prose file means a hand edit corrupted a structured
 	// surface (frontmatter that no longer reconstructs). Layout/derived files are
-	// intentionally lossy and skipped (mirrors cmdTest).
+	// intentionally lossy and skipped.
 	try {
 		const { nodes, edges } = rebuildGraph(treeMap);
 		const regen = {};
@@ -823,7 +842,7 @@ function structurallyValidateTree(treeMap) {
 			if (p.startsWith(".pathways/")) continue;
 			if (!(p in regen)) continue; // edge filename may differ if slugs changed; node files always present
 			if (sha256(treeMap[p]) !== sha256(regen[p])) {
-				warnings.push(`File does not round-trip cleanly (edit a structured surface via the set_* tools, not raw YAML): ${p}`);
+				warnings.push(`File does not round-trip cleanly (a structured surface may have been corrupted by a raw edit): ${p}`);
 			}
 		}
 	} catch (err) {
@@ -836,31 +855,21 @@ function structurallyValidateTree(treeMap) {
 // ============================================================================
 // Call-log materializer (client-side) — REST call detail -> local file tree
 //
-// The old mount-call relied on the server-side call_log workspace tools
-// (lookup_call / mount_call_log_workspace / call_log_glob / call_log_read) which
-// are GONE from the /v1/mcp surface (they return -32602). We rebuild the same
-// file LAYOUT here from the public `GET /v1/calls/:id` payload, which already
-// carries transcripts, variables, analysis, summary, pathway_logs (the decision
-// logs), error_message, recording_url and call metadata.
+// Kept as a pure offline helper: the /norm:review flow fetches a call via the MCP
+// passthrough (mcp__bland__get_call_log / bland_api_get /v1/calls/:id) and can
+// feed the payload here to materialize a readable file layout for native
+// Read/Grep/Glob. No network, no credentials — pure { call } -> { files }.
 //
-// Layout mirrors callLogGenerator.ts as closely as the REST data allows:
+// Layout (per call):
 //   call_logs/<shortId>/_summary.md
 //   call_logs/<shortId>/transcript/_overview.md
 //   call_logs/<shortId>/transcript/turn_NNN.md
-//   call_logs/<shortId>/variables.md
-//   call_logs/<shortId>/analysis.md            (if analysis present)
-//   call_logs/<shortId>/errors.md              (if error_message present)
+//   call_logs/<shortId>/variables.md            (if variables present)
+//   call_logs/<shortId>/analysis.md             (if analysis present)
+//   call_logs/<shortId>/errors.md               (if error_message present)
 //   call_logs/<shortId>/pathway/raw_pathway_logs.json
-//   call_logs/<shortId>/pathway/_decisions.md  (readable decision log)
+//   call_logs/<shortId>/pathway/_decisions.md   (readable decision log)
 //   call_logs/<shortId>/call_context.json
-// plus a workspace-level call_logs/_overview.md, workspace_manifest.json and
-// workspace_manifest.md (the same orientation files the old tools wrote).
-//
-// REST GAP: tool_logs, post-call webhook logs, disposition runs, contact memory,
-// call notes, config snapshot and quality metrics came from SERVER-internal DB
-// services (not the public call payload), so those per-call files are NOT
-// materialized here. The transcript / decision logs / variables / analysis —
-// the load-bearing surfaces for reviewing a call — are all present.
 // ============================================================================
 
 function clTimeOnly(dateStr) {
@@ -983,9 +992,9 @@ function clRenderDecisions(pathwayLogs) {
 }
 
 /**
- * Build the local file tree for one call from its `GET /v1/calls/:id` payload.
- * Returns an array of { path, content } rooted at call_logs/<shortId>/, mirroring
- * the old mount_call_log_workspace layout. Pure — no I/O, no network.
+ * Build the local file tree for one call from its call payload (the shape
+ * returned by GET /v1/calls/:id). Returns an array of { path, content } rooted at
+ * call_logs/<shortId>/. Pure — no I/O, no network.
  */
 function generateCallFiles(call) {
 	const callId = String(call.call_id || call.c_id || "");
@@ -1020,7 +1029,7 @@ function generateCallFiles(call) {
 	files.push({ path: `${prefix}/pathway/raw_pathway_logs.json`, content: JSON.stringify(pl, null, 2) + "\n" });
 	files.push({ path: `${prefix}/pathway/_decisions.md`, content: clRenderDecisions(pl) });
 
-	// Orientation context (mirrors the old call_context.json).
+	// Orientation context.
 	const context = {
 		call_id: callId,
 		pathway_id: call.pathway_id ?? null,
@@ -1044,1225 +1053,101 @@ function generateCallFiles(call) {
 }
 
 // ============================================================================
-// Transport adapters
+// Subcommands (all offline)
 // ============================================================================
 
-let lastRequestAt = 0;
-async function throttle() {
-	const now = Date.now();
-	const wait = lastRequestAt + MIN_REQUEST_SPACING_MS - now;
-	if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-	lastRequestAt = Date.now();
-}
-
-/** REST adapter — hits /v1/pathway/* with Bearer auth. */
-function createRestAdapter() {
-	if (!API_KEY) {
-		throw new NormError(
-			"NO_API_KEY",
-			"Missing API key. Set BLAND_API_KEY / CLAUDE_PLUGIN_OPTION_bland_api_key, or configure bland_api_key in the plugin (also read from ~/.claude/settings.json).",
-		);
-	}
-	const authHeader = API_KEY.toLowerCase().startsWith("bearer ") ? API_KEY : `Bearer ${API_KEY}`;
-
-	async function request(method, route, body) {
-		await throttle();
-		const url = `${API_URL}${route}`;
-		let resp;
-		try {
-			resp = await fetch(url, {
-				method,
-				headers: {
-					accept: "application/json",
-					authorization: authHeader,
-					...(body !== undefined ? { "content-type": "application/json" } : {}),
-				},
-				body: body !== undefined ? JSON.stringify(body) : undefined,
-			});
-		} catch (err) {
-			throw new NormError("NETWORK_ERROR", `${method} ${route} failed: ${err.message}`);
-		}
-		const text = await resp.text();
-		let json;
-		try {
-			json = text ? JSON.parse(text) : null;
-		} catch {
-			throw new NormError(
-				"BAD_RESPONSE",
-				`${method} ${route} returned non-JSON (HTTP ${resp.status})`,
-				{ status: resp.status, snippet: text.slice(0, 300) },
-			);
-		}
-		if (resp.status === 429) {
-			throw new NormError("RATE_LIMITED", "Server returned 429 (rate limit).", json);
-		}
-		if (resp.status === 400 && json && json.status === "error") {
-			// Inline-validation failure (validatePathway threw server-side). Surface
-			// the message distinctly so commit/validate can attribute it to a file.
-			const verr = new NormError(
-				"SERVER_VALIDATION",
-				(json && json.message) || "Server validation failed",
-				{ status: 400, response: json },
-			);
-			verr.serverMessage = (json && json.message) || "Server validation failed";
-			throw verr;
-		}
-		if (!resp.ok) {
-			throw new NormError("HTTP_ERROR", `${method} ${route} -> HTTP ${resp.status}`, {
-				status: resp.status,
-				response: json,
-			});
-		}
-		return json;
-	}
-
-	return {
-		transport: "rest",
-
-		// GET /v1/pathway/:id -> { name, description, nodes, edges, ... }
-		async getPathway(id) {
-			return request("GET", `/v1/pathway/${encodeURIComponent(id)}`);
-		},
-
-		// GET /v1/pathway -> [{ id, name, description, production_version_number, ... }]
-		async listPathways() {
-			return request("GET", "/v1/pathway");
-		},
-
-		// GET /v1/calls/:id -> full call detail (transcripts, variables, analysis,
-		// summary, pathway_logs, error_message, recording_url, metadata).
-		async getCall(callId) {
-			return request("GET", `/v1/calls/${encodeURIComponent(callId)}`);
-		},
-
-		// GET /v1/calls?limit=N -> { calls:[{ call_id, c_id, created_at, ... }], ... }
-		// (default sort: created_at descending, so the newest calls come first).
-		async listRecentCallIds(n) {
-			const limit = Math.max(1, Math.min(100, n || 5));
-			const res = await request("GET", `/v1/calls?limit=${limit}`);
-			const calls = (res && (res.calls || res.data)) || (Array.isArray(res) ? res : []);
-			return calls
-				.map((c) => (typeof c === "string" ? c : c.call_id || c.c_id))
-				.filter(Boolean)
-				.slice(0, limit);
-		},
-
-		// Pull each call's full detail via REST and materialize the same file
-		// LAYOUT the old server-side call-log workspace produced (transcript /
-		// decision logs / variables / analysis), entirely client-side. READ-ONLY:
-		// GET only, never mutates the call.
-		async mountCall(callIds) {
-			const ids = (Array.isArray(callIds) ? callIds : [callIds]).filter(Boolean);
-			const out = [];
-			for (const id of ids) {
-				const res = await this.getCall(id);
-				// /v1/calls/:id returns the call object directly (no { data } wrapper).
-				const call = res && (res.call || res.data || res);
-				if (!call || (call.errors && !call.call_id && !call.c_id)) {
-					throw new NormError("CALL_NOT_FOUND", `Could not fetch call "${id}" via GET /v1/calls/${id}.`, { call_id: id, response: res });
-				}
-				if (!call.call_id && !call.c_id) call.call_id = id;
-				const bundle = generateCallFiles(call);
-				out.push({
-					call_id: bundle.callId || id,
-					summary_line: bundle.summaryLine,
-					files: bundle.files,
-					flagged: bundle.flagged,
-					has_pathway_logs: bundle.hasPathwayLogs,
-					has_transcript: bundle.hasTranscript,
-				});
-			}
-			return { calls: out };
-		},
-
-		// POST /v1/pathway/create -> { data: { pathway_id }, errors }
-		async createPathway({ name, description }) {
-			const res = await request("POST", "/v1/pathway/create", {
-				name,
-				description: description || "",
-				nodes: [],
-				edges: [],
-			});
-			const pid = res && res.data && res.data.pathway_id;
-			if (!pid) throw new NormError("CREATE_FAILED", "create did not return a pathway_id", res);
-			return pid;
-		},
-
-		// POST /v1/pathway/:id -> { status, message, pathway_data, warnings? }
-		// Server validates inline (validatePathway throws -> 400) and upserts in ONE call.
-		async updatePathway(id, { name, description, nodes, edges }) {
-			const payload = {};
-			if (name !== undefined) payload.name = name;
-			if (description !== undefined) payload.description = description;
-			if (nodes !== undefined) payload.nodes = nodes;
-			if (edges !== undefined) payload.edges = edges;
-			return request("POST", `/v1/pathway/${encodeURIComponent(id)}`, payload);
-		},
-
-		// POST /v1/pathway/:id/publish -> { message, data }
-		async publish(id, { versionId, environment } = {}) {
-			return request("POST", `/v1/pathway/${encodeURIComponent(id)}/publish`, {
-				version_id: versionId,
-				environment: environment || "production",
-			});
-		},
-
-		// ── Transport-agnostic capabilities (mirror the MCP adapter) ──────────
-		// These two methods let the orchestration drive clone/commit without
-		// branching on transport. On REST they are thin wrappers over the
-		// GET/POST primitives above — behavior is byte-identical to the original
-		// flow (GET -> generateFiles for clone; rebuildGraph -> POST upsert for
-		// commit). The MCP adapter implements the SAME two methods over the
-		// stateful /v1/mcp session, so cmdClone/cmdCommit/cmdValidate stay
-		// transport-agnostic.
-
-		/**
-		 * cloneTree(id) -> { treeMap, name, version }
-		 * Pull the canonical local file tree for a pathway. REST: one GET +
-		 * generateFiles. (versionId is irrelevant on REST — the upsert endpoint
-		 * does not take a version id.)
-		 */
-		async cloneTree(id) {
-			const serverPathway = await this.getPathway(id);
-			if (!serverPathway || serverPathway.errors) {
-				throw new NormError("CLONE_FAILED", "Could not fetch pathway after clone", serverPathway);
-			}
-			const files = pullToTree(serverPathway);
-			const treeMap = {};
-			for (const f of files) treeMap[f.path] = f.content;
-			return {
-				treeMap,
-				name: serverPathway.name || null,
-				version: serverPathway.production_version_number || null,
-				versionId: null,
-			};
-		},
-
-		/**
-		 * commitTree(id, { treeMap }) -> { warnings, version }
-		 * Push the full working tree. REST: rebuild the graph from the tree and
-		 * batch it into ONE inline-validated upsert, then read back the version.
-		 * `changedPaths` is accepted (and ignored) for interface parity with the
-		 * MCP adapter, which only writes the changed files.
-		 */
-		async commitTree(id, { treeMap }) {
-			const serverPathway = await this.getPathway(id);
-			const { nodes, edges } = rebuildGraph(treeMap);
-			const res = await this.updatePathway(id, {
-				name: serverPathway.name,
-				description: serverPathway.description,
-				nodes,
-				edges,
-			});
-			if (res && res.status === "error") {
-				const verr = new NormError(
-					"SERVER_VALIDATION",
-					res.message || "Server validation failed",
-					{ response: res },
-				);
-				verr.serverMessage = res.message || "Server validation failed";
-				throw verr;
-			}
-			const refreshed = await this.getPathway(id);
-			return {
-				warnings: (res && res.warnings) || [],
-				version: refreshed.production_version_number || null,
-				refreshed,
-			};
-		},
-
-		/**
-		 * validateTree(id, { treeMap }) -> { valid, warnings, errors }
-		 *
-		 * NON-DESTRUCTIVE. The Bland REST API has NO read-only pathway-validation
-		 * endpoint (the only inline-validation surface is the upsert POST, which
-		 * MUTATES — and a freshly-cloned, UNEDITED pathway would FAIL that upsert,
-		 * "Error updating pathway"). So validate runs entirely client-side via
-		 * structurallyValidateTree: frontmatter parses, edge endpoints resolve, the
-		 * structured files are well-formed, and the tree round-trips. ZERO writes,
-		 * zero network. Returns structured errors so the caller can attribute each to
-		 * a file directly (no server message-scraping needed).
-		 */
-		async validateTree(_id, { treeMap }) {
-			return structurallyValidateTree(treeMap);
-		},
-	};
-}
-
-// ============================================================================
-// MCP adapter — Streamable HTTP transport over /v1/mcp.
-//
-// Routes pathway reads/edits through the Bland MCP pathway shims (the
-// `list_pathways` / `get_pathway` / `validate_pathway` reads + the stateful
-// `begin_pathway_edit` / `get_files` / `write_file` / `set_*` /
-// `commit_pathway_workspace` edit shims, gated server-side behind
-// ENABLE_NORM_PATHWAY_TOOLS) instead of the raw REST upsert.
-//
-// The handshake mirrors bland-mcp-proxy.cjs: `initialize` ->
-// `notifications/initialized`, the server-owned `Mcp-Session-Id` captured from
-// the initialize response and reused on every subsequent request, JSON-RPC
-// `tools/call` with `Authorization: Bearer <key>` and
-// `accept: application/json, text/event-stream`.
-//
-// SHIMS.md rules honored:
-//  (1) ONE session per edit — the Mcp-Session-Id is captured once and threaded
-//      through begin -> edits -> validate -> commit.
-//  (2) begin_pathway_edit BEFORE any write.
-//  (3) get_files ONCE after begin (clone the whole fileMap in one round-trip).
-//  (4) STRUCTURED config (variables/model/unit-tests/tag/tools) goes through the
-//      set_* tools, NOT write_file; .pathways/layout.yaml + config.yaml are
-//      SKIPPED (read-only/derived, rejected by the server's preSave validator).
-//  (5) validate_pathway then commit_pathway_workspace.
-//  (6) tool errors are surfaced verbatim (the shim's ClientSafeError message is
-//      carried through as the NormError message).
-// ============================================================================
-
-/** Result-envelope shapes returned by the pathway shims over MCP. */
-// Success: result = { content:[{type:"text",text:summary}], structuredContent:{ status:"success", summary, data }, isError:false }
-// Error:   result = { content:[...], structuredContent:{ status:"error", summary, error:{ message, code } }, isError:true }
-
-function mcpUrlFrom(base) {
-	const trimmed = base.replace(/\/+$/, "");
-	return trimmed.endsWith("/v1/mcp") ? trimmed : `${trimmed}/v1/mcp`;
+/** Pull nodes/edges out of a server pathway payload (accepts a {data} envelope). */
+function nodesEdgesFrom(parsed) {
+	// The MCP passthrough hands back the raw GET body; the agent unwraps {data}.
+	// Accept either the unwrapped pathway or a still-wrapped { data: pathway }.
+	const pathway = parsed && parsed.data && (parsed.data.nodes || parsed.data.edges) ? parsed.data : parsed;
+	const nodes = Array.isArray(pathway && pathway.nodes) ? pathway.nodes : [];
+	const edges = Array.isArray(pathway && pathway.edges) ? pathway.edges : [];
+	return { nodes, edges, pathway: pathway || {} };
 }
 
 /**
- * The set of canonical structured surfaces (per node) that MUST be pushed via a
- * set_* tool rather than write_file. Keyed by the file basename under
- * nodes/<slug>/. `.pathways/layout.yaml` + `.pathways/config.yaml` are derived
- * and skipped entirely (handled separately in classifyMcpFile).
+ * generate <pathway.json> <out-dir>
+ * Read a pathway JSON file ({nodes,edges} — accepts a {data} envelope) and write
+ * the canonical pathway/ tree under <out-dir>. No network.
  */
-const STRUCTURED_NODE_FILES = new Set([
-	"variables.yaml",
-	"model.yaml",
-	"unit-tests.yaml",
-	"tag.yaml",
-	"tools.yaml",
-]);
-
-/** Derived/layout files the server rejects on write — never pushed. */
-const SKIPPED_FILES = new Set([
-	".pathways/layout.yaml",
-	".pathways/config.yaml",
-]);
-
-/**
- * Classify a tree path for the MCP commit routing:
- *   { kind: "skip" }                                  — derived/layout, not pushed
- *   { kind: "structured", slug, surface }             — push via a set_* tool
- *   { kind: "prose", path }                           — push via write_file
- */
-function classifyMcpFile(relPath) {
-	if (SKIPPED_FILES.has(relPath)) return { kind: "skip" };
-	const nodeMatch = relPath.match(/^nodes\/([^/]+)\/([^/]+)$/);
-	if (nodeMatch) {
-		const slug = nodeMatch[1];
-		const base = nodeMatch[2];
-		if (STRUCTURED_NODE_FILES.has(base)) {
-			return { kind: "structured", slug, surface: base };
-		}
-		// node.md / condition.md are prose -> write_file.
-		return { kind: "prose", path: relPath };
+function cmdGenerate(args) {
+	const jsonPath = args.find((a) => !a.startsWith("--"));
+	const outDir = args.filter((a) => !a.startsWith("--"))[1];
+	if (!jsonPath || !outDir) {
+		throw new NormError("BAD_ARGS", "usage: generate <pathway.json> <out-dir>");
 	}
-	// edges/*.md and .pathways/global_prompt.md are prose -> write_file.
-	return { kind: "prose", path: relPath };
-}
-
-/**
- * Map a single structured node file (its parsed YAML) to a { tool, input } pair
- * for the matching set_* shim. Returns null when there is nothing to push (e.g.
- * an empty config) so the caller can skip the call.
- *
- * The mappings below target the set_* shim INPUT schemas verbatim:
- *   variables.yaml  -> set_variables   { node_slug, variables:[{name,type,description}] }
- *   model.yaml      -> set_model_config{ node_slug, model_config }
- *   unit-tests.yaml -> set_unit_tests  { node_slug, unit_tests }
- *   tag.yaml        -> set_model_config{ node_slug, tag:{name,color} }
- *   tools.yaml      -> set_node_tools  { node_slug, action:"add", tool } (per entry)
- */
-function mapStructuredFileToSetCalls(slug, surface, content) {
-	const parsed = yamlParse(content);
-
-	if (surface === "variables.yaml") {
-		// generator: { variables: [{ name, type, description, _extra? }] }
-		// set_variables wants variables:[{name,type,description}] (minItems 1).
-		const raw = (parsed && parsed.variables) || [];
-		const variables = raw
-			.map((v) => ({
-				name: v.name,
-				type: v.type,
-				// Schema requires a string description (may be empty).
-				description: v.description == null ? "" : String(v.description),
-			}))
-			.filter((v) => v.name && v.type);
-		if (variables.length === 0) return [];
-		// NOTE: the generator preserves any extra positional extractVars fields in
-		// `_extra`; the set_variables shim schema only accepts {name,type,description}
-		// so `_extra` is intentionally dropped here. TODO(deploy): confirm no real
-		// pathway relies on extractVars[3+] surviving an MCP commit — if it does,
-		// that surface needs a richer set_variables input (raw REST keeps _extra).
-		return [{ tool: "set_variables", input: { node_slug: slug, variables } }];
+	if (!fs.existsSync(jsonPath)) {
+		throw new NormError("NOT_FOUND", `No such pathway JSON file: ${jsonPath}`);
 	}
-
-	if (surface === "model.yaml") {
-		// generator: raw modelOptions object. set_model_config merges model_config
-		// into the node's existing config, so pass the whole object through.
-		if (!parsed || typeof parsed !== "object" || Object.keys(parsed).length === 0) {
-			return [];
-		}
-		return [
-			{
-				tool: "set_model_config",
-				input: { node_slug: slug, model_config: parsed },
-			},
-		];
-	}
-
-	if (surface === "unit-tests.yaml") {
-		// generator: raw unitTests object (UnitTestsSchema: isEnabled,
-		// activeTestTypes, ...). set_unit_tests wants { node_slug, unit_tests }.
-		if (!parsed || typeof parsed !== "object" || Object.keys(parsed).length === 0) {
-			return [];
-		}
-		// TODO(deploy): the set_unit_tests shim validates against UnitTestsSchema
-		// (requires activeTestTypes, a discriminated test-type config). Benchmark
-		// fixtures carry a DIFFERENT, scenario-style unit-tests.yaml
-		// (caller_goal/expected_path) which would be REJECTED here. The canonical
-		// generator output is the UnitTestsSchema shape, so we pass `parsed`
-		// straight through and let the shim's TypeBox validator be the source of
-		// truth — surfacing its error verbatim (rule 6) if the shape is wrong.
-		return [
-			{
-				tool: "set_unit_tests",
-				input: { node_slug: slug, unit_tests: parsed },
-			},
-		];
-	}
-
-	if (surface === "tag.yaml") {
-		// generator: { name, color }. set_model_config carries the tag.
-		if (!parsed || !parsed.name || !parsed.color) return [];
-		return [
-			{
-				tool: "set_model_config",
-				input: {
-					node_slug: slug,
-					tag: { name: String(parsed.name), color: String(parsed.color) },
-				},
-			},
-		];
-	}
-
-	if (surface === "tools.yaml") {
-		// generator: { tools: [ToolEntry...] }. set_node_tools is one-tool-per-call
-		// (add appends by name), so emit one "add" call per entry. We use "add"
-		// (not "update") to mirror a fresh clone's empty tool list; an existing
-		// same-named tool surfaces the shim's "already exists" error verbatim.
-		const tools = (parsed && parsed.tools) || [];
-		if (!Array.isArray(tools) || tools.length === 0) return [];
-		// TODO(deploy): set_node_tools validates each `tool` against NodeToolSchema
-		// (type ∈ webhook/custom_tool/code/track, per-type config rules — e.g. a
-		// webhook needs config.url). The generator round-trips whatever ToolEntry
-		// shape the server emitted, so canonical tools.yaml should already conform;
-		// but tools authored by hand (or the scenario-style `rest_api` fixtures)
-		// will be REJECTED. We pass each entry through unchanged and surface the
-		// shim's per-type validation error verbatim. Live-validate the exact
-		// ToolEntry round-trip at deploy.
-		return tools.map((tool) => ({
-			tool: "set_node_tools",
-			input: { node_slug: slug, action: "add", tool },
-		}));
-	}
-
-	return [];
-}
-
-/**
- * MCP adapter — drives the Bland pathway shims over Streamable HTTP /v1/mcp.
- * Satisfies the same interface as the REST adapter (getPathway / listPathways /
- * createPathway / publish) PLUS the two transport-agnostic capabilities the
- * orchestration calls (cloneTree / commitTree). Stateful tools share ONE
- * Mcp-Session-Id for the whole edit (SHIMS.md rule 1).
- */
-function createMcpAdapter() {
-	if (!API_KEY) {
-		throw new NormError(
-			"NO_API_KEY",
-			"Missing API key. Set BLAND_API_KEY / CLAUDE_PLUGIN_OPTION_bland_api_key, or configure bland_api_key in the plugin (also read from ~/.claude/settings.json).",
-		);
-	}
-	const authHeader = API_KEY.toLowerCase().startsWith("bearer ") ? API_KEY : `Bearer ${API_KEY}`;
-	const mcpUrl = mcpUrlFrom(API_URL);
-
-	let sessionId = "";
-	let rpcId = 0;
-
-	/** One JSON-RPC round-trip over the Streamable HTTP transport. */
-	async function rpc(method, params) {
-		await throttle();
-		const headers = {
-			accept: "application/json, text/event-stream",
-			authorization: authHeader,
-			"content-type": "application/json",
-		};
-		if (sessionId) headers["mcp-session-id"] = sessionId;
-
-		const id = ++rpcId;
-		const message = { jsonrpc: "2.0", id, method, params: params || {} };
-
-		let resp;
-		try {
-			resp = await fetch(mcpUrl, {
-				method: "POST",
-				headers,
-				body: JSON.stringify(message),
-			});
-		} catch (err) {
-			throw new NormError("NETWORK_ERROR", `MCP ${method} failed: ${err.message}`);
-		}
-
-		// The server mints / rotates the session id on initialize; capture it.
-		const nextSessionId = resp.headers.get("mcp-session-id");
-		if (nextSessionId) sessionId = nextSessionId;
-
-		const text = await resp.text();
-		const json = parseMcpBody(text, resp.status, method);
-
-		if (resp.status === 429) {
-			throw new NormError("RATE_LIMITED", "MCP server returned 429 (rate limit).", json);
-		}
-		if (!resp.ok) {
-			throw new NormError("HTTP_ERROR", `MCP ${method} -> HTTP ${resp.status}`, {
-				status: resp.status,
-				response: json,
-			});
-		}
-		if (json && json.error) {
-			// JSON-RPC transport-level error (bad method, missing session, ...).
-			throw new NormError("MCP_RPC_ERROR", `MCP ${method}: ${json.error.message || JSON.stringify(json.error)}`, json.error);
-		}
-		return json ? json.result : null;
-	}
-
-	/** Fire-and-forget JSON-RPC notification (no id, no response expected). */
-	async function notify(method, params) {
-		await throttle();
-		const headers = {
-			accept: "application/json, text/event-stream",
-			authorization: authHeader,
-			"content-type": "application/json",
-		};
-		if (sessionId) headers["mcp-session-id"] = sessionId;
-		try {
-			await fetch(mcpUrl, {
-				method: "POST",
-				headers,
-				body: JSON.stringify({ jsonrpc: "2.0", method, params: params || {} }),
-			});
-		} catch (err) {
-			throw new NormError("NETWORK_ERROR", `MCP notify ${method} failed: ${err.message}`);
-		}
-	}
-
-	/**
-	 * Call a pathway shim tool and unwrap its result envelope.
-	 * On an error envelope (isError / status:"error") throw a NormError carrying
-	 * the shim's own client-safe message verbatim (SHIMS.md rule 6).
-	 */
-	async function callTool(name, args) {
-		const result = await rpc("tools/call", { name, arguments: args || {} });
-		const envelope = result && result.structuredContent;
-		const isError = (result && result.isError) || (envelope && envelope.status === "error");
-		if (isError) {
-			const message =
-				(envelope && envelope.error && envelope.error.message) ||
-				(envelope && envelope.summary) ||
-				(result && result.content && result.content[0] && result.content[0].text) ||
-				`MCP tool ${name} failed`;
-			throw new NormError("MCP_TOOL_ERROR", message, {
-				tool: name,
-				code: envelope && envelope.error && envelope.error.code,
-			});
-		}
-		// Prefer the structured envelope data; fall back to text for text-only hosts.
-		if (envelope && "data" in envelope) return envelope.data;
-		if (result && result.content && result.content[0]) return result.content[0].text;
-		return null;
-	}
-
-	/** initialize -> notifications/initialized, capturing the session id. */
-	async function handshake() {
-		if (sessionId) return; // already initialized this process.
-		await rpc("initialize", {
-			protocolVersion: "2025-03-26",
-			capabilities: {},
-			clientInfo: { name: "norm-sync", version: "1" },
-		});
-		await notify("notifications/initialized", {});
-	}
-
-	const adapter = {
-		transport: "mcp",
-
-		// ── Reads (stateless shims; no workspace needed) ─────────────────────
-
-		// list_pathways -> { pathways:[{id,name,description,recommendedVersionId}], count }
-		// Projected to the REST-style array the orchestration's listPathways callers expect.
-		async listPathways() {
-			await handshake();
-			const data = await callTool("list_pathways", {});
-			return (data && data.pathways) || [];
-		},
-
-		// get_pathway { id } -> { id, name, recommendedVersionId, productionVersion, latestVersion, ... }
-		// Projected to the REST getPathway shape the orchestration reads
-		// (name/description + a production_version_number). The MCP read shim does
-		// NOT return nodes/edges — clone goes through cloneTree (begin + get_files),
-		// so getPathway here is only used for metadata.
-		async getPathway(id) {
-			await handshake();
-			const data = await callTool("get_pathway", { id });
-			if (!data) return null;
-			return {
-				id: data.id,
-				name: data.name,
-				description: data.description,
-				production_version_number:
-					(data.productionVersion && data.productionVersion.versionNumber) || null,
-				// Surface the recommended version id so cloneTree/commitTree can fork it.
-				_recommendedVersionId: data.recommendedVersionId || null,
-				_raw: data,
-			};
-		},
-
-		// Mount a call's logs to local files. The server-side call-log workspace
-		// tools (lookup_call / mount_call_log_workspace / call_log_glob /
-		// call_log_read) are GONE from /v1/mcp, so call mounting is REST-only now —
-		// delegate to the REST adapter (GET /v1/calls/:id -> client-side file tree).
-		// cmdMountCall already uses the REST adapter directly; this delegation keeps
-		// the MCP adapter's interface intact for any other caller.
-		async mountCall(callIds) {
-			return createRestAdapter().mountCall(callIds);
-		},
-
-		// Resolve the N most recent call ids for `mount-call --recent N`.
-		// REST-only (list_recent_calls is gone): GET /v1/calls?limit=N, newest first.
-		async listRecentCallIds(n) {
-			return createRestAdapter().listRecentCallIds(n);
-		},
-
-		// No create shim exists on the MCP surface yet — generation goes through
-		// begin_pathway_generation, which is out of scope for the sync adapter.
-		async createPathway() {
-			throw new NormError(
-				"MCP_NO_CREATE",
-				"Creating a new pathway over MCP is not supported by the sync adapter " +
-					"(no create shim on /v1/mcp). Clone an existing pathway id, or use REST transport to create.",
-			);
-		},
-
-		// No publish shim on the MCP surface; promotion is handled by commit
-		// (generation auto-promotes; an edit leaves production untouched).
-		async publish() {
-			throw new NormError(
-				"MCP_NO_PUBLISH",
-				"Publishing over MCP is not supported by the sync adapter. commit_pathway_workspace " +
-					"persists the working version; promote explicitly via the dashboard or REST publish.",
-			);
-		},
-
-		// ── Transport-agnostic capabilities ─────────────────────────────────
-
-		/**
-		 * cloneTree(id) -> { treeMap, name, version, versionId }
-		 * Open an edit workspace and dump the whole fileMap in one call
-		 * (SHIMS.md rules 2 + 3): get_pathway (for the version id) ->
-		 * begin_pathway_edit -> get_files.
-		 */
-		async cloneTree(id) {
-			await handshake();
-			const meta = await this.getPathway(id);
-			if (!meta) {
-				throw new NormError("CLONE_FAILED", `Pathway "${id}" was not found over MCP.`, { id });
-			}
-			const versionId = meta._recommendedVersionId;
-			if (!versionId) {
-				throw new NormError(
-					"CLONE_FAILED",
-					`Pathway "${id}" has no editable version (no recommendedVersionId).`,
-					{ id },
-				);
-			}
-			// rule 2: begin before any read of the workspace fileMap.
-			const begun = await callTool("begin_pathway_edit", {
-				pathway_id: id,
-				pathway_version_id: String(versionId),
-			});
-			const workingVersionId =
-				(begun && (begun.working_pathway_version_id || begun.pathway_version_id)) || String(versionId);
-			// rule 3: get_files ONCE -> the WHOLE workspace fileMap.
-			const filesResult = await callTool("get_files", {});
-			const files = (filesResult && filesResult.files) || [];
-			const treeMap = {};
-			for (const f of files) treeMap[f.path] = f.content;
-			return {
-				treeMap,
-				name: meta.name || null,
-				version: meta.production_version_number || null,
-				versionId: workingVersionId,
-			};
-		},
-
-		/**
-		 * commitTree(id, { treeMap, changedPaths, previousVersionId }) ->
-		 *   { warnings, version, refreshed }
-		 *
-		 * Drive a full edit on ONE session: begin -> per-changed-file
-		 * write_file/set_* -> validate_pathway -> commit_pathway_workspace.
-		 * Only the CHANGED files are pushed (`changedPaths`); structured surfaces
-		 * route to the matching set_* tool, layout/config are skipped.
-		 */
-		async commitTree(id, { treeMap, changedPaths, previousVersionId }) {
-			await handshake();
-
-			// rule 2: open (or re-open) the workspace before any write. Resolve the
-			// version to fork: the caller-supplied previousVersionId (the working
-			// version captured at clone) wins; otherwise re-resolve via get_pathway.
-			let versionId = previousVersionId;
-			if (!versionId) {
-				const meta = await this.getPathway(id);
-				versionId = meta && meta._recommendedVersionId;
-			}
-			if (!versionId) {
-				throw new NormError("COMMIT_FAILED", `No editable version id for pathway "${id}".`, { id });
-			}
-			const begun = await callTool("begin_pathway_edit", {
-				pathway_id: id,
-				pathway_version_id: String(versionId),
-			});
-			const workingVersionId =
-				(begun && (begun.working_pathway_version_id || begun.pathway_version_id)) || String(versionId);
-
-			// Push every changed file. The set_* tools REPLACE the surface, so we
-			// always send the file's full current content (not a diff).
-			const paths = Array.isArray(changedPaths) && changedPaths.length > 0
-				? changedPaths
-				: Object.keys(treeMap);
-
-			const warnings = [];
-			for (const relPath of paths.slice().sort()) {
-				// A deleted file (present in changedPaths but absent from treeMap)
-				// can't be expressed through write_file/set_* on the workspace —
-				// surface it rather than silently dropping the deletion.
-				const content = treeMap[relPath];
-				const cls = classifyMcpFile(relPath);
-				if (cls.kind === "skip") continue; // rule 4: derived/layout not pushed.
-
-				if (content === undefined) {
-					throw new NormError(
-						"MCP_DELETE_UNSUPPORTED",
-						`Cannot delete "${relPath}" over MCP — the workspace edit tools only create/replace files. ` +
-							"Re-clone to take the server state, or remove the node/edge in the dashboard.",
-						{ path: relPath },
-					);
-				}
-
-				if (cls.kind === "structured") {
-					// rule 4: structured config via set_* (NOT write_file).
-					const calls = mapStructuredFileToSetCalls(cls.slug, cls.surface, content);
-					for (const c of calls) {
-						const res = await callTool(c.tool, c.input);
-						if (res && Array.isArray(res.warnings)) warnings.push(...res.warnings);
-					}
-				} else {
-					// prose -> write_file.
-					const res = await callTool("write_file", { path: relPath, content });
-					if (res && Array.isArray(res.warnings)) warnings.push(...res.warnings);
-				}
-			}
-
-			// rule 5: validate, THEN commit. validate_pathway is a no-save read over
-			// the working version; surface its errors verbatim before committing.
-			const validation = await callTool("validate_pathway", {
-				pathwayVersionId: String(workingVersionId),
-			});
-			if (validation && validation.valid === false) {
-				const errs = (validation.errors || []).join("; ") || "validation failed";
-				const verr = new NormError("SERVER_VALIDATION", errs, {
-					errors: validation.errors || [],
-					warnings: validation.warnings || [],
-				});
-				verr.serverMessage = errs;
-				throw verr;
-			}
-			if (validation && Array.isArray(validation.warnings)) {
-				warnings.push(...validation.warnings);
-			}
-
-			// rule 5: commit (fails closed server-side on validation errors).
-			const committed = await callTool("commit_pathway_workspace", {});
-			if (committed && Array.isArray(committed.warnings)) {
-				warnings.push(...committed.warnings);
-			}
-
-			return {
-				warnings,
-				version: (committed && committed.pathway_version_id) || workingVersionId,
-				refreshed: { name: null, description: null },
-				committed,
-			};
-		},
-
-		/**
-		 * validateTree(id, { treeMap }) -> { valid, warnings, errors }
-		 *
-		 * NON-DESTRUCTIVE. The MCP pathway-edit shims (begin_pathway_edit /
-		 * write_file / validate_pathway / commit_pathway_workspace) are NO LONGER on
-		 * the /v1/mcp surface, and there is no read-only validation tool either.
-		 * Validation is therefore identical to REST: a pure, offline structural pass
-		 * over the local tree. No workspace is opened, nothing is written, the
-		 * session is never touched.
-		 */
-		async validateTree(_id, { treeMap }) {
-			return structurallyValidateTree(treeMap);
-		},
-	};
-
-	return adapter;
-}
-
-/**
- * Parse an MCP Streamable-HTTP response body. The transport may answer with a
- * single JSON object OR an SSE stream (`text/event-stream`) carrying one or more
- * `data:` lines; the proxy assumes JSON, but we tolerate the SSE framing too and
- * return the LAST `data:` payload (the JSON-RPC response for our request).
- */
-function parseMcpBody(text, status, method) {
-	if (!text) return null;
-	const trimmed = text.trim();
-	// Fast path: a plain JSON object/array.
-	if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-		try {
-			return JSON.parse(trimmed);
-		} catch {
-			/* fall through to SSE parsing */
-		}
-	}
-	// SSE framing: collect `data:` lines, return the last parseable JSON payload.
-	let last = null;
-	for (const line of trimmed.split("\n")) {
-		const m = line.match(/^data:\s?(.*)$/);
-		if (!m) continue;
-		const payload = m[1].trim();
-		if (!payload || payload === "[DONE]") continue;
-		try {
-			last = JSON.parse(payload);
-		} catch {
-			/* skip non-JSON data lines */
-		}
-	}
-	if (last !== null) return last;
-	throw new NormError(
-		"BAD_RESPONSE",
-		`MCP ${method} returned non-JSON (HTTP ${status})`,
-		{ status, snippet: trimmed.slice(0, 300) },
-	);
-}
-
-function getAdapter(transport) {
-	const t = transport || "rest";
-	if (t === "mcp") return createMcpAdapter();
-	return createRestAdapter();
-}
-
-// ============================================================================
-// Error mapping: server validation errors -> originating files
-// ============================================================================
-
-/**
- * The inline validator (validatePathway / sanitizeComponents) returns errors
- * keyed loosely by message. We best-effort attribute each error to a file by
- * scanning for a node id / slug / edge id mentioned in the message.
- */
-function mapErrorsToFiles(serverErrors, treeMap) {
-	const idToFile = {};
-	for (const rel of Object.keys(treeMap)) {
-		if (/^nodes\/[^/]+\/node\.md$/.test(rel)) {
-			const { frontmatter } = parseFrontmatter(treeMap[rel]);
-			if (frontmatter.id) idToFile[String(frontmatter.id)] = rel;
-			const slug = rel.split("/")[1];
-			idToFile[slug] = rel;
-		} else if (/^edges\/.+\.md$/.test(rel)) {
-			const { frontmatter } = parseFrontmatter(treeMap[rel]);
-			if (frontmatter.id) idToFile[String(frontmatter.id)] = rel;
-		}
-	}
-	const errArray = Array.isArray(serverErrors) ? serverErrors : [serverErrors];
-	return errArray.map((e) => {
-		const message = typeof e === "string" ? e : e && (e.message || e.error) ? `${e.error || ""} ${e.message || ""}`.trim() : JSON.stringify(e);
-		let file = null;
-		for (const [id, rel] of Object.entries(idToFile)) {
-			if (id && message.includes(id)) {
-				file = rel;
-				break;
-			}
-		}
-		return { message, file: file || "(unattributed — pathway-level)" };
-	});
-}
-
-// ============================================================================
-// Subcommands
-// ============================================================================
-
-function pullToTree(serverPathway) {
-	const nodes = Array.isArray(serverPathway.nodes) ? serverPathway.nodes : [];
-	const edges = Array.isArray(serverPathway.edges) ? serverPathway.edges : [];
-	return generateFiles(nodes, edges);
-}
-
-/**
- * Materialize a pulled file tree to disk + write the manifest/baseline snapshot.
- * Transport-agnostic: it takes a ready-made treeMap (path -> content) plus the
- * pathway metadata, so the REST path (GET -> generateFiles -> treeMap) and the
- * MCP path (begin -> get_files -> treeMap) both feed it the same way.
- *
- * `versionId` is the MCP working-version id (used to re-open the same workspace
- * on the next commit); null on REST (the upsert endpoint is version-less).
- */
-function snapshotTreeToDisk(adapter, id, { treeMap, name, version, versionId }) {
-	// Clean + write pathway/ tree.
-	if (fs.existsSync(PATHWAY_DIR)) fs.rmSync(PATHWAY_DIR, { recursive: true, force: true });
-	ensureDir(PATHWAY_DIR);
-	writeFileTree(
-		PATHWAY_DIR,
-		Object.entries(treeMap).map(([p, content]) => ({ path: p, content })),
-	);
-
-	const onDiskTree = readTree(PATHWAY_DIR);
-	const fileHashes = hashTree(onDiskTree);
-
-	const manifest = {
-		pathway_id: id,
-		transport: adapter.transport,
-		name: name || null,
-		version: version || null,
-		pulled_at: new Date().toISOString(),
-		api_url: API_URL,
-		files: fileHashes,
-	};
-	if (versionId != null) manifest.version_id = versionId;
-	writeManifest(manifest);
-	writeBaseline(onDiskTree);
-	return { manifest, fileCount: Object.keys(fileHashes).length };
-}
-
-/**
- * Backwards-compatible wrapper: snapshot from a REST `serverPathway` (nodes/edges
- * JSON). Used by the `--server` status check, which only has a REST graph.
- */
-function materializeAndSnapshot(adapter, id, serverPathway) {
-	const files = pullToTree(serverPathway);
-	const treeMap = {};
-	for (const f of files) treeMap[f.path] = f.content;
-	return snapshotTreeToDisk(adapter, id, {
-		treeMap,
-		name: serverPathway.name || null,
-		version: serverPathway.production_version_number || null,
-		versionId: null,
-	});
-}
-
-async function cmdClone(args) {
-	// Transport selection for the clone (persisted into the manifest, so all later
-	// commands use it). Default REST; `--transport mcp` routes through /v1/mcp.
-	const tIdx = args.indexOf("--transport");
-	const transport = tIdx !== -1 ? (args[tIdx + 1] || "rest") : "rest";
-
-	let id;
-	const newIdx = args.indexOf("--new");
-	if (newIdx !== -1) {
-		// Create has no MCP shim — always create over REST, then clone via the
-		// selected transport (an MCP clone of the just-created empty shell still
-		// works through begin_pathway_edit + get_files).
-		const name = args[newIdx + 1];
-		if (!name) throw new NormError("BAD_ARGS", "clone --new requires a name: clone --new \"My Pathway\"");
-		id = await createRestAdapter().createPathway({ name });
-	} else {
-		id = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--transport");
-		if (!id) throw new NormError("BAD_ARGS", "clone requires a pathway id, or --new \"<name>\".");
-	}
-
-	const adapter = getAdapter(transport);
-	// cloneTree is transport-agnostic: REST does GET -> generateFiles; MCP does
-	// begin_pathway_edit -> get_files (the whole fileMap in one call).
-	const cloned = await adapter.cloneTree(id);
-	const { manifest, fileCount } = snapshotTreeToDisk(adapter, id, cloned);
-
-	ok({
-		command: "clone",
-		pathway_id: id,
-		transport: adapter.transport,
-		name: manifest.name,
-		version: manifest.version,
-		version_id: manifest.version_id || null,
-		files_written: fileCount,
-		pathway_dir: PATHWAY_DIR,
-		manifest_path: MANIFEST_PATH,
-	});
-}
-
-/**
- * mount-call <call_id> — pull a call's full log workspace into LOCAL files under
- * calls/<call_id>/ so Claude's native Read / Grep / Glob can inspect the transcript,
- * routing/decision logs, variables, and analysis directly (no call_log_* MCP
- * wrappers needed). READ-ONLY: it issues only GET /v1/calls/:id and never mutates
- * the call. The old server-side call-log workspace tools are gone from /v1/mcp, so
- * this rebuilds the same file layout client-side over REST regardless of transport.
- */
-async function cmdMountCall(args) {
-	const adapter = createRestAdapter();
-	let callIds;
-	const recentIdx = args.indexOf("--recent");
-	if (recentIdx !== -1) {
-		const n = parseInt(args[recentIdx + 1], 10) || 5;
-		callIds = await adapter.listRecentCallIds(n);
-		if (!callIds.length) {
-			throw new NormError("NO_CALLS", "No recent calls found to mount.");
-		}
-	} else {
-		callIds = args.filter((a) => !a.startsWith("--"));
-		if (!callIds.length) {
-			throw new NormError(
-				"BAD_ARGS",
-				"mount-call requires a call id (or --recent N): mount-call <call_id> [<call_id> ...]",
-			);
-		}
-	}
-
-	const { calls } = await adapter.mountCall(callIds);
-	const callsRoot = path.join(PROJECT_DIR, "calls");
-	const mounted = [];
-	for (const c of calls) {
-		const root = path.join(callsRoot, c.call_id);
-		// Clean re-pull each time so the local snapshot matches the server exactly.
-		try {
-			fs.rmSync(root, { recursive: true, force: true });
-		} catch {
-			/* ignore */
-		}
-		let written = 0;
-		const flagged = [];
-		for (const f of c.files) {
-			// Faithful, path-safe mirror under calls/<id>/ so native Glob/Grep/Read
-			// see the same tree the server exposed.
-			const abs = safeJoinUnder(root, f.path);
-			ensureDir(path.dirname(abs));
-			fs.writeFileSync(abs, f.content, "utf8");
-			written += 1;
-			const rel = path.relative(root, abs).split(path.sep).join("/");
-			// Files with an error annotation [!!!] are the ones to read first.
-			if ((Array.isArray(c.flagged) && c.flagged.includes(f.path)) || /\[!!!\]/.test(f.content.slice(0, 400))) {
-				flagged.push(rel);
-			}
-		}
-		mounted.push({
-			call_id: c.call_id,
-			dir: root,
-			files_written: written,
-			flagged_files: flagged,
-			summary: c.summary_line || "",
-		});
-	}
-
-	// Top-level index so Claude can orient across one OR many mounted calls.
-	writeCallsIndex(callsRoot, mounted);
-
-	ok({
-		command: "mount-call",
-		calls_dir: callsRoot,
-		index: path.join(callsRoot, "_index.md"),
-		total_calls: mounted.length,
-		total_files: mounted.reduce((a, m) => a + m.files_written, 0),
-		mounted: mounted.map((m) => ({
-			call_id: m.call_id,
-			dir: m.dir,
-			files_written: m.files_written,
-			flagged_files: m.flagged_files,
-			summary: m.summary,
-		})),
-		hint: `Inspect with native Read / Grep / Glob over ${path.relative(PROJECT_DIR, callsRoot)}/. Start with _index.md, then each call's call_logs/<shortId>/_summary.md and transcript/_overview.md; read any [!!!]-flagged files first. Pathway routing is under call_logs/<shortId>/pathway/_decisions.md (+ raw_pathway_logs.json).`,
-	});
-}
-
-/** Write a top-level index of all mounted calls for fast orientation. */
-function writeCallsIndex(callsRoot, mounted) {
-	const lines = [
-		"# Mounted Call Logs",
-		"",
-		`${mounted.length} call(s) mounted as local files for native Read / Grep / Glob inspection.`,
-		"Read any [!!!]-flagged files first. Each call lives under `calls/<id>/`.",
-		"",
-		"| Call ID | Files | Flagged | Summary |",
-		"| ------- | ----- | ------- | ------- |",
-	];
-	for (const m of mounted) {
-		const sum = String(m.summary || "")
-			.replace(/\|/g, "\\|")
-			.slice(0, 120);
-		lines.push(
-			`| \`${m.call_id}\` | ${m.files_written} | ${m.flagged_files.length} | ${sum} |`,
-		);
-	}
-	lines.push("");
-	for (const m of mounted) {
-		const shortId = String(m.call_id).substring(0, 8);
-		lines.push(`## ${m.call_id}`);
-		lines.push(`- Dir: \`calls/${m.call_id}/\``);
-		lines.push(
-			`- Start: \`call_logs/${shortId}/_summary.md\` and \`call_logs/${shortId}/transcript/_overview.md\``,
-		);
-		lines.push(
-			`- Routing: \`call_logs/${shortId}/pathway/_decisions.md\` (raw: \`pathway/raw_pathway_logs.json\`)`,
-		);
-		if (m.flagged_files.length) {
-			lines.push(
-				`- ⚠️ Read first: ${m.flagged_files.map((f) => `\`${f}\``).join(", ")}`,
-			);
-		}
-		if (m.summary) lines.push(`- Summary: ${m.summary}`);
-		lines.push("");
-	}
-	ensureDir(callsRoot);
-	fs.writeFileSync(
-		path.join(callsRoot, "_index.md"),
-		`${lines.join("\n")}\n`,
-		"utf8",
-	);
-}
-
-/** Compute 3-way drift: baseline (last pull) vs local (working tree) vs server. */
-function computeDrift(manifest, localTree, serverTree) {
-	const baselineHashes = manifest.files || {};
-	const localHashes = hashTree(localTree);
-	const serverHashes = hashTree(serverTree);
-
-	const allPaths = new Set([
-		...Object.keys(baselineHashes),
-		...Object.keys(localHashes),
-		...Object.keys(serverHashes),
-	]);
-
-	const localChanged = [];
-	const serverChanged = [];
-	const conflicts = [];
-
-	for (const p of allPaths) {
-		const b = baselineHashes[p];
-		const l = localHashes[p];
-		const s = serverHashes[p];
-		const localDiff = l !== b;
-		const serverDiff = s !== b;
-		if (localDiff && serverDiff && l !== s) {
-			conflicts.push(p);
-		} else if (localDiff) {
-			localChanged.push(p);
-		} else if (serverDiff) {
-			serverChanged.push(p);
-		}
-	}
-	return {
-		localChanged: localChanged.sort(),
-		serverChanged: serverChanged.sort(),
-		conflicts: conflicts.sort(),
-	};
-}
-
-async function cmdCommit(args) {
-	const manifest = readManifest();
-	const adapter = getAdapter(manifest.transport);
-	const id = manifest.pathway_id;
-
-	const localTree = readTree(PATHWAY_DIR);
-
-	// Pull current server state to detect concurrent edits (3-way). cloneTree is
-	// transport-agnostic: REST GET -> generateFiles; MCP begin -> get_files.
-	const fresh = await adapter.cloneTree(id);
-	const freshServerTreeMap = fresh.treeMap;
-
-	const drift = computeDrift(manifest, localTree, freshServerTreeMap);
-
-	if (drift.localChanged.length === 0 && drift.conflicts.length === 0) {
-		ok({ command: "commit", status: "nothing_to_commit", drift });
-		return;
-	}
-
-	const force = args.includes("--force");
-	if (drift.conflicts.length > 0 && !force) {
-		throw new NormError(
-			"CONFLICT",
-			`Server changed ${drift.conflicts.length} of the same file(s) you edited. ` +
-				"Re-clone to take server, or pass --force to overwrite server with local.",
-			{ conflicts: drift.conflicts, server_changed: drift.serverChanged },
-		);
-	}
-
-	// The set of files to push: everything that changed locally (+ any forced
-	// conflicts). On REST commitTree ignores this and batches the whole rebuilt
-	// graph; on MCP it pushes ONLY these files via write_file/set_* (rule 4),
-	// skipping derived layout/config.
-	const changedPaths = drift.localChanged.concat(force ? drift.conflicts : []);
-
-	let result;
+	let parsed;
 	try {
-		result = await adapter.commitTree(id, {
-			treeMap: localTree,
-			changedPaths,
-			previousVersionId: manifest.version_id || null,
-		});
+		parsed = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
 	} catch (err) {
-		if (err instanceof NormError && err.code === "SERVER_VALIDATION") {
-			const mapped = mapErrorsToFiles([err.serverMessage], localTree);
-			throw new NormError("VALIDATION_FAILED", "Server rejected the commit", { errors: mapped });
-		}
-		throw err;
+		throw new NormError("BAD_JSON", `Could not parse ${jsonPath}: ${err.message}`);
 	}
+	const { nodes, edges, pathway } = nodesEdgesFrom(parsed);
+	const files = requireEngine().generateFiles(nodes, edges);
 
-	// Re-pull to refresh baseline (transport-agnostic).
-	const refreshed = await adapter.cloneTree(id);
-	const { manifest: newManifest } = snapshotTreeToDisk(adapter, id, refreshed);
+	// Clean + write the pathway/ tree.
+	if (fs.existsSync(outDir)) fs.rmSync(outDir, { recursive: true, force: true });
+	ensureDir(outDir);
+	writeFileTree(outDir, files);
 
 	ok({
-		command: "commit",
-		pathway_id: id,
-		transport: adapter.transport,
-		committed_files: drift.localChanged.length + (force ? drift.conflicts.length : 0),
-		forced_conflicts: force ? drift.conflicts : [],
-		warnings: (result && result.warnings) || [],
-		new_version: newManifest.version,
-		new_version_id: newManifest.version_id || null,
+		command: "generate",
+		out_dir: outDir,
+		name: pathway.name || null,
+		files_written: files.length,
+		nodes: nodes.filter((n) => !isGlobalConfigNode(n)).length,
+		edges: edges.length,
 	});
 }
 
-async function cmdValidate() {
-	const manifest = readManifest();
-	const id = manifest.pathway_id;
-	const localTree = readTree(PATHWAY_DIR);
-	const { nodes, edges } = rebuildGraph(localTree);
+/**
+ * rebuild <dir>
+ * Read the pathway/ tree under <dir> and print the rebuilt {nodes,edges} JSON on
+ * stdout. Edge label/description are emitted TOP-LEVEL per edge (POST shape). No
+ * network. NOTE: prints the graph JSON directly (NOT the { ok, ... } envelope) so
+ * the caller can pipe it straight into a POST body.
+ */
+function cmdRebuild(args) {
+	const dir = args.find((a) => !a.startsWith("--"));
+	if (!dir) throw new NormError("BAD_ARGS", "usage: rebuild <dir>");
+	if (!fs.existsSync(dir)) throw new NormError("NOT_FOUND", `No such directory: ${dir}`);
+	const treeMap = readTree(dir);
+	if (Object.keys(treeMap).length === 0) {
+		throw new NormError("EMPTY_TREE", `No files under ${dir}. Run 'generate' first, or point at the pathway/ tree.`);
+	}
+	const { nodes, edges } = requireEngine().exportToJSON(
+		new Map(Object.entries(treeMap)),
+	);
+	// Print the graph JSON directly for piping into a /v1/convo_pathway/update|create-version body.
+	process.stdout.write(`${JSON.stringify({ nodes, edges }, null, 2)}\n`);
+}
 
-	// NON-DESTRUCTIVE: validation is a pure, offline structural pass over the local
-	// tree — frontmatter parses, edge endpoints resolve, structured files are
-	// well-formed, the tree round-trips. There is NO read-only validation endpoint
-	// on either transport, so we never touch the server (a clean clone validates
-	// without any write). This is identical for REST and MCP, so we call the
-	// validator directly rather than routing through an adapter that could mutate.
-	const res = structurallyValidateTree(localTree);
+/**
+ * validate <dir>
+ * Offline structural check over the pathway/ tree under <dir>:
+ * start/end/reachability/parse + round-trip. Prints a structured report on stdout.
+ * This offline pass is the authoritative structural pre-check; the commit POST
+ * (/v1/convo_pathway/update|create-version) may still return an error envelope.
+ */
+function cmdValidate(args) {
+	const dir = args.find((a) => !a.startsWith("--"));
+	if (!dir) throw new NormError("BAD_ARGS", "usage: validate <dir>");
+	if (!fs.existsSync(dir)) throw new NormError("NOT_FOUND", `No such directory: ${dir}`);
+	const treeMap = readTree(dir);
+	const res = structurallyValidateTree(treeMap);
+	const { nodes, edges } = requireEngine().exportToJSON(
+		new Map(Object.entries(treeMap)),
+	);
 
 	if (!res.valid) {
-		// errors already carry { message, file } — surface them as-is.
-		fail("VALIDATION_FAILED", "Pathway failed structural validation", {
+		fail("VALIDATION_FAILED", "Pathway failed offline structural validation", {
 			errors: res.errors,
 			warnings: res.warnings,
+			note: "Authoritative offline structural pre-check. The save POST is POST /v1/convo_pathway/update (in place) or /create-version (fork), NOT POST /v1/pathway/:id (SMS router; 400s); it may still return an error envelope this pre-check cannot see.",
 		});
 		return;
 	}
@@ -2271,163 +1156,46 @@ async function cmdValidate() {
 		command: "validate",
 		status: "valid",
 		warnings: res.warnings || [],
-		nodes: nodes.length,
+		nodes: nodes.filter((n) => !isGlobalConfigNode(n)).length,
 		edges: edges.length,
+		note: "Offline structural pre-check only. Authoritative validation runs server-side on the commit POST (POST /v1/convo_pathway/update or /create-version).",
 	});
-}
-
-async function cmdTest() {
-	// Offline round-trip self-check: tree -> graph -> tree, compare hashes.
-	const localTree = readTree(PATHWAY_DIR);
-	if (Object.keys(localTree).length === 0) {
-		throw new NormError("EMPTY_TREE", `No files under ${PATHWAY_DIR}. Clone first.`);
-	}
-	const { nodes, edges } = rebuildGraph(localTree);
-	const regenerated = generateFiles(nodes, edges);
-	const regenMap = {};
-	for (const f of regenerated) regenMap[f.path] = f.content;
-
-	const mismatches = [];
-	const allPaths = new Set([...Object.keys(localTree), ...Object.keys(regenMap)]);
-	for (const p of allPaths) {
-		// Layout/derived files are intentionally non-round-tripping; skip.
-		if (p.startsWith(".pathways/")) continue;
-		if (sha256(localTree[p] || "") !== sha256(regenMap[p] || "")) {
-			mismatches.push(p);
-		}
-	}
-
-	if (mismatches.length > 0) {
-		fail("ROUNDTRIP_DRIFT", "Local tree does not round-trip cleanly", {
-			mismatches,
-			hint: "Structured surfaces should be edited via set_* MCP tools, not raw YAML.",
-		});
-		return;
-	}
-	ok({
-		command: "test",
-		status: "roundtrip_ok",
-		nodes: nodes.length,
-		edges: edges.length,
-		files_checked: allPaths.size,
-	});
-}
-
-async function cmdStatus(args) {
-	const manifest = readManifest();
-	const localTree = readTree(PATHWAY_DIR);
-	const localHashes = hashTree(localTree);
-	const baseline = manifest.files || {};
-
-	const allPaths = new Set([...Object.keys(baseline), ...Object.keys(localHashes)]);
-	const modified = [];
-	const added = [];
-	const deleted = [];
-	for (const p of allPaths) {
-		const b = baseline[p];
-		const l = localHashes[p];
-		if (b && !l) deleted.push(p);
-		else if (!b && l) added.push(p);
-		else if (b !== l) modified.push(p);
-	}
-
-	const result = {
-		command: "status",
-		pathway_id: manifest.pathway_id,
-		transport: manifest.transport,
-		clean: modified.length === 0 && added.length === 0 && deleted.length === 0,
-		local: { modified: modified.sort(), added: added.sort(), deleted: deleted.sort() },
-	};
-
-	// Optional server version check. cloneTree is transport-agnostic (REST: GET ->
-	// generateFiles; MCP: begin -> get_files) and returns the current server tree.
-	if (args.includes("--server")) {
-		try {
-			const adapter = getAdapter(manifest.transport);
-			const fresh = await adapter.cloneTree(manifest.pathway_id);
-			const drift = computeDrift(manifest, localTree, fresh.treeMap);
-			result.server = {
-				version: fresh.version || null,
-				diverged_from_baseline: drift.serverChanged,
-				conflicts: drift.conflicts,
-			};
-		} catch (err) {
-			result.server = { error: err.code || "SERVER_CHECK_FAILED", message: err.message };
-		}
-	}
-
-	ok(result);
-}
-
-function cmdTouch(args) {
-	const target = args.find((a) => !a.startsWith("--"));
-	if (!target) throw new NormError("BAD_ARGS", "touch requires a file path (relative to pathway/).");
-	const abs = path.isAbsolute(target) ? target : path.join(PATHWAY_DIR, target);
-	if (!fs.existsSync(abs)) throw new NormError("NOT_FOUND", `No such file: ${abs}`);
-	// Normalize trailing newline so the hash reflects canonical form, then bump mtime.
-	const content = fs.readFileSync(abs, "utf8");
-	const normalized = content.replace(/\n*$/, "\n");
-	fs.writeFileSync(abs, normalized, "utf8");
-	const now = new Date();
-	fs.utimesSync(abs, now, now);
-	ok({ command: "touch", file: path.relative(PATHWAY_DIR, abs), hash: sha256(normalized) });
 }
 
 // ============================================================================
 // CLI dispatch
 // ============================================================================
 
-async function main() {
+function main() {
 	const [, , sub, ...args] = process.argv;
 	try {
 		switch (sub) {
-			case "clone":
-				await cmdClone(args);
+			case "generate":
+				cmdGenerate(args);
 				break;
-			case "commit":
-				await cmdCommit(args);
+			case "rebuild":
+				cmdRebuild(args);
 				break;
 			case "validate":
-				await cmdValidate(args);
-				break;
-			case "test":
-				await cmdTest(args);
-				break;
-			case "status":
-				await cmdStatus(args);
-				break;
-			case "mount-call":
-			case "review":
-				await cmdMountCall(args);
-				break;
-			case "touch":
-				cmdTouch(args);
+				cmdValidate(args);
 				break;
 			case undefined:
 			case "--help":
 			case "-h":
 				ok({
 					command: "help",
-					usage: "norm-sync <clone|commit|validate|test|status|mount-call|touch> [args]",
+					usage: "norm-sync <generate|rebuild|validate> [args]  (offline, networkless codec)",
 					subcommands: {
-						clone: "clone <id> | clone --new \"<name>\"  — pull pathway into pathway/ + snapshot baseline",
-						commit: "commit [--force]                    — 3-way drift -> ONE update call -> re-pull baseline",
-						validate: "validate                          — non-destructive client-side structural check (no server write)",
-						test: "test                                  — offline tree<->graph round-trip self-check",
-						status: "status [--server]                   — local hash diff vs manifest (0 net) [+ server version]",
-						"mount-call": "mount-call <call_id>           — pull a call's logs into calls/<id>/ for native Read/Grep/Glob inspection",
-						touch: "touch <file>                         — normalize + bump a file so status notices it",
+						generate: "generate <pathway.json> <out-dir>  — JSON ({nodes,edges}) -> pathway/ tree on disk",
+						rebuild: "rebuild <dir>                      — pathway/ tree -> {nodes,edges} JSON on stdout (edges: label/description TOP-LEVEL)",
+						validate: "validate <dir>                    — offline structural check (start/reachability/parse/round-trip) -> report on stdout",
 					},
-					env: {
-						BLAND_API_URL: API_URL,
-						BLAND_API_KEY: API_KEY ? "(set)" : "(missing)",
-						CLAUDE_PROJECT_DIR: PROJECT_DIR,
-					},
+					note: "No network, no credentials. ALL server I/O goes through the MCP passthrough (mcp__bland__bland_api_get / call_bland_api) in the /norm:* command + agent bodies. See bin/SYNC.md.",
 				});
 				break;
 			default:
 				fail("UNKNOWN_COMMAND", `Unknown subcommand: ${sub}`, {
-					valid: ["clone", "commit", "validate", "test", "status", "mount-call", "touch"],
+					valid: ["generate", "rebuild", "validate"],
 				});
 		}
 	} catch (err) {
@@ -2442,19 +1210,16 @@ async function main() {
 }
 
 // Run the CLI only when invoked directly; when `require`d (tests) export the
-// adapters + pure mappers so a mocked-fetch harness can drive them in-process.
+// pure functions so a harness can drive them in-process.
 if (require.main === module) {
 	main();
 } else {
 	module.exports = {
-		createMcpAdapter,
-		createRestAdapter,
-		getAdapter,
-		classifyMcpFile,
-		mapStructuredFileToSetCalls,
-		mcpUrlFrom,
-		parseMcpBody,
+		yamlEmit,
 		yamlParse,
+		parseFrontmatter,
+		buildSlugMap,
+		nodeShortId,
 		generateFiles,
 		rebuildGraph,
 		structurallyValidateTree,

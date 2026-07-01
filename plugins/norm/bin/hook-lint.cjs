@@ -15,7 +15,7 @@
  *   - edges/*.md   : must have frontmatter with id/source/target; warns if the
  *                    filename `<src>-to-<tgt>.md` doesn't match source/target.
  *   - global_prompt.md : must NOT have frontmatter (--- delimiters corrupt it).
- *   - *.yaml        : reminds that structured YAMLs are MCP-owned (don't hand-edit),
+ *   - *.yaml        : reminds that structured YAML is hand-edited but must stay parseable,
  *                     and flags `<digits>e<digits>` slugs used as bare (unquoted) scalars.
  *
  * OFFLINE (no network, no secrets). FAIL-SOFT: every error is swallowed and the
@@ -154,7 +154,7 @@ function lintPathwayFile(workspaceRoot, filePath) {
 		notes.push(`${rel}: layout.yaml is auto-derived — do not hand-edit node positions.`);
 	} else if (base.endsWith(".yaml") && inNodes) {
 		notes.push(
-			`${rel}: structured YAMLs are MCP-owned. Edit variables/model/tools/unit-tests through Bland MCP set_* tools, not by hand.`,
+			`${rel}: structured YAML — the file IS the edit surface. Keep the JSON-inlined frontmatter parseable, quote <digits>e<digits> slugs, check the shape with get_pathway_schema when unsure, and run /norm:validate before commit.`,
 		);
 		// `<digits>e<digits>` bare scalar gets coerced to a number by YAML.
 		const lines = text.split("\n");

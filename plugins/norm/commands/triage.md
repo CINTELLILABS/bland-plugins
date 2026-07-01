@@ -1,5 +1,6 @@
 ---
 description: Track and manage issues found in Bland agents — file triage issues, attach evidence (calls, pathways, nodes, SMS), move status, link related issues, and surface genuine platform capability gaps.
+argument-hint: "<issue task>"
 allowed-tools:
   - "Task"
   - "Read"
@@ -12,7 +13,6 @@ allowed-tools:
   - "mcp__bland__search_bland_docs"
   - "mcp__bland__get_bland_doc"
   - "mcp__bland__query_docs_filesystem_bland"
-  - "mcp__bland__*"
 ---
 
 # Norm Triage

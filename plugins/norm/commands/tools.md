@@ -1,5 +1,6 @@
 ---
 description: Build, test, and manage Bland custom integrations — REST API tools and the secrets they reference — docs-first via the raw /v1 REST API.
+argument-hint: "<tool task — build, test, or manage>"
 allowed-tools:
   - "Task"
   - "Read"

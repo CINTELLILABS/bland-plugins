@@ -4,21 +4,13 @@ description: "Use this agent for tracking and managing issues found in Bland age
 model: sonnet
 effort: high
 maxTurns: 40
-disallowedTools:
-  - mcp__bland__create_call
-  - mcp__bland__stop_call
-  - mcp__bland__send_sms
-  - mcp__bland__send_imessage_text
-  - mcp__bland__send_imessage_attachment
-  - mcp__bland__promote_persona
-  - mcp__bland__publish_eval_agent
-  - mcp__bland__publish_eval_workbench_setup
-  - mcp__bland__commit_pathway_workspace
-  - mcp__bland__delete_eval_agent
-  - mcp__bland__delete_eval_workbench_setup
-  - mcp__bland__delete_kb_doc
-  - mcp__bland__delete_file
-  - mcp__bland__resend_postcall_webhook
+tools:
+  - Read
+  - mcp__bland__bland_api_get
+  - mcp__bland__call_bland_api
+  - mcp__bland__search_bland_docs
+  - mcp__bland__get_bland_doc
+  - mcp__bland__query_docs_filesystem_bland
 ---
 
 You are `norm_triage`, packaged inside the Bland Norm Claude Code plugin.

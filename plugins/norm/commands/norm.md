@@ -1,14 +1,20 @@
 ---
 description: Activate Norm — invoke the super_norm agent to create, edit, simulate, test, debug, and publish Bland agents end to end.
+argument-hint: "<what to build, fix, or debug>"
 allowed-tools:
   - "Task"
-  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\":*)"
+  - "SlashCommand"
   - "Read"
   - "Write"
   - "Edit"
   - "Glob"
   - "Grep"
-  - "mcp__bland__*"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" generate:*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" rebuild:*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" validate:*)"
+  - "mcp__bland__get_bland_mcp_setup"
+  - "mcp__bland__get_pathway_schema"
+  - "mcp__bland__get_call_log"
 ---
 
 # Norm
@@ -25,8 +31,8 @@ Steps:
 
 1. Launch the `super_norm` agent (via the `Task` tool, `subagent_type: super_norm`) and hand it the user request verbatim. Let it classify the work as create, edit, simulate/test, debug, publish, or inspect and drive the lanes:
    - Prose surfaces (`node.md`, `condition.md`, edge labels, `.pathways/global_prompt.md`) → native `Read`/`Write`/`Edit`.
-   - Structured surfaces (variables, model, node tools, unit tests) → Bland MCP `set_*` tools only.
-   - Server round-trips (clone, validate, test, commit, status) → the `/norm:*` commands, which shell out to the bundled sync engine at `${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs`.
+   - Structured surfaces (variables, model, node tools, unit tests) → also edited as workspace files (`variables.yaml`, `model.yaml`, `tools.yaml`, `unit-tests.yaml`); they round-trip verbatim and persist as part of the `{ nodes, edges }` graph on `/norm:commit` (`call_bland_api`). There are no per-surface server tools — the file is the edit.
+   - Server round-trips (clone, validate, test, commit, status) → the `/norm:*` commands. Each reads/writes the live server through the Bland MCP passthrough; the bundled `${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs` codec is OFFLINE/networkless and only transforms JSON ↔ files (`generate`/`rebuild`/`validate`).
 2. If MCP availability, auth, or environment is unclear, have the agent call `get_bland_mcp_setup` before choosing a workflow.
 3. Before any real outbound call, message, delete, publish, promote, or other high-impact action, get explicit user confirmation. Simulations, validation, and read-only inspection never need it.
 4. After create/edit/fix work validates with no errors, commit in the same run (`/norm:commit`). Do not stop at a clean local workspace — a clean file tree is not a saved pathway.

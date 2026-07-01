@@ -67,7 +67,7 @@ async function main() {
 
 	const lines = [
 		"Bland Norm active.",
-		"Workflow: prose files (node.md / condition.md / edge labels / global_prompt.md) are edited natively; structured surfaces (variables, model, node tools, unit tests) go through Bland MCP set_* tools; server round-trips go through /norm:* commands.",
+		"Workflow: ALL pathway surfaces are edited natively in the workspace files — prose (node.md / condition.md / edge labels / global_prompt.md) and structured YAML (variables / model / tools / unit-tests; check shapes with get_pathway_schema, deep semantics with get_pathway_context); server round-trips go through /norm:* commands, gated on validate_pathway.",
 		"Pathway commands: /norm:norm (orchestrate via super_norm), /norm:list, /norm:clone <pathway_id|new>, /norm:validate, /norm:test [node], /norm:commit, /norm:status.",
 		"Build other parts: /norm:evals (build + run evals), /norm:review (mount + inspect real calls), /norm:tools (custom REST/code tools), /norm:persona (voices + personas + linking), /norm:knowledge (knowledge bases), /norm:triage (issue tracking), /norm:analytics (call analytics + reports).",
 		"Raw API: /norm:api — hyper-focused raw Bland REST API usage guided by the docs (docs tools + a loopback caller only, none of the high-level tools).",

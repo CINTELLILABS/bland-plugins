@@ -2,21 +2,30 @@
 "use strict";
 
 /**
- * Bland Norm — Stop hook: autosave the pathway workspace.
+ * Bland Norm — Stop hook: NUDGE when the pathway workspace has uncommitted edits.
  *
- * Same model as super_norm: a pathway is ONE workspace. When the turn changed
- * anything, commit the whole workspace. `commit_pathway_workspace` already
- * validates and FAILS CLOSED on errors (it won't persist a broken pathway), so
- * this hook does NOT pre-validate or gate — it just commits and reports the
- * outcome. Commits go to the WORKING version; production is untouched.
+ * Architecture note (post-AWL): a Stop hook CANNOT auto-commit a pathway. Commits
+ * go through the MCP passthrough (mcp__bland__call_bland_api), whose API key lives
+ * only in the MCP connection and is NOT available to a Bash subprocess. So this
+ * hook never writes and never touches the network. It does a LOCAL, networkless
+ * dirty check and, if there are unsaved edits, reminds the user to run
+ * /norm:validate then /norm:commit.
+ *
+ * Dirty check: regenerate the clone-time baseline (`.norm/baseline.json`) into a
+ * throwaway tree with the offline codec (`norm-sync.cjs generate`), then hash-
+ * compare it file-by-file against the live `pathway/` tree. Any differing/added/
+ * removed file => dirty. Both trees come from the SAME deterministic `generate`,
+ * so an unedited workspace compares byte-identical.
  *
  * FAIL-SOFT: always exits 0; every subprocess has a hard timeout, so it can never
- * block or hang the turn. Dirtiness is a LOCAL `norm-sync status` (no network);
- * only the commit step touches the network, and only when there's something to save.
+ * block or hang the turn.
  */
 
 const { execFileSync } = require("node:child_process");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 
 function readStdin() {
 	return new Promise((resolve) => {
@@ -43,37 +52,71 @@ function readStdin() {
 	});
 }
 
-/** Run `norm-sync.cjs <args>` and return its last JSON stdout line, or null. */
-function runSync(args, timeout) {
+function projectDir() {
+	return process.env.CLAUDE_PROJECT_DIR || process.cwd();
+}
+
+function normSyncBin() {
 	const root = process.env.CLAUDE_PLUGIN_ROOT;
 	if (!root) return null;
-	// ${CLAUDE_PLUGIN_ROOT} already resolves to the plugin dir (.../plugins/norm),
-	// so the engine sits at <root>/bin/, NOT <root>/plugins/norm/bin/.
+	// ${CLAUDE_PLUGIN_ROOT} resolves to the plugin dir (.../plugins/norm); the
+	// offline codec sits at <root>/bin/norm-sync.cjs.
 	const bin = path.join(root, "bin", "norm-sync.cjs");
-	if (!require("node:fs").existsSync(bin)) return null;
-	const parseLast = (s) => {
-		try {
-			const line = String(s).trim().split("\n").filter(Boolean).pop();
-			return line ? JSON.parse(line) : null;
-		} catch {
-			return null;
-		}
-	};
+	return fs.existsSync(bin) ? bin : null;
+}
+
+/** Offline `norm-sync.cjs generate <json> <out-dir>` — networkless. true on ok. */
+function generateTree(bin, jsonFile, outDir, timeout) {
 	try {
-		const out = execFileSync(process.execPath, [bin, ...args], {
+		execFileSync(process.execPath, [bin, "generate", jsonFile, outDir], {
 			encoding: "utf8",
 			stdio: ["ignore", "pipe", "ignore"],
 			timeout: timeout || 8000,
-			// Inherits CLAUDE_PROJECT_DIR + CLAUDE_PLUGIN_OPTION_bland_api_key/_url,
-			// which norm-sync reads — no secret is handled here directly.
 			env: process.env,
 		});
-		return parseLast(out);
-	} catch (e) {
-		// norm-sync emits a JSON error envelope on stdout even on a non-zero exit.
-		if (e && e.stdout) return parseLast(e.stdout);
-		return null;
+		return true;
+	} catch {
+		return false;
 	}
+}
+
+function sha(buf) {
+	return crypto.createHash("sha256").update(buf).digest("hex");
+}
+
+/** Map of relative-path -> content hash for every file under `dir`. */
+function hashTree(dir) {
+	const out = {};
+	const walk = (d, rel) => {
+		let entries;
+		try {
+			entries = fs.readdirSync(d, { withFileTypes: true });
+		} catch {
+			return;
+		}
+		for (const e of entries) {
+			const abs = path.join(d, e.name);
+			const r = rel ? `${rel}/${e.name}` : e.name;
+			if (e.isDirectory()) walk(abs, r);
+			else {
+				try {
+					out[r] = sha(fs.readFileSync(abs));
+				} catch {
+					/* unreadable — skip */
+				}
+			}
+		}
+	};
+	walk(dir, "");
+	return out;
+}
+
+/** Files that differ between the two hash maps (changed, added, or removed). */
+function changedFiles(a, b) {
+	const names = new Set([...Object.keys(a), ...Object.keys(b)]);
+	const changed = [];
+	for (const n of names) if (a[n] !== b[n]) changed.push(n);
+	return changed.sort();
 }
 
 function emit(message) {
@@ -96,19 +139,41 @@ async function main() {
 		/* fail soft */
 	}
 
-	// Local, no-network dirty check.
-	const status = runSync(["status"], 6000);
-	if (!status || status.ok === false) return; // no workspace / undeterminable
-	if (status.clean === true) return; // nothing changed → silent
+	const root = projectDir();
+	const pathwayDir = path.join(root, "pathway");
+	const baseline = path.join(root, ".norm", "baseline.json");
+	// No mounted workspace (no tree or no baseline) → nothing to nudge about.
+	if (!fs.existsSync(pathwayDir) || !fs.existsSync(baseline)) return;
 
-	// Changed → commit the whole workspace. commit fails closed on its own.
-	const res = runSync(["commit"], 25000);
-	if (res && res.ok) {
-		const v = res.new_version != null ? ` (working version ${res.new_version})` : "";
-		emit(`Bland Norm: auto-saved your pathway${v}. Production is unchanged.`);
-	} else {
-		const why = res && (res.error || res.message) ? ` (${res.error || res.message})` : "";
-		emit(`Bland Norm: couldn't auto-save${why} — fix it and it saves on the next turn.`);
+	const bin = normSyncBin();
+	if (!bin) return;
+
+	// Regenerate the baseline into a throwaway tree, then hash-compare.
+	let tmp;
+	try {
+		tmp = fs.mkdtempSync(path.join(os.tmpdir(), "norm-dirty-"));
+	} catch {
+		return;
+	}
+	try {
+		if (!generateTree(bin, baseline, tmp, 8000)) return; // can't determine → silent
+		const changed = changedFiles(hashTree(pathwayDir), hashTree(tmp));
+		if (changed.length === 0) return; // clean → silent
+
+		const shown = changed.slice(0, 3).join(", ");
+		const more = changed.length > 3 ? ` (+${changed.length - 3} more)` : "";
+		emit(
+			`Bland Norm: your pathway workspace has ${changed.length} uncommitted ` +
+				`edit${changed.length === 1 ? "" : "s"} (${shown}${more}). ` +
+				`Run /norm:validate then /norm:commit to save — an uncommitted ` +
+				`workspace is not a saved pathway. Production is unchanged.`,
+		);
+	} finally {
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			/* best effort */
+		}
 	}
 }
 

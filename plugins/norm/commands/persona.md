@@ -1,5 +1,6 @@
 ---
 description: Build or manage a Bland persona — pick a voice, set call config, attach knowledge and tools, route to pathways via pathway conditions, then promote the draft to production.
+argument-hint: "<persona task>"
 allowed-tools:
   - "Task"
   - "Read"
