@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0 — 2026-07-01
+
+- `/norm:config` — switch the Bland API URL (prod ↔ dev tunnel) without reinstalling; documented-storage write + restart note. Key stays in the OS keychain.
+- README: "Switching environments" section incl. key-rotation guidance.
+
 ## 1.0.0 — 2026-07-01
 
 - Rebuilt onto the live `/v1/mcp` action-widget surface: client-side file workspace + MCP passthrough (`bland_api_get` / `call_bland_api`); offline `norm-sync.cjs` codec powered by the real bundled engine.
