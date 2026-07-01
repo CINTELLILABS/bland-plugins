@@ -1,10 +1,14 @@
 ---
-description: "Convergence loop — drive a Claude-native simulated call against a pathway, verify the expected outcomes, and keep editing the pathway files until every outcome holds. Self-driving (simulate → verify → edit → commit); can optionally hand off to the built-in /goal for cross-turn persistence."
+description: "Convergence loop — drive a Claude-native simulated call against a pathway, verify the expected outcomes, and keep editing the pathway files until every outcome holds. Truly autonomous: a Stop-hook gate re-feeds the failing outcomes every time the turn tries to end, until the loop converges, hits max passes, or stalls."
 argument-hint: "<pathway_id> [--from-call <id> | --transcript <file> | --goal '<objective>'] [--max N]"
 allowed-tools:
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" generate:*)"
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" rebuild:*)"
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" validate:*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs\" init:*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs\" record:*)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs\" status)"
+  - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs\" stop)"
   - "Task"
   - "Read"
   - "Write"
@@ -25,7 +29,9 @@ disallowed-tools:
 
 # Norm — Convergence Loop (Claude-native simulated calls)
 
-Keep editing a pathway until it **passes a simulated call**: you invent a customer, drive a text conversation against the pathway turn-by-turn, then verify the expected call outcomes against the transcript. You (the optimizer) edit the pathway *files*; the ground truth is the simulated call you just ran and judged. You **self-drive** the loop — run simulate → verify → (edit → commit) passes until every outcome holds or you hit `--max`. (`/goal`, Claude Code's built-in cross-turn convergence primitive, is a *user-typed* command you cannot invoke; you may optionally print one for the user to run instead — see "Drive the loop".) There is no `.norm/loop.json`, no eval agents, no scenario ids, no workbench — those are retired.
+Keep editing a pathway until it **passes a simulated call**: you invent a customer, drive a text conversation against the pathway turn-by-turn, then verify the expected call outcomes against the transcript. You (the optimizer) edit the pathway *files*; the ground truth is the simulated call you just ran and judged.
+
+**The loop is mechanically enforced, not willpower.** At setup you arm a loop state file (`.norm/loop.json` via `norm-loop.cjs init`); after every simulation you record the verdict (`norm-loop.cjs record`). While the target fails, the plugin's Stop hook **blocks every attempt to end the turn** and re-feeds the exact failing outcomes as your next instruction — the documented Claude Code Stop-hook contract (`decision: "block"` + `reason`), the same primitive `/goal` is built on. The hook releases on its own when the target passes, `--max` passes are spent, the same failures persist twice in a row (stall), or the state goes stale (24h). So: self-drive as far as you can within each turn, and if a turn ends early the hook re-engages you — the loop cannot silently die.
 
 The files are the workspace (clone via `bland_api_get` + the offline `norm-sync.cjs generate` codec; commit via `norm-sync.cjs rebuild` + `call_bland_api`). All server I/O is the MCP passthrough — the API key lives only in the MCP connection, never on a command line. See `bin/SYNC.md` for the full editing model.
 
@@ -51,17 +57,23 @@ Parse `$ARGUMENTS` as a pathway id plus exactly one target source — `--from-ca
    - **(a) a customer scenario** — a specific persona with a specific reason for calling and the details they'll volunteer (e.g. "a caller whose latest invoice has a charge they don't recognize and who wants to know the refund window"). Read the cloned `pathway/` files so the scenario exercises the real flow.
    - **(b) the expected call outcomes** — the concrete, checkable things the pathway must produce for that scenario (e.g. "greets and asks what they need", "routes the billing question to billing help", "states the 30-day refund window", "asks if there's anything else", "ends with a warm wrap-up"). These outcomes are the fixed bar for the whole run — do not change them mid-loop.
 
+3. **Arm the loop gate** so the Stop hook can drive convergence across turns:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs" init <pathway_id> --max <N> \
+     --scenario "<the customer persona from (a)>" \
+     --outcomes "<the outcomes from (b), ';' separated>"
+   ```
+
+   This writes `.norm/loop.json` (`--max` defaults to 8). From here the loop is armed: the Stop hook will not let a turn end while the last recorded verdict is failing.
+
 ## Drive the loop
 
-**`/goal` is a user-typed UI command — you (this command) CANNOT invoke it.** It is not a skill and the `SlashCommand` tool does not expose it; trying to run `/goal` via the Skill or SlashCommand tool just fails. So do NOT attempt to set `/goal` yourself. Drive the loop directly instead:
+**Self-drive, hook-backed.** Run **simulate → verify → (edit → validate → commit) → record** passes back-to-back within your turn until every expected outcome holds in one clean run or you reach `--max` passes. Prefer completing as many passes as possible per turn (fewer round-trips); the Stop-hook gate exists so that a turn ending early does **not** kill the run — if you stop while the last recorded verdict is failing, the hook blocks the stop and re-feeds the failing outcomes as your next instruction, spending one pass from the budget. The per-pass work is in "Each pass" below.
 
-**Self-drive (default).** Run one **simulate → verify → (edit → commit)** pass, then repeat until every expected outcome holds in one clean run or you reach `--max` passes (default 8). This is the whole loop — keep going across your own turns, re-simulating from a **fresh** chat instance after each commit. The per-pass work is in "Each pass" below.
+**Termination is the hook's job, not a judgment call.** It releases automatically on: every outcome recorded passing (✅ converged), `--max` passes spent (🛑 report what still fails), the same failing set recorded twice in a row (🛑 stalled — the approach isn't working; report rather than thrash), or a stale loop (24h untouched). To abort deliberately (user asks to stop, or the target turns out to be wrong): `node "${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs" stop`, then explain why.
 
-**Optional — hand off to `/goal` for cross-turn persistence.** If the user would rather have Claude Code's built-in `/goal` primitive drive it (so a long run survives across turns via its Stop-hook evaluator), do your setup + derivation, then PRINT this ready-to-run command for the **user** to paste (you cannot run it) and stop:
-
-> `/goal` Pathway `<pathway_id>` passes a simulated call. I drive a text call via the Pathway Chat turn endpoint, playing a customer who `<scenario>`. Each turn I run the full simulation end-to-end and show the transcript plus an outcome checklist; the call passes only when the transcript shows `<expected outcomes — e.g. greets and asks the reason, collects the name, reads the callback number back, confirms the appointment day + time, ends with a warm by-name wrap-up>`. If any outcome fails, I make a minimal targeted edit to the pathway files, `/norm:commit`, and re-simulate from a fresh chat instance. Stop when every outcome holds in one clean run, or after `<N>` re-simulations.
-
-When the user runs that, each `/goal` turn performs one pass from "Each pass" below and its evaluator re-checks the condition until it holds or the bound is hit. Either way the per-pass work is identical. Do NOT depend on any `hook-loop.cjs` (retired).
+(`/goal`, Claude Code's built-in convergence primitive, is a user-typed UI command you cannot invoke — and it is no longer needed here: the armed loop gate provides the same Stop-hook persistence, purpose-built for this pathway workflow.)
 
 ## How to simulate a call (thin — you decide the specifics)
 
@@ -87,8 +99,19 @@ The simulation is the doc-confirmed **Pathway Chat** turn surface. It is a safe 
 
 1. **Simulate** a full call as above (fresh `chat/create`, drive to `completed`).
 2. **Show the transcript + the outcome checklist** (each outcome, met/not-met, with evidence).
-3. If **every outcome holds**, you're converged — report and stop.
-4. If **any outcome fails**, make a **minimal, targeted edit** to the pathway FILES to fix exactly that gap — prose (`nodes/<slug>/node.md` body, `condition.md`, edge labels, `.pathways/global_prompt.md`) via native `Read`/`Edit`; structured surfaces (`variables.yaml`, `model.yaml`, `tools.yaml`, node frontmatter) by editing those files directly — they round-trip verbatim through `rebuild`. There are no `set_*` tools; the file is the edit. Before hand-authoring or heavily editing a structured surface, call `mcp__bland__get_pathway_schema` for that surface (`surface: node_tools|variables|model|unit_tests|node|edge`, `tool_type` for a single node-tool variant) to get the authoritative allowed shape + enums so the YAML is valid first-try. Then **validate before committing — CHANGE-AWARE**: `rebuild pathway/`, read the pre-edit graph from `.norm/baseline.json` (written at setup — the graph is the top-level `{ nodes, edges }`, or at `.graph`), and pass the rebuilt graph WITH the baseline to `mcp__bland__validate_pathway` (read-only, no confirm-gate; object bodies only, never stringified):
+3. If **every outcome holds**, you're converged — record it so the gate releases, then report and stop:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs" record --passed true
+   ```
+
+4. If **any outcome fails**, first record the verdict (this is what the Stop hook re-feeds and how it detects stalls — record it immediately after judging, before editing):
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs" record --passed false --failing "<failing outcomes, ';' separated>"
+   ```
+
+   Then make a **minimal, targeted edit** to the pathway FILES to fix exactly that gap — prose (`nodes/<slug>/node.md` body, `condition.md`, edge labels, `.pathways/global_prompt.md`) via native `Read`/`Edit`; structured surfaces (`variables.yaml`, `model.yaml`, `tools.yaml`, node frontmatter) by editing those files directly — they round-trip verbatim through `rebuild`. There are no `set_*` tools; the file is the edit. Before hand-authoring or heavily editing a structured surface, call `mcp__bland__get_pathway_schema` for that surface (`surface: node_tools|variables|model|unit_tests|node|edge`, `tool_type` for a single node-tool variant) to get the authoritative allowed shape + enums so the YAML is valid first-try. Then **validate before committing — CHANGE-AWARE**: `rebuild pathway/`, read the pre-edit graph from `.norm/baseline.json` (written at setup — the graph is the top-level `{ nodes, edges }`, or at `.graph`), and pass the rebuilt graph WITH the baseline to `mcp__bland__validate_pathway` (read-only, no confirm-gate; object bodies only, never stringified):
 
    ```
    mcp__bland__validate_pathway {
@@ -98,7 +121,7 @@ The simulation is the doc-confirmed **Pathway Chat** turn surface. It is a safe 
    }
    ```
 
-   If `.norm/baseline.json` is missing or has no usable graph, OMIT `baseline` and fall back to whole-graph validation. Act on the change-relevant results first: `introduced_errors` are the ones your edit broke — fix those (do NOT commit a graph the compiler rejects; a failing edit caught here saves a wasted commit + re-simulate); `introduced_warnings` and `runtime_contract_findings` where `relevant_to_changes: true` are [NEW FROM YOUR CHANGES] runtime-contract issues your edit introduced — resolve them before re-simulating, since they're the most likely cause of the outcome you just failed. Read those findings + `semantics_summary` to inform the fix (the routing/loop/tool-input contracts show why an edit misbehaves); pre-existing findings are secondary. Once it compiles clean, **`/norm:commit`** (confirm-gated). (If `validate_pathway` is unavailable on an older server, fall back to the offline `norm-sync.cjs validate pathway/` structural check and note the authoritative compile did not run.) End your turn; the `/goal` re-feeds the failing outcomes and you re-simulate next turn.
+   If `.norm/baseline.json` is missing or has no usable graph, OMIT `baseline` and fall back to whole-graph validation. Act on the change-relevant results first: `introduced_errors` are the ones your edit broke — fix those (do NOT commit a graph the compiler rejects; a failing edit caught here saves a wasted commit + re-simulate); `introduced_warnings` and `runtime_contract_findings` where `relevant_to_changes: true` are [NEW FROM YOUR CHANGES] runtime-contract issues your edit introduced — resolve them before re-simulating, since they're the most likely cause of the outcome you just failed. Read those findings + `semantics_summary` to inform the fix (the routing/loop/tool-input contracts show why an edit misbehaves); pre-existing findings are secondary. Once it compiles clean, **`/norm:commit`** (confirm-gated). (If `validate_pathway` is unavailable on an older server, fall back to the offline `norm-sync.cjs validate pathway/` structural check and note the authoritative compile did not run.) Then start the next pass immediately (fresh simulate); if the turn ends instead, the armed Stop hook re-feeds the recorded failures and the loop continues next turn.
 
 ## Convergence doctrine
 
@@ -106,7 +129,8 @@ The simulation is the doc-confirmed **Pathway Chat** turn surface. It is a safe 
 - **Never change the target mid-loop.** Keep the same scenario and the same expected outcomes for every pass. Chasing stylistic gaps the outcomes don't require means the loop never converges.
 - **Minimal targeted edits.** Fix only the surfaces that move a failing outcome. Edit files, commit, re-simulate — never let a server-side auto-fixer mutate the pathway mid-loop (it would drift the local files out of sync).
 - **Confirm-gate only the real write.** The only confirm-gated write is `/norm:commit`'s in-place version save — `POST /v1/convo_pathway/update` (object body `{ id, version_number, nodes, edges, revision_number }`) on the working version, NOT `POST /v1/pathway/<pathway_id>` (that hits the SMS router and 400s). The simulation turns (`/v1/pathway/chat/create` and `/v1/pathway/chat/<chat_id>`) place no real call and need no confirmation; read-only `bland_api_get` / `get_call_log` never do.
-- **Never ask the user.** The `/goal` stops itself when every outcome holds in one clean run or the turn bound is hit.
+- **Never ask the user.** The loop gate releases itself when every outcome holds in one clean run, the pass bound is hit, or the same failures stall twice — `AskUserQuestion` is disallowed here for exactly this reason.
+- **Record every verdict.** The gate can only see what `norm-loop.cjs record` wrote — an unrecorded simulation is invisible to convergence, stall detection, and the pass budget. Judge → record → then edit.
 
 ## Sibling test surfaces (for reference)
 
