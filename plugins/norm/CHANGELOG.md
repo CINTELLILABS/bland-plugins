@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1 — 2026-07-01
+
+- Configure panel order: API key (required) first, URL (optional) second.
+
 ## 1.3.0 — 2026-07-01
 
 - API key stays **encrypted in the OS keychain** (`sensitive: true`). Onboard/rotate via the plugin's interactive install prompt or `claude plugin install norm@bland --config bland_api_key=...`; the key never touches a plaintext file or the chat. (Supersedes a brief 1.2.x that tried plaintext settings.json + a native dialog — reverted for security; the keychain is more secure than a file.)
