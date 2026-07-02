@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.1 — 2026-07-01
+
+- Judge generation corrected to match the UI's four entry points exactly: `POST /v1/evals/agent-drafts/from-triage` is a `source_type` union — `prompt` | `call_note` | `triage_issue` | `triage_flag` (+ `example_call_ids`) — and returns a DRAFT to review, not a persisted judge (persist via `POST /v1/evals/agents`). Documented the inverted `target_level_keys` defaults (prompt → `observed_issue`; triage/call → `not_observed`) so generated judges pass in the direction the user actually means.
+
 ## 1.9.0 — 2026-07-01
 
 - **norm_evals rebuilt around the true evals mental model** (entity graph + scoring math sourced from the live server): draft/published version machinery for judges AND panels (publish = archive + new draft; runs use frozen versions + snapshots), levels/target_level_keys/weight mechanics, composite math (weighted mean per modality; FAILED + INSUFFICIENT_EVIDENCE excluded — high insufficient-evidence = judge defect, not call defect), run lifecycle incl. PARTIAL and cancellations.
