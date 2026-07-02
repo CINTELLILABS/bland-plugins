@@ -77,3 +77,21 @@ Guardrails:
 - Never inline a raw API key; always store it as a secret in the Secret Manager and reference `{{secret.id.SECRET_ID}}` / `{{SECRET.SECRET_NAME}}`.
 
 Report results: summarize the `tool_id` created/updated, the secret id/name referenced (if any), the endpoint(s) you called, how you verified the saved definition (and any safe sample request you ran), and where the tool was attached or that it is ready to attach via `/norm`. Do not claim a tool works without re-reading the saved `/v1/tools/{tool_id}` definition, and never invent ids or results.
+
+## The tool surface map (verified against the live server)
+
+**Two API generations — route by tool kind:**
+- **`/v2/tools` = INTEGRATION tools only** (an `integration` + `action` from the catalog, e.g. slack/send_message, authenticated by a linked resource): `POST /v2/tools` (create: `name, description (≤5000 chars), integration, action, body?, input_schema?, speech?, timeout (1–60s), response_data[], cache?, max_retries (≤4), cooldown (≤30s), resource_id?, label?`), `GET /v2/tools` (paginated + `search`), `GET|POST|DELETE /v2/tools/{tool_id}` (POST = partial update; v2 REJECTS non-integration tools). Ids appear both raw and `TL-`-prefixed — v2 paths accept both.
+- **`/v1/tools` = custom HTTP tools** (your own REST endpoint): same CRUD verbs, plus `POST /v1/tools/clone` and `POST /v1/tools/run`.
+
+**Test before attach — the real endpoint:** `POST /v2/tools/{tool_id}/run` `{ inputs: {field: value} }` (add `?staging=true` to exercise the `staging_tool` draft) → `{ success, statusCode, data, responseTime }`. Draft tools (`is_draft`) cannot execute — publish first. This is the required proof step: quote the run's response before attaching the tool anywhere.
+
+**Resources = the auth container** (never put credentials in the tool): `POST|GET /v1/resources`, `GET|POST|DELETE /v1/resources/{id}`, `POST .../disconnect`, `POST .../reauth`, `GET .../actions` (what the integration can do), `POST .../execute` (run an action directly). A tool links `resource_id` and inherits its auth.
+
+**Secrets are references, never values:** `{{secret.id.SECRET_ID}}` in url/headers/body resolves at runtime — the secret value never appears in the tool definition, your output, or the API response. Inputs interpolate as `{{input.field}}` per the tool's `input_schema`.
+
+**Tool observability (measure your tools like calls):** `GET /v2/tools/logs` (filters: `tool_id`, `status success|error`, `error_type`, `execution_time_ms_gt/lt`, `call_id`, date range) and `GET /v2/tools/logs/stats` (`group_by` tool_id/integration/action/status/error_type/date + `metrics` like count / field:avg; **90-day max range**). After shipping a tool, check its error rate and latency here before blaming the agent that calls it.
+
+**AI suggestions:** `POST /v2/tools/suggestions` `{ prompt (≤8000 chars), limit ≤6 }` — returns existing tools that fit the need or proposed new ones (`is_new`); check suggestions before building a duplicate.
+
+**Gotchas:** tool names have reserved words (input, speak, transfer…) — a create rejection names them; integration+action must exist in the catalog (validation errors list what's known); staging_tool = draft version switchable per-run; deletes on v2 are HARD deletes.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.0 — 2026-07-01
+
+- **norm_tools — verified tool-surface map**: v2 = integration tools (catalog integration+action, resource-linked auth), v1 = custom HTTP tools (+ clone); real test-before-attach endpoint (`POST /v2/tools/{id}/run`, `?staging=true` for drafts); resources as the auth container (connect/disconnect/reauth/actions/execute); `{{secret.id.*}}` reference pattern (values never in definitions or output); tool observability via `/v2/tools/logs` + `/logs/stats` (error rate + latency before blaming the caller); AI `suggestions` endpoint to avoid duplicate builds; gotchas (reserved names, hard deletes on v2, 90d stats cap).
+
 ## 1.9.2 — 2026-07-01
 
 - **Continuous scoring workflow — per-call auto-evals**: attach a calibrated, published workbench at call creation (`POST /v1/calls` `post_call_evals: {workbench_setup_id/version_id}`) → platform auto-runs the panel post-call (`triggered_by:"auto"`, one deduped billed run per call) → judge level-labels auto-merge into the call's `pathway_tags` (idempotent; pathway_tags only) → `event_type:"evals"` results webhook with per-judge verdicts + evidence (two-webhook pattern). Monitoring via `GET /v1/evals/runs?triggered_by=auto`; verdict tags trend directly in /norm:analytics — the complete score-every-call → tag-every-verdict → chart-every-trend loop, with per-call cost stated before attaching to real traffic.
