@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1 — 2026-07-01
+
+- Renamed `/norm:dev` → **`/norm:debug`** (`norm_debug`) and dropped the dev-only gate: systematic reproduce → isolate → fix → verify debugging is for EVERYONE, on production or a dev server. On prod it repros against throwaway resources and fixes at the pathway/config level; when the working tree contains a server codebase it adds the code-fix loop (guided by that repo's own CLAUDE.md/skills). Server bugs with no codebase present come back as escalation-ready repros.
+
 ## 1.6.0 — 2026-07-01
 
 - **Dev mode** — for users pointing the plugin at their own dev/staging server (`/norm:config <tunnel-url>`): new `/norm:dev` command + `norm_dev` agent drive systematic server debugging — deterministic repro file (`.norm/repro/`), layer isolation (transport/auth vs contract vs behavior), smallest fix in the LOCAL server codebase, restart per the project's own docs, re-verify with the original repro (with the swept-MCP-session retry gotcha built in). SessionStart hook shows a DEV MODE banner whenever the configured URL isn't production.

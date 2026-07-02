@@ -71,7 +71,7 @@ async function main() {
 		"Pathway commands: /norm:norm (orchestrate via super_norm), /norm:list, /norm:clone <pathway_id|new>, /norm:validate, /norm:test [node], /norm:commit, /norm:status.",
 		"Build other parts: /norm:evals (build + run evals), /norm:review (mount + inspect real calls), /norm:tools (custom REST/code tools), /norm:persona (voices + personas + linking), /norm:knowledge (knowledge bases), /norm:triage (issue tracking), /norm:analytics (call analytics + reports).",
 		"Raw API: /norm:api — hyper-focused raw Bland REST API usage guided by the docs (docs tools + a loopback caller only, none of the high-level tools).",
-		"Dev servers: /norm:dev — when pointed at a dev tunnel (/norm:config), systematic reproduce → isolate → fix-in-codebase → verify debugging of the server itself.",
+		"Debugging: /norm:debug — systematic reproduce → isolate → fix → verify for anything misbehaving (tools, endpoints, webhooks, widgets); fixes pathway/config for everyone, and code too when a server codebase is in the working tree.",
 		"Convergence: /norm:loop <pathway_id> (--from-call <id> | --transcript <file> | --goal '<objective>') — keeps editing + re-testing the pathway until it passes the target; an evaluator-optimizer loop gated by the Stop hook until it converges, hits max iterations, or stalls.",
 		"Start real pathway work by cloning a workspace: /norm:clone <pathway_id> to edit, or /norm:clone new to create.",
 	];
@@ -104,8 +104,8 @@ async function main() {
 			settings.pluginConfigs["norm@bland"].options.bland_api_url;
 		if (url && !/^https:\/\/api\.bland\.ai\/?$/.test(url)) {
 			lines.push(
-				`DEV MODE: the Bland MCP connection points at ${url} (not production). ` +
-					"/norm:dev drives systematic server debugging — deterministic repro file, layer isolation, fix in the local server codebase (following that repo's own CLAUDE.md/skills), restart, re-verify. " +
+				`Note: the Bland MCP connection points at ${url} (not production). ` +
+					"/norm:debug gains the full code-fix loop when that server's codebase is in the working tree. " +
 					"Switch back with /norm:config --prod (restart required).",
 			);
 		}
