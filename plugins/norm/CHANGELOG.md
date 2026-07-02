@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0 — 2026-07-01
+
+- **norm_evals rebuilt around the true evals mental model** (entity graph + scoring math sourced from the live server): draft/published version machinery for judges AND panels (publish = archive + new draft; runs use frozen versions + snapshots), levels/target_level_keys/weight mechanics, composite math (weighted mean per modality; FAILED + INSUFFICIENT_EVIDENCE excluded — high insufficient-evidence = judge defect, not call defect), run lifecycle incl. PARTIAL and cancellations.
+- **New workflows**: judge CALIBRATION before trust (ground-truth cohort → run judge alone → fix rubric on disagreement → publish only on agreement); cost discipline via the real `POST /v1/evals/runs/estimates` endpoint (atom count + cost quoted in every run confirmation); cohort curation as test configs; results→action pipeline (`apply` verdicts as call/pathway tags → trend in analytics; failures → review/triage); **triage-issue → judge** via `POST /v1/evals/agent-drafts`.
+- minimal `context_sources` doctrine (request only what the dimension needs), temperature-0 judges, pinned published versions in panels.
+
 ## 1.8.2 — 2026-07-01
 
 - Plugin-only fix for time-bucketed trends (no server changes — backend is frozen): run the same structured query through the passthrough, `call_bland_api POST /v2/analytics/query { mode: "structured", query }`, which honors the full dimension union including `trunc` + labels (verified live: correct week buckets). `query_analytics` stays the default for everything else (free, unconfirmed reads); the POST is semantically read-only and `dry_run` returns compiled SQL.
