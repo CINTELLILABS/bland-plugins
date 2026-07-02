@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.2 — 2026-07-01
+
+- Plugin-only fix for time-bucketed trends (no server changes — backend is frozen): run the same structured query through the passthrough, `call_bland_api POST /v2/analytics/query { mode: "structured", query }`, which honors the full dimension union including `trunc` + labels (verified live: correct week buckets). `query_analytics` stays the default for everything else (free, unconfirmed reads); the POST is semantically read-only and `dry_run` returns compiled SQL.
+
 ## 1.8.1 — 2026-07-01
 
 - Live-verified fixes from the prod measurement-engineering test: dashboards/panels are mounted at **/v2/analytics** (corrected from /v1); documented the verified `query_analytics` `trunc` gap (MCP tool drops time-bucketing that the REST layer honors — bucket client-side or use a dashboard panel until fixed).
