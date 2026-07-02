@@ -71,6 +71,7 @@ async function main() {
 		"Pathway commands: /norm:norm (orchestrate via super_norm), /norm:list, /norm:clone <pathway_id|new>, /norm:validate, /norm:test [node], /norm:commit, /norm:status.",
 		"Build other parts: /norm:evals (build + run evals), /norm:review (mount + inspect real calls), /norm:tools (custom REST/code tools), /norm:persona (voices + personas + linking), /norm:knowledge (knowledge bases), /norm:triage (issue tracking), /norm:analytics (call analytics + reports).",
 		"Raw API: /norm:api — hyper-focused raw Bland REST API usage guided by the docs (docs tools + a loopback caller only, none of the high-level tools).",
+		"Dev servers: /norm:dev — when pointed at a dev tunnel (/norm:config), systematic reproduce → isolate → fix-in-codebase → verify debugging of the server itself.",
 		"Convergence: /norm:loop <pathway_id> (--from-call <id> | --transcript <file> | --goal '<objective>') — keeps editing + re-testing the pathway until it passes the target; an evaluator-optimizer loop gated by the Stop hook until it converges, hits max iterations, or stalls.",
 		"Start real pathway work by cloning a workspace: /norm:clone <pathway_id> to edit, or /norm:clone new to create.",
 	];
@@ -85,6 +86,32 @@ async function main() {
 		/* fail soft */
 	}
 	lines.push(workspaceNote);
+
+	// DEV MODE banner: offline read of the documented userConfig location — the URL
+	// only, never the key. Fail-soft: any error means no banner.
+	try {
+		const fs = require("node:fs");
+		const os = require("node:os");
+		const path = require("node:path");
+		const settings = JSON.parse(
+			fs.readFileSync(path.join(os.homedir(), ".claude", "settings.json"), "utf8"),
+		);
+		const url =
+			settings &&
+			settings.pluginConfigs &&
+			settings.pluginConfigs["norm@bland"] &&
+			settings.pluginConfigs["norm@bland"].options &&
+			settings.pluginConfigs["norm@bland"].options.bland_api_url;
+		if (url && !/^https:\/\/api\.bland\.ai\/?$/.test(url)) {
+			lines.push(
+				`DEV MODE: the Bland MCP connection points at ${url} (not production). ` +
+					"/norm:dev drives systematic server debugging — deterministic repro file, layer isolation, fix in the local server codebase (following that repo's own CLAUDE.md/skills), restart, re-verify. " +
+					"Switch back with /norm:config --prod (restart required).",
+			);
+		}
+	} catch {
+		/* fail soft — no banner */
+	}
 
 	const context = lines.join("\n");
 

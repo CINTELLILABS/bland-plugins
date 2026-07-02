@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.0 — 2026-07-01
+
+- **Dev mode** — for users pointing the plugin at their own dev/staging server (`/norm:config <tunnel-url>`): new `/norm:dev` command + `norm_dev` agent drive systematic server debugging — deterministic repro file (`.norm/repro/`), layer isolation (transport/auth vs contract vs behavior), smallest fix in the LOCAL server codebase, restart per the project's own docs, re-verify with the original repro (with the swept-MCP-session retry gotcha built in). SessionStart hook shows a DEV MODE banner whenever the configured URL isn't production.
+- **IP boundary by design**: the plugin ships only the generic loop. Server internals (layout, rebuild/restart steps, landmines) live in each server repo's own project skill / CLAUDE.md, which `norm_dev` discovers in the working tree — nothing proprietary in this public plugin.
+
 ## 1.5.0 — 2026-07-01
 
 Best-practices hardening pass (sourced from the official Claude Code authoring docs + Anthropic agent-design engineering posts):
