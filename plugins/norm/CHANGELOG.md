@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.1 — 2026-07-01
+
+- Live-verified fixes from the prod measurement-engineering test: dashboards/panels are mounted at **/v2/analytics** (corrected from /v1); documented the verified `query_analytics` `trunc` gap (MCP tool drops time-bucketing that the REST layer honors — bucket client-side or use a dashboard panel until fixed).
+
 ## 1.8.0 — 2026-07-01
 
 - **norm_analytics is now a measurement ENGINEER, not just a query answerer** (routes sourced from the live server surface):
