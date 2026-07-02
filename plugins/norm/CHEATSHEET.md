@@ -11,6 +11,18 @@ claude plugin install norm@bland --config bland_api_key=YOUR_KEY   # key: app.bl
 
 Restart your Claude Code session. Done.
 
+## The flow (start to production)
+
+1. **Build it** — `/norm:norm build me a booking flow that collects name, callback number, and a time, confirms it back` → pathway designed, compiled, saved.
+2. **Give it tools** — `/norm:tools build a tool that checks real availability in our booking API` → tool built, test-run against the real endpoint, attached to the node that needs it.
+3. **Prove it works** — `/norm:loop <pathway_id> --goal 'caller books an appointment and gets it confirmed back'` → it simulates the customer, grades every outcome with evidence, fixes what fails, and repeats until the whole call passes. This is the step where you walk away.
+4. **Define what to measure** — `/norm:analytics define an outcome schema: booked yes/no, appointment time, reason if not booked` → verified on real calls before you trust it.
+5. **Score every call** — `/norm:evals build a scorecard for this pathway and attach it to calls` → judges generated + calibrated, then every production call auto-scores after it ends; verdicts land as tags.
+6. **Watch it** — `/norm:analytics build me an ops dashboard` → live board: volume, completion, outcomes, score trends.
+7. **Iterate from reality** — a weird number? `/norm:analytics which calls are behind it` → `/norm:review <call_id>` for the exact turn it broke → `/norm:loop <pathway_id> --from-call <call_id>` to fix the flow against that real call → the scorecard confirms the trend recovers.
+
+That's the whole lifecycle: build → tool up → converge → instrument → auto-score → monitor → iterate. Each step below in detail.
+
 ## Build or rebuild a call flow
 
 - `/norm:norm build me a booking flow that collects name, callback number, and appointment time, confirms it back, and texts a confirmation` — it designs the pathway, validates it with the real compiler, and saves it.
