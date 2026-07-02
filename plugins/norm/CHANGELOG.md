@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.0 — 2026-07-01
+
+- **norm_analytics is now a measurement ENGINEER, not just a query answerer** (routes sourced from the live server surface):
+  - **Outcome engineering** — full citation-schema lifecycle: design variables like rubric dimensions (categorical-with-options over free strings, evidence-based descriptions, flag-mode conditions as automatic QA), create/update via the passthrough, verify with `preview` backfills on known calls before trusting, audit quality via the schema-analytics routes (time-series, top-values, issues) and coverage queries.
+  - **Backfill discipline** — enterprise-gated, billed-per-extraction, async workflow polling; scope (schema × call count) stated in every confirmation.
+  - **Dispositions** — post-call sandboxed-JS outcomes: CRUD, AI-assisted generate/adjust from a real call, test-run before trusting, then chart via `source:"disposition"`.
+  - **Dashboard building** — create live boards of query/code panels in the Bland UI (panel = proven query + viz type + optional period comparison); never ship a panel whose query wasn't executed first; read the board back as evidence.
+  - Guardrails split: reads free; creates/updates/backfills/runs confirm-gated; enterprise 403s reported, not retried around.
+
 ## 1.7.1 — 2026-07-01
 
 - **norm_analytics rebuilt with the baked query contract** (sourced from the server's analytics compiler): full metrics/dimensions/filters/operator catalog, per-metric conditional filters as the rate idiom, time-bucket dimensions, citation/disposition sources, `pathway_tags` membership semantics, rows-mode drill-down (aggregate → rows → `/norm:review` pipeline), the recipe cookbook (volume, completion rate, durations/cost, voicemail split, transfers, tags, failures), and the hard limits that shape strategy (365d / 30s / 10GB / row caps) — queries now compose correctly first-try instead of rediscovering the schema each session.

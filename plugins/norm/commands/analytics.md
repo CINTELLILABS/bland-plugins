@@ -1,5 +1,5 @@
 ---
-description: Query Bland call analytics and build shareable report payloads. Use when the user asks for metrics, stats, numbers, or reports — call volume, how many calls, success/completion rates, outcomes, dispositions, average duration, transfer/routing breakdowns, trends over time, or a dashboard/PDF-style report.
+description: Query Bland call analytics, build the measurement system, and assemble live dashboards. Use when the user asks for metrics, stats, numbers, or reports — call volume, success/completion rates, outcomes, durations, transfers, trends — or wants to DEFINE outcomes (citation schemas / structured extraction), backfill or audit extraction quality, create post-call disposition scripts, or build an analytics dashboard/board of panels in the Bland UI.
 argument-hint: "<your analytics question, or the report you want>"
 allowed-tools:
   - "Task"
