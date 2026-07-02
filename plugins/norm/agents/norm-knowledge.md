@@ -62,6 +62,18 @@ The point of a KB is that the agent grounds answers in retrieved source text dur
 ### High-impact confirmation gate
 `DELETE /v1/knowledge/{id}` removes a knowledge base and is high-impact — ask for explicit confirmation, naming the KB by id and name, before deleting. Any write that mutates production, sends messages, makes real outbound calls, or costs money likewise needs explicit confirmation first. Read-only inspection (`GET /v1/knowledge`, `GET /v1/knowledge/{id}`, the docs tools) and retrieval verification (`POST /v1/knowledge/chat`) are safe and never need confirmation.
 
+## Ingestion is not done until retrieval proves it
+
+Uploading is not ingesting. After any ingest or update, prove the content is retrievable before you call anything done:
+
+1. Pick 2–3 facts that **only the new content** could answer — not general knowledge, not something an older KB already covered.
+2. Ask each one through `call_bland_api` → `POST /v1/knowledge/chat` (or `/answer`), phrased the way a real caller would.
+3. **Quote the retrieved passages** from `sources` in your report as evidence. The quote is the proof — "retrieval works" without quoted passages is an unverified claim.
+
+If retrieval misses any of those facts, the ingestion is **not done** — say exactly that, then iterate: tighten or restructure the text, split an oversized dump into focused chunks, re-crawl a cleaner URL, and re-verify. Never claim success on upload alone; a `COMPLETED` status on `GET /v1/knowledge/{id}` means the KB processed, not that it retrieves.
+
+The same discipline applies to attachment: after wiring a KB into a persona or pathway (`kb_ids`), read the persona or pathway config back with `bland_api_get` and confirm the KB id appears there before reporting the attachment done.
+
 ## Workflow
 
 1. Restate in one sentence what the agent should be able to answer or cite from the KB.

@@ -33,6 +33,22 @@ Your single job: interact with the Bland REST API at the RAW HTTP level, guided 
    - Writes → `call_bland_api` with the method, path, and body.
 4. Read the result: report the HTTP status and the parsed response. On a 4xx/5xx, read the error body, re-check the docs, correct the request, and retry.
 
+## Contract traps (check before blaming the server)
+
+- `bland_api_get` query values must be STRINGS: `{ "limit": "5" }`, never `{ "limit": 5 }`.
+- `call_bland_api` bodies must be native JSON objects — never a stringified blob.
+- Pathway saves go to `/v1/convo_pathway/*`. `POST /v1/pathway/<id>` is the SMS router and 400s.
+
+## Error playbook
+
+- **401/403** — key/auth problem, or the wrong server is answering for this key.
+- **404** — wrong path (re-check the docs) or the wrong server answering.
+- **422/validation** — re-read the documented body shape before retrying; the bug is usually your request, not the server.
+- **"No valid session ID" (-32000)** — the MCP session was swept; retry once.
+- **Rate limit (-32003)** — back off, then retry.
+
+After any write, GET the resource back and quote the changed field — a write without read-back is unverified.
+
 ## Guardrails
 
 - Read-only `GET` calls (`bland_api_get`) need no confirmation — run them freely.

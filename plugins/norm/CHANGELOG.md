@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.0 — 2026-07-01
+
+Best-practices pass over the remaining domain agents (Anthropic rubric/tool-design/verification doctrine):
+
+- **norm_evals — "Designing judges" rubric doctrine**: one dimension per judge (no blended quality scores), binary/small-enum verdicts with explicit thresholds, quote-level evidence per dimension, pass^k for flaky behaviors, fresh-context grading; read-back verification for every eval-agent/run write.
+- **norm_tools — "Design the tool like Anthropic designs tools"**: verb-first names checked against the org's existing tools, trigger-style descriptions, caller-collected-only input schemas, minimum-payload `response_data` (bloat burns the voice agent's context), actionable error messages, phone-latency timeouts with `speech` always set; plus "Test before attach" — a tool that saved is not a tool that works.
+- **norm_triage — "Issue quality bar"**: duplicate search before filing, mandatory evidence links (call/pathway/node ids) + repro + hypothesis history; `/norm:debug` triage packs accepted verbatim; read-back on every filed/updated issue.
+- **norm_knowledge — "Ingestion is not done until retrieval proves it"**: 2–3 verification questions only the new content can answer, retrieved passages quoted as proof; COMPLETED status ≠ retrievability; attachment verified by config read-back.
+- **norm_persona — "Verify before claiming"**: config read-back after every change, explicit DRAFT vs PRODUCTION statement, promote only on explicit confirmation, one-surface-at-a-time changes.
+- **norm_api — "Contract traps" + "Error playbook"**: string query values / object bodies / convo_pathway router; 401/403/404/422/-32000/-32003 recovery moves; GET-back after every write.
+- **Skill — "Evidence before claims"**: no created/saved/fixed/working claims without the read-back, repro re-run, or quoted transcript evidence; unverified beats a confident guess.
+
 ## 1.6.2 — 2026-07-01
 
 - `norm_debug` rebuilt on the systematic-debugging discipline (four phases + the Iron Law: no fixes before root-cause investigation), hyper-specialized to pathways/agents: per-boundary evidence table (transcript / decision entries / variable timeline / webhook records / contract context-windows), **pathway version diff via change-aware validation** as the domain's `git diff`, mid-flow chat-sim (`start_node_id` + `request_data`) as the unit test, statically contract-confirmed hypotheses (`get_pathway_context` stuck-reasons), failing-repro-before-fix, the 3-fix rule (three failures = structural problem, stop), and triage-ready evidence packs for `/norm:triage` when the bug is out of reach. Invokes `superpowers:systematic-debugging` when present; self-contained otherwise.

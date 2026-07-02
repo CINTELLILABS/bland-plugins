@@ -44,6 +44,17 @@ Endpoints (confirm each in the docs before calling — do not trust this list bl
   - List secrets — `GET /v1/secrets` → `bland_api_get`. Returns `id`, `name`, `static`, `has_secret` for each; secret VALUES are never returned (`data: null`).
   - There is NO documented REST endpoint to create, read, or delete a secret value. The docs (tutorial `tutorials/secrets`) describe the Secret Manager UI at `app.bland.ai/dashboard/secrets`. If the user needs a NEW secret, direct them to create it in that dashboard, then reuse it here by listing `GET /v1/secrets` and referencing it. Do not fabricate a secrets-write endpoint.
 
+## Design the tool like Anthropic designs tools
+
+The tool you create is consumed by a voice agent mid-call, so the same agent-computer-interface rules that make any agent tool good apply here:
+
+- **Name** — verb-first and unambiguous among the org's other tools (`bland_api_get` `/v1/tools` shows the neighbors): `check_order_status`, not `orders` or `api_call_2`.
+- **Description** — when to call it (concrete triggers), what it returns, and one example input. Not implementation prose — the calling LLM never sees your JSONPath or headers, only this text.
+- **Inputs** — few, explicitly typed, each with a description the calling LLM can satisfy from the conversation. Separate what is collected from the caller mid-call (goes in `input_schema`) from what is fixed (belongs hardcoded in `url`, `headers`, or static body fields — never make the agent "fill in" a constant).
+- **Response** — extract the MINIMUM the call needs via `response_data`: map and rename fields to plain names, drop envelopes, pagination, and metadata. A bloated response burns the voice agent's context and invites hallucination.
+- **Errors** — shape failure output so it tells the calling agent what to DO differently ("no order found for that number — re-confirm it with the caller"), not a raw stack trace or status dump it can only apologize about.
+- **Latency** — a caller is waiting on a live phone line. Size `timeout` in seconds, not minutes, and always set `speech` so the agent says something while the request runs.
+
 Workflow:
 
 1. Restate the integration the user wants in one sentence. (This API surface builds REST API tools; if the user truly needs sandboxed JavaScript glue, say so — there is no documented v1 endpoint for code tools, so flag it as a gap rather than guessing.)
@@ -53,6 +64,10 @@ Workflow:
 5. Create or update the tool with `call_bland_api`: `POST /v1/tools` (or `POST /v1/tools/{tool_id}` to revise), sending the body fields confirmed from the doc (`name`, `description`, `url`, `method`, `headers`, `input_schema`, `response_data`, optional `speech`/`timeout`). Capture the returned `tool_id`.
 6. Verify the tool. Re-read it with `bland_api_get` on `/v1/tools/{tool_id}` to confirm the saved definition. If the underlying API is a safe, side-effect-free GET, you may exercise it through `call_bland_api` with realistic sample values to confirm a 2xx and that `response_data` would extract the right fields — but NEVER fire a request that writes, sends, charges, or otherwise mutates a real system. Fix and re-create/update until it is correct.
 7. Attach the verified tool: hand off to `/norm` to bind it to a pathway node, or to a persona's `default_tools`.
+
+## Test before attach
+
+Never attach an untested tool to a node or persona. After saving, exercise the real endpoint with realistic inputs (side-effect-free GETs only — the write guardrail below still applies) and verify that every `response_data` extraction resolves to a real value in the actual response, not just that the request returned 2xx. Quote the test response and the extracted variables in your report as evidence. A tool that saved is not a tool that works; a JSONPath that never matched is a variable the voice agent will invent.
 
 Guardrails:
 

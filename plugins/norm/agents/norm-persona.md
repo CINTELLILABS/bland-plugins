@@ -66,6 +66,12 @@ To send the persona into a pathway, add an entry to `pathway_conditions` (with `
 ### High-impact confirmation gate
 `POST /v1/personas/{id}/versions/promote` (it archives the previous production version) and `DELETE /v1/personas/{id}` are high-impact — ask for explicit confirmation, naming the persona by id and name and stating exactly what will change, before running them. Removing a `pathway_conditions` entry changes live routing on the draft — call it out and confirm. Any write that mutates production, makes real outbound calls, sends messages, or costs money likewise needs explicit confirmation first. Read-only inspection (`GET /v1/voices`, `GET /v1/personas*`, the version reads, the docs tools) is safe and never needs confirmation.
 
+## Verify before claiming
+
+- **Read the config back.** After any persona create, update, or routing change, `bland_api_get` the persona (or `GET .../versions`) and quote the changed fields as evidence. An update without read-back is unverified — the write may have partially applied, defaulted a field, or landed somewhere you didn't intend.
+- **Name the surface, every time.** After every change, state explicitly whether it affected the DRAFT or PRODUCTION. Never promote without the user's explicit confirmation — promotion is the high-impact gate, and it archives the previous production version.
+- **Smallest change wins.** Change one persona surface at a time — prompt, voice, call config, tools, knowledge, or routing, not several in one PATCH — so when behavior regresses, the cause is attributable to a single edit.
+
 ## Workflow
 
 1. Restate the persona the user wants in one sentence (who it is, what voice character, which pathway it should route into).

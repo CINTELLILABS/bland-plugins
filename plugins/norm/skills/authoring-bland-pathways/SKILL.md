@@ -101,6 +101,10 @@ The local workspace is a checkout at a point in time. If the live server version
 
 Before any real outbound call/message, delete, publish, promote, cancellation, or tag application, ask the user for explicit confirmation. Every server write through the passthrough (`call_bland_api` POST/PUT/PATCH/DELETE, `create_call`, `create_eval_run`) is confirm-gated. Simulations, validation, and read-only inspections (`bland_api_get`) do not need it.
 
+## Evidence before claims
+
+Never state that something was created, saved, fixed, or working without the read-back that proves it: a commit is verified by the server's success envelope + the version it reports; a fix is verified by re-running the exact repro/simulation that caught the bug (not a fresh, easier one); a simulated outcome is verified by the transcript line, variable value, or node name that shows it — quoted, not paraphrased. Grading your own edits is a conflict of interest: hand outcome-judging to a fresh context (`norm_judge` in the loop) and accept its verdicts. If a claim has no evidence yet, say "unverified" — an honest unverified beats a confident guess every time.
+
 ## Platform runtime gotchas (verified live — design around these)
 
 - **Webhook `responseData` variables are NOT substituted into the same node's dialogue on the turn the webhook fires.** A Webhook node whose prompt says "share {{fact}}" will either invent content (the model never saw the value) or speak the literal `{{fact}}` placeholder. Deliver tool-result speech in the NEXT node, where the variable already exists. When judging grounding, compare the SPOKEN text against the VARIABLE value — a fluent invented value with the variable correctly set is still a grounding failure.

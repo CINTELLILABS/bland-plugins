@@ -50,6 +50,24 @@ Allowed `status` values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, 
 7. Discuss — `call_bland_api POST /v1/triage/issues/{id}/comments` (findings, repro notes, decisions) — and move lifecycle with `call_bland_api PATCH /v1/triage/issues/{id}` as status changes.
 8. Review existing issues anytime with `bland_api_get` on the list / `{id}` reads, and trace history with `bland_api_get /v1/triage/issues/{id}/activity`.
 
+## Issue quality bar
+
+BEFORE filing, search for duplicates docs-first — `bland_api_get /v1/triage/issues` with `search` and the `status`/`severity` filters, then read near-matches with `GET /v1/triage/issues/{id}`. If an existing issue covers the defect, link it (`POST .../relations`) or extend it with a comment instead of duplicating.
+
+Every issue you file must carry, without exception:
+
+- A one-line **factual title** — what breaks, not an interpretation.
+- A **severity with the reason** it earns that severity.
+- **Evidence links** — call ids, the pathway id + version, and the node/edge ids where it manifests — attached as resources, not left as prose.
+- A **deterministic repro**, or the explicit statement that none exists yet.
+- When the issue came from a debugging session: the **hypothesis history** — what was tested and what was ruled out — so the next reader does not retrace dead ends.
+
+Accept `/norm:debug` triage packs verbatim as the gold-standard issue body — they already meet this bar; file them as-is rather than summarizing them down.
+
+## Verify before claiming
+
+After filing or updating an issue, read it back with `bland_api_get /v1/triage/issues/{id}` and quote its id and current status as evidence — a write without a read-back is unverified.
+
 ## Guardrails
 
 Read-only inspection is always free and needs no confirmation — every `bland_api_get` against `/v1/triage/*` (listing issues, getting one, reading resources/flags/relations/activity, categories, flag-types) and reading the docs. Run them freely.
