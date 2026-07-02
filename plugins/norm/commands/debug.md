@@ -1,5 +1,5 @@
 ---
-description: "Systematic debugging for anything misbehaving on the Bland surface — reproduce it deterministically, isolate the layer (transport/auth vs contract vs behavior), fix it on the right surface, verify with the same repro. Use when a tool or endpoint errors, a webhook fails, a widget won't render, behavior contradicts the docs, or 'it worked yesterday'. Works on production or a dev server; fixes code when a server codebase is present, config otherwise."
+description: "Systematic root-cause debugging for anything misbehaving on the Bland surface — the four-phase discipline (investigate → pattern-match → single hypothesis → minimal fix with a failing repro first), specialized to pathways and agents. Use when a pathway routes wrong or loops, a variable extracts badly, a webhook/tool or endpoint errors, a widget won't render, or 'it worked yesterday'. Confirmed-out-of-reach bugs become triage-ready evidence packs."
 argument-hint: "<what is broken / what to reproduce>"
 allowed-tools:
   - "Task"
@@ -8,7 +8,7 @@ allowed-tools:
 
 # Norm Debug
 
-Debug anything misbehaving through the `norm_debug` agent, which owns the doctrine: deterministic repro file first (`.norm/repro/<slug>.md`), layer isolation (transport/auth vs contract vs behavior), fix dispatched to the right surface — pathway workspace files, account config through the passthrough, or the local server codebase when the working tree contains one (guided by that repo's own CLAUDE.md / project skills, never by plugin-baked internals) — then verification with the original repro.
+Debug anything misbehaving through the `norm_debug` agent, which enforces the systematic-debugging discipline (the superpowers methodology, specialized to this domain): **no fixes before root-cause investigation** — deterministic repro file first (`.norm/repro/<slug>.md`), evidence per pipeline boundary (transcript / decision entries / variable timeline / webhook records / contract context-windows), pathway version diffs via change-aware validation, a single contract-confirmed hypothesis, then ONE minimal fix at the root surface with the failing repro as proof, and the 3-fix rule (three failures = structural problem, stop and question the design). Out-of-reach bugs come back as triage-ready evidence packs for `/norm:triage`.
 
 User request:
 

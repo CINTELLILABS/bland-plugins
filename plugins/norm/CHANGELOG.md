@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.2 — 2026-07-01
+
+- `norm_debug` rebuilt on the systematic-debugging discipline (four phases + the Iron Law: no fixes before root-cause investigation), hyper-specialized to pathways/agents: per-boundary evidence table (transcript / decision entries / variable timeline / webhook records / contract context-windows), **pathway version diff via change-aware validation** as the domain's `git diff`, mid-flow chat-sim (`start_node_id` + `request_data`) as the unit test, statically contract-confirmed hypotheses (`get_pathway_context` stuck-reasons), failing-repro-before-fix, the 3-fix rule (three failures = structural problem, stop), and triage-ready evidence packs for `/norm:triage` when the bug is out of reach. Invokes `superpowers:systematic-debugging` when present; self-contained otherwise.
+
 ## 1.6.1 — 2026-07-01
 
 - Renamed `/norm:dev` → **`/norm:debug`** (`norm_debug`) and dropped the dev-only gate: systematic reproduce → isolate → fix → verify debugging is for EVERYONE, on production or a dev server. On prod it repros against throwaway resources and fixes at the pathway/config level; when the working tree contains a server codebase it adds the code-fix loop (guided by that repo's own CLAUDE.md/skills). Server bugs with no codebase present come back as escalation-ready repros.
