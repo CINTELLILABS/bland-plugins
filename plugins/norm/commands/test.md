@@ -1,5 +1,5 @@
 ---
-description: Test the local Bland pathway — a focused node/runtime check when a node is named, or a full agent-to-agent simulation otherwise.
+description: Test the local Bland pathway — a focused node/runtime check when a node is named, or a full agent-to-agent simulation otherwise. Use when the user wants to test, try, simulate, or run the pathway, check how a specific node behaves, or do a dry-run conversation before committing.
 argument-hint: "[node]"
 allowed-tools:
   - "mcp__bland__bland_api_get"

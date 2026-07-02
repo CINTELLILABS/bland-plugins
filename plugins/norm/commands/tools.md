@@ -1,5 +1,5 @@
 ---
-description: Build, test, and manage Bland custom integrations — REST API tools and the secrets they reference — docs-first via the raw /v1 REST API.
+description: Build, test, and manage Bland custom integrations — REST API tools and the secrets they reference. Use when the user mentions custom tools, integrations, webhooks, API calls from a node, connecting an external service or CRM, or creating/updating/storing secrets and credentials.
 argument-hint: "<tool task — build, test, or manage>"
 allowed-tools:
   - "Task"

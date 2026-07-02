@@ -1,5 +1,5 @@
 ---
-description: "Raw Bland REST API usage, guided only by the official docs — look up the endpoint in the reverse-proxied Mintlify docs, then make the raw HTTP call through the Bland MCP generic passthrough. Minimal, hyper-focused surface."
+description: "Call any Bland REST API endpoint directly, docs-first — look up the endpoint in the official docs, then make the raw HTTP call. Use when the user wants to hit the Bland API directly, mentions an endpoint or /v1 path, asks to GET/POST/curl something against api.bland.ai, or needs an operation no other Norm command covers."
 argument-hint: "<what you want to do with the Bland API>"
 allowed-tools:
   - "Task"

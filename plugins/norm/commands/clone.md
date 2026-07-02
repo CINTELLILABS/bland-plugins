@@ -1,5 +1,5 @@
 ---
-description: Clone a Bland pathway into a local workspace of files (or scaffold a brand-new one).
+description: Clone a Bland pathway into a local file workspace, or scaffold a brand-new one. Use when the user wants to checkout, pull, download, open, or start editing an existing pathway (by id or name), or create/scaffold a new pathway from scratch.
 argument-hint: "<pathway_id | new <name>>"
 allowed-tools:
   - "mcp__bland__bland_api_get"

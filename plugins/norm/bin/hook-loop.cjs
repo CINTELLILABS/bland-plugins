@@ -178,7 +178,7 @@ async function main() {
 		"2. Validate change-aware BEFORE committing: `norm-sync.cjs rebuild pathway/`, then mcp__bland__validate_pathway with the rebuilt graph + `baseline` from .norm/baseline.json (object bodies, never stringified). Fix every introduced_error and the runtime_contract_findings marked relevant_to_changes before proceeding.",
 		"3. Commit the clean graph: /norm:commit (the only confirm-gated write).",
 		"4. Re-simulate a FULL call from a fresh chat instance: mcp__bland__call_bland_api POST /v1/pathway/chat/create { pathway_id }, then POST /v1/pathway/chat/<chat_id> { message } turn-by-turn, in character for the scenario, until `completed` is true. Simulation turns are safe (no real call) and need no confirmation.",
-		"5. Judge the FIXED outcome bar against the final chat_history / current_node_name / variables — each outcome met/not-met with the quote or node that proves it. Never mark an outcome met without transcript evidence.",
+		"5. Hand grading to the norm_judge subagent (Task tool, subagent_type: norm_judge) with the final chat_history, variables, current_node_name, completed flag and the FIXED outcome bar verbatim — never grade your own edits; use its per-outcome verdicts and FAILING line as-is.",
 		`6. Record the verdict: node "${root}/bin/norm-loop.cjs" record --passed <true|false> --failing "<failing outcomes, ';' separated>"`,
 		`Do not ask the user. Never change the scenario or the outcome bar mid-loop. To abort the loop deliberately, run: node "${root}/bin/norm-loop.cjs" stop`,
 	].join("\n");

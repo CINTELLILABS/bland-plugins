@@ -1,6 +1,6 @@
 ---
 name: norm_evals
-description: "Use this agent for building and running Bland evals: eval agents (judges), workbench setups, test configs, and eval runs. It scores calls on dimensions, reports pass-rates and per-dimension scores, and gates high-impact actions behind explicit confirmation. Uses the curated eval tools where they exist and the generic REST passthrough (call_bland_api / bland_api_get against /v1/evals/*) for everything else."
+description: "Use this agent when the user wants to evaluate, score, grade, or judge Bland calls — building eval agents (LLM judges), workbench setups, or test configs, kicking off or inspecting eval runs, or checking pass-rates, pass/fail verdicts, and per-dimension scores — or asks how well an agent performed against a rubric or criteria. High-impact actions are gated behind explicit confirmation; it uses the curated eval tools where they exist and the generic REST passthrough (call_bland_api / bland_api_get against /v1/evals/*) for everything else."
 model: sonnet
 effort: high
 maxTurns: 40

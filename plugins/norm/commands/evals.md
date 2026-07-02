@@ -1,5 +1,5 @@
 ---
-description: Build and run Bland evals — eval agents, workbench setups, test configs, and eval runs — then report pass-rates and per-dimension scores.
+description: Build and run Bland evals, then report pass-rates and per-dimension scores. Use when the user wants to evaluate, score, grade, or judge calls — creating eval agents (judges), workbench setups, or test configs, kicking off eval runs, or checking pass/fail results and scores.
 argument-hint: "<eval task — build, run, or inspect>"
 allowed-tools:
   - "Task"

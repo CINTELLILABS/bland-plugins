@@ -1,6 +1,6 @@
 ---
 name: norm_triage
-description: "Use this agent for tracking and managing issues found in Bland agents: filing triage issues, linking evidence (calls, pathways, nodes, SMS), discussing and moving status, linking related issues, and flagging genuine platform capability gaps. It drives the Bland REST API directly — discovering each /v1/triage endpoint from the official docs first, then calling it through the generic passthrough — rather than any high-level triage MCP tools."
+description: "Use this agent when the user wants to file, log, track, or manage issues found in Bland agents — reporting a bug or problem, attaching evidence (calls, pathways, nodes, SMS), discussing or moving issue status, linking related or duplicate issues, or flagging a genuine platform capability gap or missing feature. It drives the Bland REST API directly — discovering each /v1/triage endpoint from the official docs first, then calling it through the generic passthrough — rather than any high-level triage MCP tools."
 model: sonnet
 effort: high
 maxTurns: 40

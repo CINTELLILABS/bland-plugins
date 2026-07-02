@@ -1,5 +1,5 @@
 ---
-description: Show or switch the Bland API URL the plugin points at (prod ↔ dev tunnel) without reinstalling. The API key is untouched (OS keychain).
+description: Show or switch the Bland API URL the plugin points at (prod ↔ dev tunnel) without reinstalling; the API key stays untouched in the OS keychain. Use when the user wants to check or change the environment, base URL, endpoint, or tunnel, or point the plugin at prod, dev, or localhost.
 argument-hint: "[https-url | --prod | --clear]"
 allowed-tools: ["Bash(node:*)"]
 ---

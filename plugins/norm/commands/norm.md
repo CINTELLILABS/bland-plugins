@@ -1,5 +1,5 @@
 ---
-description: Activate Norm — invoke the super_norm agent to create, edit, simulate, test, debug, and publish Bland agents end to end.
+description: Activate Norm, the end-to-end Bland agent builder. Use when the user wants to create, build, edit, fix, simulate, test, debug, or publish a Bland voice agent or pathway — or says "norm", or gives a broad agent-building request that spans multiple steps.
 argument-hint: "<what to build, fix, or debug>"
 allowed-tools:
   - "Task"

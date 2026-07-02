@@ -1,6 +1,6 @@
 ---
 name: norm_knowledge
-description: "Use this agent for Norm knowledge-base work: ingest content into a retrievable corpus, verify retrieval, and attach a knowledge base so the agent can pull and cite facts mid-call. Also searches the Bland product documentation."
+description: "Use this agent when the user mentions knowledge bases, KBs, RAG, or mid-call retrieval — ingesting or uploading documents, FAQs, or content the agent should know, verifying that retrieval actually returns the right facts, asking why the agent doesn't know something, or attaching a knowledge base to a persona or pathway so calls can pull and cite facts mid-call. Also use it to search the official Bland product documentation."
 model: sonnet
 effort: high
 maxTurns: 40

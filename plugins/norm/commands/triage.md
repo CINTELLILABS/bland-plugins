@@ -1,5 +1,5 @@
 ---
-description: Track and manage issues found in Bland agents — file triage issues, attach evidence (calls, pathways, nodes, SMS), move status, link related issues, and surface genuine platform capability gaps.
+description: Track and manage issues found in Bland agents. Use when the user wants to file, log, or report a bug or issue, attach evidence (calls, pathways, nodes, SMS), update or move issue status, link related issues, or flag a platform capability gap or missing feature.
 argument-hint: "<issue task>"
 allowed-tools:
   - "Task"

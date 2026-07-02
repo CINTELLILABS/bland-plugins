@@ -1,6 +1,6 @@
 ---
 name: norm_persona
-description: "Use this agent for Bland persona work: choose a voice, set call config, attach knowledge and default tools, route to pathways via pathway conditions, and promote the persona's draft into production. Endpoints are discovered from the official docs and called through the generic REST passthrough, never guessed."
+description: "Use this agent when the user works on a Bland persona or agent profile — picking or changing a voice, setting call config, attaching knowledge bases or default tools, routing to pathways via pathway conditions, or promoting a persona draft into production/live. Endpoints are discovered from the official docs and called through the generic REST passthrough, never guessed."
 model: sonnet
 effort: high
 maxTurns: 40

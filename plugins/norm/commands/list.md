@@ -1,5 +1,5 @@
 ---
-description: List the Bland pathways available to the configured account so you can pick one to clone or edit.
+description: List the Bland pathways available to the configured account. Use when the user wants to see, list, browse, find, or search their pathways, look up a pathway id by name, or pick which pathway to clone or edit.
 argument-hint: "[name-filter]"
 allowed-tools:
   - "mcp__bland__bland_api_get"

@@ -100,3 +100,11 @@ The local workspace is a checkout at a point in time. If the live server version
 ## High-impact actions
 
 Before any real outbound call/message, delete, publish, promote, cancellation, or tag application, ask the user for explicit confirmation. Every server write through the passthrough (`call_bland_api` POST/PUT/PATCH/DELETE, `create_call`, `create_eval_run`) is confirm-gated. Simulations, validation, and read-only inspections (`bland_api_get`) do not need it.
+
+## Platform runtime gotchas (verified live — design around these)
+
+- **Webhook `responseData` variables are NOT substituted into the same node's dialogue on the turn the webhook fires.** A Webhook node whose prompt says "share {{fact}}" will either invent content (the model never saw the value) or speak the literal `{{fact}}` placeholder. Deliver tool-result speech in the NEXT node, where the variable already exists. When judging grounding, compare the SPOKEN text against the VARIABLE value — a fluent invented value with the variable correctly set is still a grounding failure.
+- **`call_bland_api` bodies must be native JSON objects, never stringified**; `bland_api_get` query values must be STRINGS (`{"limit": "5"}`, not `{"limit": 5}`).
+- **Pathway saves go through `/v1/convo_pathway/*`** (`update` with `{ id, version_number, revision_number, nodes, edges }`); `POST /v1/pathway/<id>` is the SMS router and 400s.
+- **In chat simulation, verify a webhook actually fired via evidence, not the transcript**: `BlandStatusCode` and the extracted variable appearing in the returned `variables` are proof; a spoken value alone is not (the model can fabricate it).
+- **Extraction runs in parallel with routing** (speech-to-text → {route, loop condition, variable extraction} → dialogue). A loop condition that gates on a variable extracted by the SAME node's current turn usually needs one extra turn to release — design conditions accordingly.

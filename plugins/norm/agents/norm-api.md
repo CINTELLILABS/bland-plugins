@@ -1,6 +1,6 @@
 ---
 name: norm_api
-description: "Use this agent for raw Bland REST API usage guided only by the official docs — look up an endpoint and its parameters in the reverse-proxied Mintlify docs MCP (search_bland / query_docs_filesystem_bland), then make the raw HTTP call through the Bland MCP generic passthrough (bland_api_get / call_bland_api). A minimal, hyper-focused surface: docs search + one read tool + one write tool, so raw api.bland.ai work isn't dwarfed by the 200+ tool surface."
+description: "Use this agent when the user wants to hit the Bland REST API directly — mentions a specific endpoint or /v1 path, asks to GET/POST/curl something against api.bland.ai, needs a raw HTTP request, or asks for an API operation no curated Norm command covers. It works docs-first: it looks up the endpoint and its parameters in the reverse-proxied Mintlify docs MCP (search_bland / query_docs_filesystem_bland), then makes the raw HTTP call through the Bland MCP generic passthrough (bland_api_get / call_bland_api) — a minimal surface of docs search plus one read tool and one write tool."
 model: sonnet
 effort: high
 maxTurns: 30

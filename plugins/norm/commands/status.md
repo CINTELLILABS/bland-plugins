@@ -1,5 +1,5 @@
 ---
-description: Show the current Bland Norm workspace state — active pathway, working version, local vs server drift, dirty files, and pending warnings.
+description: Show the current Norm workspace state — active pathway, working version, local vs server drift, dirty files, pending warnings. Use when the user asks what pathway is loaded, whether there are unsaved/uncommitted changes, whether local files differ from the server, or just asks for status.
 argument-hint: "[--server]"
 allowed-tools:
   - "mcp__bland__bland_api_get"

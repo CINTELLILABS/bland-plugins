@@ -93,22 +93,22 @@ The simulation is the doc-confirmed **Pathway Chat** turn surface. It is a safe 
    ```
    The response `data` returns: `assistant_responses` (array of the pathway's reply strings for this turn), `current_node_id` / `current_node_name` (where the pathway is now — your routing evidence), `chat_history` (the full running `{ role, content }[]`), `variables` (current pathway variables — your extraction evidence), and `completed` (the call-ended signal — `true` once an End-Call node fires). Keep sending customer turns, staying in character for your scenario, until `completed` is `true` or the conversation has clearly concluded.
 
-3. **Verify the outcome checklist against the transcript.** You ran the call, so you judge it: walk the final `chat_history` (plus `current_node_name` and `variables` as evidence) against each expected outcome and mark it met / not-met with the quote or node that proves it. This is what the `/goal` condition checks.
+3. **Hand the grading to the `norm_judge` agent — never grade your own work.** Launch it via the `Task` tool (`subagent_type: norm_judge`) with, verbatim: the full final `chat_history`, the final `variables`, `current_node_name`, the `completed` flag, and the FIXED outcome bar. The judge runs in a fresh context with none of your editing reasoning, so its verdicts carry no optimizer bias — it returns one met/not-met per outcome with the exact quote, variable, or node as evidence, `PASSED: true|false`, and (on failure) a ready-to-record `FAILING:` line. Use its verdicts as-is; do not overrule a `not_met` because the transcript "looks close".
 
 ## Each pass (until converged)
 
 1. **Simulate** a full call as above (fresh `chat/create`, drive to `completed`).
-2. **Show the transcript + the outcome checklist** (each outcome, met/not-met, with evidence).
+2. **Judge via `norm_judge`** (step 3 above), then **show the transcript + the judge's verdict table** (each outcome, met/not-met, with its evidence).
 3. If **every outcome holds**, you're converged — record it so the gate releases, then report and stop:
 
    ```bash
    node "${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs" record --passed true
    ```
 
-4. If **any outcome fails**, first record the verdict (this is what the Stop hook re-feeds and how it detects stalls — record it immediately after judging, before editing):
+4. If **any outcome fails**, first record the judge's verdict (this is what the Stop hook re-feeds and how it detects stalls — record it immediately after judging, before editing, using the judge's `FAILING:` line verbatim):
 
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs" record --passed false --failing "<failing outcomes, ';' separated>"
+   node "${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs" record --passed false --failing "<the judge's FAILING line>"
    ```
 
    Then make a **minimal, targeted edit** to the pathway FILES to fix exactly that gap — prose (`nodes/<slug>/node.md` body, `condition.md`, edge labels, `.pathways/global_prompt.md`) via native `Read`/`Edit`; structured surfaces (`variables.yaml`, `model.yaml`, `tools.yaml`, node frontmatter) by editing those files directly — they round-trip verbatim through `rebuild`. There are no `set_*` tools; the file is the edit. Before hand-authoring or heavily editing a structured surface, call `mcp__bland__get_pathway_schema` for that surface (`surface: node_tools|variables|model|unit_tests|node|edge`, `tool_type` for a single node-tool variant) to get the authoritative allowed shape + enums so the YAML is valid first-try. Then **validate before committing — CHANGE-AWARE**: `rebuild pathway/`, read the pre-edit graph from `.norm/baseline.json` (written at setup — the graph is the top-level `{ nodes, edges }`, or at `.graph`), and pass the rebuilt graph WITH the baseline to `mcp__bland__validate_pathway` (read-only, no confirm-gate; object bodies only, never stringified):

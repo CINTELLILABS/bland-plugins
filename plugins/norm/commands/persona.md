@@ -1,5 +1,5 @@
 ---
-description: Build or manage a Bland persona — pick a voice, set call config, attach knowledge and tools, route to pathways via pathway conditions, then promote the draft to production.
+description: Build or manage a Bland persona — voice, call config, knowledge, tools, and pathway routing — and promote drafts to production. Use when the user mentions a persona or agent profile, picking/changing a voice, call settings, attaching knowledge or tools, pathway conditions, or making a draft live.
 argument-hint: "<persona task>"
 allowed-tools:
   - "Task"

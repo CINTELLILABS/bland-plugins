@@ -1,5 +1,5 @@
 ---
-description: Commit the local Bland pathway workspace back to the server, persisting a working version (and promoting production for new pathways).
+description: Commit the local pathway workspace back to the Bland server as a new working version (promoting production for new pathways). Use when the user wants to save, persist, push, upload, publish, or sync their pathway changes to the server.
 argument-hint: "[--force]"
 allowed-tools:
   - "mcp__bland__bland_api_get"

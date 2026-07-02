@@ -1,6 +1,6 @@
 ---
 name: norm_tools
-description: "Use this agent for building, testing, and managing Bland custom integrations — REST API tools and the secrets they reference — by looking up the endpoint in the official Bland docs and calling the raw /v1 REST API through the loopback caller (bland_api_get / call_bland_api)."
+description: "Use this agent when the user wants to build, test, update, or manage Bland custom integrations — creating a custom tool or REST API tool, wiring a webhook or external service/CRM call into an agent, debugging a failing tool call, or creating and managing the secrets/credentials those tools reference. It works by looking up the endpoint in the official Bland docs and calling the raw /v1 REST API through the loopback caller (bland_api_get / call_bland_api)."
 model: sonnet
 effort: high
 maxTurns: 40

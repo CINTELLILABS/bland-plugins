@@ -1,10 +1,13 @@
 ---
-description: Review and debug a real Bland call — fetch its transcript, routing/decision logs, variables, recording, and summary, then form a semantic verdict (was the goal met, where did it fail) by reading the fetched data.
-argument-hint: "<call_id or review task>"
+description: "Review and debug a real Bland call — find it (by window, number, batch, outcome, duration, error), fetch its full log set, classify the node-by-node pathway logs, and get an evidence-quoted verdict on why it failed. Use when a call routed wrong, looped, dropped, hit voicemail, failed a webhook/tool, mis-extracted a variable, or you need to sweep a cohort of calls for a pattern."
+argument-hint: "<call_id | 'find …' filter description | review task>"
 allowed-tools:
   - "Task"
   - "Read"
+  - "Write"
+  - "Grep"
   - "mcp__bland__get_call_log"
+  - "mcp__bland__get_pathway_context"
   - "mcp__bland__bland_api_get"
   - "mcp__bland__search_bland_docs"
   - "mcp__bland__get_bland_doc"
@@ -13,7 +16,7 @@ allowed-tools:
 
 # Norm Call Review
 
-Review and debug a real Bland call through the `norm_review` agent, which owns the doctrine (fetch the call's full log set → read transcript + routing logs turn by turn → form the semantic verdict yourself → hand a confirmed bug off as a reconstructed regression scenario).
+Review and debug real Bland calls through the `norm_review` agent, which owns the full doctrine: call discovery via the `/v1/calls` filter cookbook, the field-by-field call-record and `pathway_logs` anatomy (entry classification by `pathway_info` keys, `[!!!]` issue markers), local workspace materialization for heavy calls, and reconciliation of observed behavior against the pathway's runtime contracts via `get_pathway_context`.
 
 User request:
 
@@ -23,11 +26,6 @@ $ARGUMENTS
 
 Steps:
 
-1. Launch the `norm_review` agent (via the `Task` tool, `subagent_type: norm_review`) and hand it the user request verbatim. If `$ARGUMENTS` contains a call id, pass it through; if not, the agent finds the call via the passthrough first (`bland_api_get /v1/calls` with a `limit`).
-2. The agent fetches the call's full detail with the curated `get_call_log` tool — the transcript (`concatenated_transcript` + `transcripts[]`), the node-by-node routing/decision log (`pathway_logs[]`), the extracted `variables`, `recording_url`, `summary`, `metadata`, and outcome. It reads them turn by turn, reconstructs which node was active and which edge/decision fired, and forms its OWN semantic verdict — was the goal met, what was extracted, exactly where it broke. There is no server-side analyzer; the reasoning is the agent's.
-3. The agent ties the root cause to a specific node / edge / variable / tool, and cross-references the pathway with `/norm:clone <pathway_id>` (from the call's `pathway_id`) when the fix lives in the pathway.
-4. Regression tests: there is no curated tool or `/v1` endpoint that auto-generates a Helix test from a call on this surface (the old `generate_from_call` is gone). For a confirmed bug the agent reconstructs the scenario by hand from the transcript and verdict and hands it to `/norm:evals` or `/norm:test`; it does not claim an auto-generated test.
-5. This command is read-only: it never places a call, sends a message, or re-fires a webhook.
-6. Final answer must include the call id, the goal verdict (explicitly the agent's own analysis of the fetched transcript + logs), the root cause tied to a specific node/edge/variable/tool, the decisive evidence (quoted transcript turns and `pathway_logs` decision lines), and the call's `pathway_id` for follow-up.
-
-Endpoints are discovered from the official docs (`search_bland_docs` → `get_bland_doc`, and `query_docs_filesystem_bland`), never guessed. The call's data is fetched JSON, not local files — there is no mount step.
+1. Launch the `norm_review` agent (`Task` tool, `subagent_type: norm_review`) and hand it the user request verbatim. A bare call id → deep single-call review; a description ("failed calls from yesterday's batch", "short calls to +1…") → it finds the cohort first, reports per-call one-liners, then deep-dives the interesting ones.
+2. The agent is entirely read-only (no calls placed, no writes to the server) and reasons over fetched data — the verdict is its own analysis, evidence-quoted, never a claimed server verdict.
+3. Relay the agent's report intact: verdict, root cause tied to a specific node/edge/variable/tool, decisive quoted evidence, and the recommended fix surface with handoff (`/norm:norm` to fix the pathway, `/norm:triage` to file it, `/norm:loop --from-call <id>` to turn the call into a regression target).

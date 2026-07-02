@@ -1,5 +1,5 @@
 ---
-description: Validate the local Bland pathway workspace — compile the files with the authoritative server compiler and report errors, warnings, and runtime-contract findings before commit.
+description: Validate the local pathway workspace with the authoritative server compiler. Use when the user wants to check, compile, lint, or verify the pathway, find errors or warnings before saving or committing, or asks whether the pathway is valid or will build.
 allowed-tools:
   - "Read"
   - "Edit"

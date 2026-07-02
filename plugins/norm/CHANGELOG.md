@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.0 — 2026-07-01
+
+Best-practices hardening pass (sourced from the official Claude Code authoring docs + Anthropic agent-design engineering posts):
+
+- **`norm_judge` (new agent) — judge separation for `/norm:loop`.** Simulation grading now runs in a fresh-context evaluator with zero optimizer bias: per-outcome met/not-met verdicts with mandatory evidence quotes, strict grounding rules (spoken text must match the variable; literal `{{var}}` = fail), and a ready-to-record `FAILING:` line the Stop-hook gate re-feeds verbatim. The optimizer no longer grades its own work.
+- **`norm_review` rebuilt as a call-forensics specialist**: `/v1/calls` discovery cookbook (full filter surface + recipes), field-by-field call-record anatomy, the `pathway_logs` classification key-map (webhook/error/custom_code/tool_call/kb/sms/scheduling/routing/variables/loop/decision) with `[!!!]` issue markers, local workspace materialization for heavy calls, symptom playbooks, and expected-vs-observed reconciliation via `get_pathway_context`.
+- **Description sweep (22 files)**: all command + agent descriptions rewritten to trigger-condition style ("Use when …", keyword-dense) per the official guidance — descriptions drive delegation and slash-command discoverability.
+- **SKILL.md "Platform runtime gotchas"**: verified-live rules (webhook `responseData` vars are not substituted into the same node's dialogue on the firing turn — deliver in the next node; object bodies / string query params; `/v1/convo_pathway` save router; chat-sim webhook evidence rules; extraction-vs-routing parallelism).
+- **`super_norm` gains persistent memory** (`memory: user`) — durable platform gotchas survive across sessions.
+- norm-analytics: explicit read-only Guardrails section.
+
 ## 1.4.0 — 2026-07-01
 
 - `/norm:loop` is now **truly autonomous**: resurrected the Stop-hook convergence gate (`hook-loop.cjs` + `norm-loop.cjs`, modernized to the passthrough surface). The command arms `.norm/loop.json` at setup and records every simulation verdict; while the target fails, the Stop hook blocks the turn from ending and re-feeds the exact failing outcomes (documented `decision: "block"` + `reason` contract). Releases on convergence, `--max` passes (default 8), stall (same failures twice), 24h staleness, or a deliberate `norm-loop.cjs stop`. Session-isolated and fail-soft — never fires outside an armed loop.
