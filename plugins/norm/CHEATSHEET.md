@@ -1,56 +1,50 @@
-# Norm — Cheat Sheet
+# Norm — Build Things Cheat Sheet
 
-Build, test, debug, and measure Bland voice agents from Claude Code.
+Build and test Bland voice agents from Claude Code. Describe what you want; it does the work.
 
-## Install
+## Install (once)
 
 ```
 claude plugin marketplace add CINTELLILABS/bland-plugins
 claude plugin install norm@bland --config bland_api_key=YOUR_KEY   # key: app.bland.ai → API keys
 ```
 
-Restart your Claude Code session. Key is stored in your OS keychain. Point at a dev server anytime with `/norm:config <https-tunnel-url>` (back with `--prod`; restart after switching).
+Restart your Claude Code session. Done.
 
-## Pathway building (the core loop)
+## Build or rebuild a call flow
 
-| Command | What it does |
-|---|---|
-| `/norm:norm` | Just talk to it — "make the greeting collect a callback number". Does edit → validate → commit for you. |
-| `/norm:list` | List your org's pathways. |
-| `/norm:clone <id \| new>` | Check a pathway out as local files (prompts = markdown, config = YAML). Edit them like code. |
-| `/norm:validate` | Compile with the real server compiler — errors, warnings, runtime-contract findings — before saving. |
-| `/norm:commit` | Save back to the server as a working version. Production untouched. |
-| `/norm:status` | Workspace state: dirty files, version, server drift. |
-| `/norm:test [node]` | Simulated call (text chat) against your pathway. No real dial. |
-| `/norm:loop <id> --goal '…'` | **Self-driving convergence**: derives a test bar from your goal, then simulates → judges → fixes → re-validates → commits, repeating until every outcome passes (or max/stall). A Stop-hook gate keeps it running; an independent judge grades every pass. Also `--from-call <id>` / `--transcript <file>`. |
+- `/norm:norm build me a booking flow that collects name, callback number, and appointment time, confirms it back, and texts a confirmation` — it designs the pathway, validates it with the real compiler, and saves it.
+- Rework an existing one: `/norm:clone <pathway_id>` → the pathway becomes local files (prompts as markdown, config as YAML) → tell it what to change → `/norm:validate` → `/norm:commit`.
+- Rebuild from a real call that went well (or badly): `/norm:loop <pathway_id> --from-call <call_id>` — it turns the call into a target and reworks the flow until it matches.
 
-## Debugging & forensics
+## Test end to end
 
-| Command | What it does |
-|---|---|
-| `/norm:debug <symptom>` | Systematic root-cause debugging: deterministic repro first (`.norm/repro/`), layer isolation, one minimal fix, verified with the same repro. In the SERVER repo it fixes code (guided by the repo's own skill); anywhere else it fixes pathway/config or hands you an escalation-ready repro pack. |
-| `/norm:review <call_id or "find …">` | Call forensics: finds calls by filter, classifies the node-by-node pathway logs, traces variables, and delivers an evidence-quoted verdict on where it broke. |
-| `/norm:triage` | File/track issues with evidence (call/pathway/node ids, repro, hypothesis history). Debug packs file straight in. |
+- `/norm:test` — it plays the customer in a simulated call against your pathway (text, no real dial) and checks the outcomes against the transcript.
+- `/norm:loop <pathway_id> --goal 'caller books an appointment and gets a confirmation'` — the self-driving version: it derives a checklist from your goal, simulates, grades every outcome with evidence, fixes the flow, and repeats until everything passes. Walk away, come back to a working pathway.
 
-## Quality & measurement
+## Build a tool (give the agent an API to call)
 
-| Command | What it does |
-|---|---|
-| `/norm:evals` | LLM judges for real calls: generate a judge (from a prompt, a call, or a triage issue), calibrate it on known calls, assemble weighted panels, estimate cost, run, drill verdicts — and attach a panel to calls so **every call auto-scores post-call with verdicts saved as pathway tags**. |
-| `/norm:analytics` | Real metrics (volume, completion, durations, cost, trends), drill-down to the calls behind a number, **define outcomes** (citation schemas), audit extraction quality, and **build live dashboards** in the Bland UI. |
+- `/norm:tools build a tool that looks up an order by number in our API and tells the caller the status` — it designs the tool (inputs, response mapping, what the agent says while it runs), **test-runs it against the real endpoint before attaching it anywhere**, and wires secrets by reference so credentials never appear in the definition.
+- Integration tools (Slack, HubSpot, calendars…): same command — it checks the org's existing tools and the integration catalog first so you don't build duplicates.
 
-## Building blocks
+## Set up citations (structured outcomes captured per call)
 
-| Command | What it does |
-|---|---|
-| `/norm:tools` | Custom REST + integration tools: design (ACI principles), test-run before attaching, secrets by reference, tool error/latency stats. |
-| `/norm:persona` | Voices, call config, knowledge/tool attachment, pathway routing; draft vs production with explicit promotion. |
-| `/norm:knowledge` | Knowledge bases the agent cites mid-call — ingestion isn't done until retrieval proves it. |
-| `/norm:api` | Raw Bland REST access, docs-first: look the endpoint up, then call it. |
-| `/norm:config` | Show/switch the API URL (prod ↔ dev tunnel). Key never touched. |
+- `/norm:analytics define an outcome schema: did they book, the appointment time, and why not if they didn't` — it designs the extraction variables (typed, with options), creates the schema, and **verifies it on a few real calls before you trust it**.
+- Then every call gets those fields extracted — filter and chart them: `/norm:analytics booking rate by week`.
 
-## Rules it lives by
+## Score every call automatically
 
-- **Numbers and verdicts only from things it actually ran** — every claim carries a read-back, transcript quote, or log line.
-- **Reads are free; writes confirm** — anything that mutates, costs money, or dials asks first (with cost estimates for eval runs/backfills).
-- Your API key never appears in chat, files, or output — it lives in the keychain and travels only inside the MCP connection.
+- `/norm:evals` builds LLM judges (generate one from a plain description, from a real call, or from a filed issue), calibrates them against calls where you know the right answer, and assembles them into a weighted scorecard.
+- Attach the scorecard to your calls and every call auto-scores after it ends — verdicts land as pathway tags with reasoning + evidence quotes, ready to trend in analytics.
+
+## See how it's doing
+
+- `/norm:analytics how many calls this week and what % completed` — real numbers from real queries, never guesses.
+- `/norm:analytics build me an ops dashboard` — creates a live board in the Bland UI (volume, completion, outcomes) with every panel's query proven first.
+- `/norm:review <call_id>` — what actually happened on one call: routing, variables, where it broke, with the exact transcript lines as proof.
+
+## Everything else
+
+- `/norm:persona` — voices + call config; `/norm:knowledge` — knowledge bases the agent cites mid-call; `/norm:api` — any raw Bland API call, docs-first; `/norm:list` — see your pathways.
+
+**House rules:** it never invents numbers or verdicts (everything is backed by a query, read-back, or transcript quote) · reads are free, anything that mutates/costs/dials asks first · your API key stays in the OS keychain and never appears anywhere.
