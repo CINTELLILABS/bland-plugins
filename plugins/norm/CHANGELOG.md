@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.2 — 2026-07-01
+
+- **Continuous scoring workflow — per-call auto-evals**: attach a calibrated, published workbench at call creation (`POST /v1/calls` `post_call_evals: {workbench_setup_id/version_id}`) → platform auto-runs the panel post-call (`triggered_by:"auto"`, one deduped billed run per call) → judge level-labels auto-merge into the call's `pathway_tags` (idempotent; pathway_tags only) → `event_type:"evals"` results webhook with per-judge verdicts + evidence (two-webhook pattern). Monitoring via `GET /v1/evals/runs?triggered_by=auto`; verdict tags trend directly in /norm:analytics — the complete score-every-call → tag-every-verdict → chart-every-trend loop, with per-call cost stated before attaching to real traffic.
+
 ## 1.9.1 — 2026-07-01
 
 - Judge generation corrected to match the UI's four entry points exactly: `POST /v1/evals/agent-drafts/from-triage` is a `source_type` union — `prompt` | `call_note` | `triage_issue` | `triage_flag` (+ `example_call_ids`) — and returns a DRAFT to review, not a persisted judge (persist via `POST /v1/evals/agents`). Documented the inverted `target_level_keys` defaults (prompt → `observed_issue`; triage/call → `not_observed`) so generated judges pass in the direction the user actually means.
