@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.2 — 2026-07-06
+
+- norm_automations live-verified against prod: event catalog (incl. the internal `bland:*` families — `eval.completed`, `kb.gap_detected`, `pathway.node_reached`, voicemail/transfer/batch/SMS events — now first-class doctrine for automating the quality flywheel), pipeline node `config` shapes, trigger list fields (`trigger_count`/`last_triggered_at`/`timing_mode`), execution anatomy with `_changes` as the change-detection ground truth. **Documented a verified platform gap**: POSTs to `/v1/automation/*` via the passthrough 400 with INVALID_JSON (3/3; all GETs fine, other routers' POSTs fine) — agent does full reads/monitoring/diagnosis and directs writes to the dashboard UI until fixed.
+
 ## 1.11.1 — 2026-07-06
 
 - norm_automations: dedicated **monitoring doctrine** — run-history recipes (per-trigger / per-pipeline / failures-first / stuck in-flight, with honest pagination reach), execution-result anatomy (`input` = ground-truth event, `result` = per-node output map incl. placed-call ids, `nodes_executed` = path taken), the health-report pattern (`include_stats` overview + recent-run sampling + zero-executions-is-a-finding), and runs→calls cohort handoff to /norm:review and /norm:analytics.

@@ -1,7 +1,7 @@
 {
   "name": "norm",
   "displayName": "Bland Norm",
-  "version": "1.11.1",
+  "version": "1.11.2",
   "description": "Claude Code plugin for activating Norm: Bland's super_norm custom agent over the first-class Bland MCP API.",
   "author": {
     "name": "Bland",
