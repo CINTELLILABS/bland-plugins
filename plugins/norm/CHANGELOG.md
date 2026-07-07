@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.0 — 2026-07-06
+
+- **New feature skill: `/norm:automations` (`norm_automations`)** — expert on the automations surface, sourced from the live route map: trigger → pipeline → execution mental model (event catalog with sample payloads + condition constraints, ordered pipeline nodes, AND/OR + change-detection filters, Temporal-backed executions), dry-run-first testing (`dryRun: true` condition evaluation before anything can dial; live tests confirm-gated with blast radius stated), pause-first diagnosis (toggle over delete; pipeline DELETE cascades triggers+executions), execution↔call correlation via `metadata.automation_execution_id`, and `/norm:review` handoff for call-level forensics.
+
 ## 1.10.0 — 2026-07-01
 
 - **norm_tools — verified tool-surface map**: v2 = integration tools (catalog integration+action, resource-linked auth), v1 = custom HTTP tools (+ clone); real test-before-attach endpoint (`POST /v2/tools/{id}/run`, `?staging=true` for drafts); resources as the auth container (connect/disconnect/reauth/actions/execute); `{{secret.id.*}}` reference pattern (values never in definitions or output); tool observability via `/v2/tools/logs` + `/logs/stats` (error rate + latency before blaming the caller); AI `suggestions` endpoint to avoid duplicate builds; gotchas (reserved names, hard deletes on v2, 90d stats cap).
