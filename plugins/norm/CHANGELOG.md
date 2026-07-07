@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.1 — 2026-07-06
+
+- norm_automations: dedicated **monitoring doctrine** — run-history recipes (per-trigger / per-pipeline / failures-first / stuck in-flight, with honest pagination reach), execution-result anatomy (`input` = ground-truth event, `result` = per-node output map incl. placed-call ids, `nodes_executed` = path taken), the health-report pattern (`include_stats` overview + recent-run sampling + zero-executions-is-a-finding), and runs→calls cohort handoff to /norm:review and /norm:analytics.
+
 ## 1.11.0 — 2026-07-06
 
 - **New feature skill: `/norm:automations` (`norm_automations`)** — expert on the automations surface, sourced from the live route map: trigger → pipeline → execution mental model (event catalog with sample payloads + condition constraints, ordered pipeline nodes, AND/OR + change-detection filters, Temporal-backed executions), dry-run-first testing (`dryRun: true` condition evaluation before anything can dial; live tests confirm-gated with blast radius stated), pause-first diagnosis (toggle over delete; pipeline DELETE cascades triggers+executions), execution↔call correlation via `metadata.automation_execution_id`, and `/norm:review` handoff for call-level forensics.
