@@ -62,9 +62,12 @@ if (arg === "--clear") {
   action = "cleared (falls back to plugin default)";
 } else {
   const url = arg === "--prod" ? PROD_URL : arg.replace(/\/+$/, "");
-  if (!/^https:\/\/[^\s/]+/.test(url)) {
+  // https everywhere, EXCEPT plain-http localhost/127.0.0.1 — Claude's HTTP-MCP
+  // client supports local http servers, which is the whole point of dev mode.
+  const isLocalHttp = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(url);
+  if (!isLocalHttp && !/^https:\/\/[^\s/]+/.test(url)) {
     fail(
-      `Not an https URL: ${arg}. Claude's HTTP-MCP transport requires https — use a tunnel for local servers.`,
+      `Not a usable URL: ${arg}. Remote servers need https (use a tunnel); plain http is allowed only for http://localhost[:port].`,
     );
   }
   options.bland_api_url = url;

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.3 — 2026-07-06
+
+- `/norm:config` now accepts `http://localhost[:port]` / `http://127.0.0.1[:port]` — Claude's HTTP-MCP client supports plain-http local servers, so local dev no longer requires a tunnel. Remote URLs still require https.
+
 ## 1.11.2 — 2026-07-06
 
 - norm_automations live-verified against prod: event catalog (incl. the internal `bland:*` families — `eval.completed`, `kb.gap_detected`, `pathway.node_reached`, voicemail/transfer/batch/SMS events — now first-class doctrine for automating the quality flywheel), pipeline node `config` shapes, trigger list fields (`trigger_count`/`last_triggered_at`/`timing_mode`), execution anatomy with `_changes` as the change-detection ground truth. **Documented a verified platform gap**: POSTs to `/v1/automation/*` via the passthrough 400 with INVALID_JSON (3/3; all GETs fine, other routers' POSTs fine) — agent does full reads/monitoring/diagnosis and directs writes to the dashboard UI until fixed.
