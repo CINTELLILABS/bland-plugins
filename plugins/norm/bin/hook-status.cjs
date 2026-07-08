@@ -97,12 +97,12 @@ async function main() {
 		const settings = JSON.parse(
 			fs.readFileSync(path.join(os.homedir(), ".claude", "settings.json"), "utf8"),
 		);
-		const url =
-			settings &&
-			settings.pluginConfigs &&
-			settings.pluginConfigs["norm@bland"] &&
-			settings.pluginConfigs["norm@bland"].options &&
-			settings.pluginConfigs["norm@bland"].options.bland_api_url;
+		const configs = (settings && settings.pluginConfigs) || {};
+		// Non-canonical installs register under a different norm@* id.
+		const id =
+			(configs["norm@bland"] && "norm@bland") ||
+			Object.keys(configs).find((k) => k.startsWith("norm@"));
+		const url = id && configs[id].options && configs[id].options.bland_api_url;
 		if (url && !/^https:\/\/api\.bland\.ai\/?$/.test(url)) {
 			lines.push(
 				`Note: the Bland MCP connection points at ${url} (not production). ` +

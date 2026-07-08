@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.1 — 2026-07-08
+
+- Same install-id fix applied to the SessionStart banner (`hook-status.cjs` no longer hardcodes `norm@bland` when reading the configured URL) — completes the non-canonical-install sweep across all three config readers.
+
 ## 1.13.0 — 2026-07-08
 
 Closing the environment-dimension gaps (every field-reported bug came from a dimension single-machine testing can't expose):
