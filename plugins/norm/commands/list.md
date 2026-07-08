@@ -3,8 +3,11 @@ description: List the Bland pathways available to the configured account. Use wh
 argument-hint: "[name-filter]"
 allowed-tools:
   - "mcp__bland__bland_api_get"
+  - "mcp__plugin_norm_bland__bland_api_get"
   - "mcp__bland__search_bland_docs"
+  - "mcp__plugin_norm_bland__search_bland_docs"
   - "mcp__bland__query_docs_filesystem_bland"
+  - "mcp__plugin_norm_bland__query_docs_filesystem_bland"
   - "Read"
   - "Glob"
 ---
@@ -17,7 +20,7 @@ Optional argument: `$ARGUMENTS` — an optional name/substring filter.
 
 Steps:
 
-1. **List via the passthrough.** Call `mcp__bland__bland_api_get` with `{ path: "/v1/pathway" }` — the LIST endpoint is `/v1/pathway` (singular). Do NOT use `/v1/pathways` (it 404s). Unwrap the `{ data: … }` envelope and read the `data[]` array of pathways. This is a read-only GET and needs no confirmation.
+1. **List via the passthrough.** Call `bland_api_get` with `{ path: "/v1/pathway" }` — the LIST endpoint is `/v1/pathway` (singular). Do NOT use `/v1/pathways` (it 404s). Unwrap the `{ data: … }` envelope and read the `data[]` array of pathways. This is a read-only GET and needs no confirmation.
 2. If a filter argument was given (`$ARGUMENTS` non-empty), only show pathways whose `name` or `id` matches it, and note the filter applied.
 3. Render the result as a compact list: `name` — `pathway_id` — current version — last updated.
 4. **Mark which pathway is cloned locally.** `Glob`/`Read` the local baseline at `.norm/baseline.json` (written on clone). If it exists, match its `pathway_id` against the listed entries and flag that one as the locally cloned workspace.

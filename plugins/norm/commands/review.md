@@ -7,11 +7,17 @@ allowed-tools:
   - "Write"
   - "Grep"
   - "mcp__bland__get_call_log"
+  - "mcp__plugin_norm_bland__get_call_log"
   - "mcp__bland__get_pathway_context"
+  - "mcp__plugin_norm_bland__get_pathway_context"
   - "mcp__bland__bland_api_get"
+  - "mcp__plugin_norm_bland__bland_api_get"
   - "mcp__bland__search_bland_docs"
+  - "mcp__plugin_norm_bland__search_bland_docs"
   - "mcp__bland__get_bland_doc"
+  - "mcp__plugin_norm_bland__get_bland_doc"
   - "mcp__bland__query_docs_filesystem_bland"
+  - "mcp__plugin_norm_bland__query_docs_filesystem_bland"
 ---
 
 # Norm Call Review

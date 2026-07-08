@@ -3,7 +3,9 @@ description: Test the local Bland pathway — a focused node/runtime check when 
 argument-hint: "[node]"
 allowed-tools:
   - "mcp__bland__bland_api_get"
+  - "mcp__plugin_norm_bland__bland_api_get"
   - "mcp__bland__call_bland_api"
+  - "mcp__plugin_norm_bland__call_bland_api"
   - "Read"
   - "Glob"
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" validate:*)"

@@ -9,13 +9,21 @@ allowed-tools:
   - "Glob"
   - "Grep"
   - "mcp__bland__list_eval_agents"
+  - "mcp__plugin_norm_bland__list_eval_agents"
   - "mcp__bland__get_eval_agent"
+  - "mcp__plugin_norm_bland__get_eval_agent"
   - "mcp__bland__get_eval_run"
+  - "mcp__plugin_norm_bland__get_eval_run"
   - "mcp__bland__create_eval_run"
+  - "mcp__plugin_norm_bland__create_eval_run"
   - "mcp__bland__bland_api_get"
+  - "mcp__plugin_norm_bland__bland_api_get"
   - "mcp__bland__call_bland_api"
+  - "mcp__plugin_norm_bland__call_bland_api"
   - "mcp__bland__search_bland_docs"
+  - "mcp__plugin_norm_bland__search_bland_docs"
   - "mcp__bland__query_docs_filesystem_bland"
+  - "mcp__plugin_norm_bland__query_docs_filesystem_bland"
 ---
 
 # Norm Evals

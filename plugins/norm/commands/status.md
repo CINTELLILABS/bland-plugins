@@ -3,6 +3,7 @@ description: Show the current Norm workspace state — active pathway, working v
 argument-hint: "[--server]"
 allowed-tools:
   - "mcp__bland__bland_api_get"
+  - "mcp__plugin_norm_bland__bland_api_get"
   - "Read"
   - "Glob"
   - "Grep"
@@ -22,7 +23,7 @@ Steps:
    - the workspace `path` and node/file count,
    - `dirty` — whether there are uncommitted local edits, and which files changed.
 
-3. **Server drift (`--server` only).** If `$ARGUMENTS` contains `--server`, fetch the live graph with `mcp__bland__bland_api_get` `{ path: "/v1/pathway/<pathway_id>" }`, unwrap `.data`, and JSON-diff it against the baseline `graph` snapshot. This GET mirrors the **production** snapshot and is the same lightweight drift read `/norm:commit` uses — it is read-only and needs no confirmation. Report whether the **server is ahead** of the baseline (someone else committed/published since clone). For a precise diff against the exact working version Norm commits into, read the canonical graph with `mcp__bland__call_bland_api` `{ method: "POST", path: "/v1/convo_pathway/get_one", body: { id: "<pathway_id>", version_number: <working_version_number or production_version_number> } }` (a non-mutating POST read) and compare `.data.data.{nodes,edges}` — this matches the commit target version exactly, whereas `GET /v1/pathway/<id>` only ever reflects production.
+3. **Server drift (`--server` only).** If `$ARGUMENTS` contains `--server`, fetch the live graph with `bland_api_get` `{ path: "/v1/pathway/<pathway_id>" }`, unwrap `.data`, and JSON-diff it against the baseline `graph` snapshot. This GET mirrors the **production** snapshot and is the same lightweight drift read `/norm:commit` uses — it is read-only and needs no confirmation. Report whether the **server is ahead** of the baseline (someone else committed/published since clone). For a precise diff against the exact working version Norm commits into, read the canonical graph with `call_bland_api` `{ method: "POST", path: "/v1/convo_pathway/get_one", body: { id: "<pathway_id>", version_number: <working_version_number or production_version_number> } }` (a non-mutating POST read) and compare `.data.data.{nodes,edges}` — this matches the commit target version exactly, whereas `GET /v1/pathway/<id>` only ever reflects production.
 
 4. **Call out drift as a stop signal.** If the server is ahead of the baseline, tell the user to re-clone via `/norm:clone <pathway_id>` and re-apply in-progress prose edits before validating or committing. Do not hand-merge.
 

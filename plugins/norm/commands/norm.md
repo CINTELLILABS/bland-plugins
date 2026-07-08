@@ -13,8 +13,11 @@ allowed-tools:
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" rebuild:*)"
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" validate:*)"
   - "mcp__bland__get_bland_mcp_setup"
+  - "mcp__plugin_norm_bland__get_bland_mcp_setup"
   - "mcp__bland__get_pathway_schema"
+  - "mcp__plugin_norm_bland__get_pathway_schema"
   - "mcp__bland__get_call_log"
+  - "mcp__plugin_norm_bland__get_call_log"
 ---
 
 # Norm

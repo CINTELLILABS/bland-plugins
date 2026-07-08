@@ -9,13 +9,14 @@ allowed-tools:
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" validate:*)"
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" rebuild:*)"
   - "mcp__bland__validate_pathway"
+  - "mcp__plugin_norm_bland__validate_pathway"
 ---
 
 # Validate Bland Pathway
 
 Compile the current local workspace and report the results. Never call a pathway ready until it validates with no errors.
 
-**The authoritative validation is `mcp__bland__validate_pathway` — the server-side compiler, 1:1 with what the pathway editor runs.** Given the rebuilt `{ nodes, edges }`, it runs the full Layer-2 compile (start/end/reachability/dead-end structural checks, routing/loop/dialogue/tool-input runtime contracts, per-node semantics) and returns `{ valid, errors, warnings, stats, runtime_contract_findings, semantics_summary }`. It is READ-ONLY — nothing is persisted — so it runs freely with no confirm-gate. The offline `norm-sync.cjs validate` structural check is a **fast pre-filter** only: it catches gross structural breakage (missing start node, dangling edge endpoints, malformed YAML, broken round-trip) without a round-trip to the server, but it is NOT the authority. The compiler sees contracts the offline check cannot.
+**The authoritative validation is `validate_pathway` — the server-side compiler, 1:1 with what the pathway editor runs.** Given the rebuilt `{ nodes, edges }`, it runs the full Layer-2 compile (start/end/reachability/dead-end structural checks, routing/loop/dialogue/tool-input runtime contracts, per-node semantics) and returns `{ valid, errors, warnings, stats, runtime_contract_findings, semantics_summary }`. It is READ-ONLY — nothing is persisted — so it runs freely with no confirm-gate. The offline `norm-sync.cjs validate` structural check is a **fast pre-filter** only: it catches gross structural breakage (missing start node, dangling edge endpoints, malformed YAML, broken round-trip) without a round-trip to the server, but it is NOT the authority. The compiler sees contracts the offline check cannot.
 
 Save endpoints are unchanged: the real save is `POST /v1/convo_pathway/update` (in-place version save) / `POST /v1/convo_pathway/create-version` (first commit, forks a working version); NOT `POST /v1/pathway/:id`, which hits the SMS router and 400s.
 
@@ -42,7 +43,7 @@ Steps:
 3. **Authoritative compile — CHANGE-AWARE.** Read the pre-edit graph from `.norm/baseline.json` (written at clone) — the graph is at `.graph` (`{ nodes, edges }`) or, on a loop-written baseline, at the top level — and pass it as `baseline` so the compiler diffs your edit against it. Object bodies only (native JSON, never stringified):
 
    ```
-   mcp__bland__validate_pathway {
+   validate_pathway {
      nodes: <rebuilt nodes>,
      edges: <rebuilt edges>,
      baseline: { nodes: <baseline nodes>, edges: <baseline edges> }
@@ -66,7 +67,7 @@ Steps:
 
    (Without `baseline`, the delta fields `introduced_errors` / `introduced_warnings` / `validation_delta_summary` are absent and every `runtime_contract_findings.relevant_to_changes` is `false` — that's the whole-graph fallback, so say so.)
 
-4. **GRACEFUL FALLBACK.** If `mcp__bland__validate_pathway` is NOT available in this session (an older server without the tool), fall back to the offline structural check from step 1 as the gate and say so explicitly: report that the authoritative compile was unavailable and only the offline structural pre-check ran, so contracts the compiler would catch (loop/tool-input/dialogue/routing) were NOT verified. Do not claim a clean offline pass is a full compile.
+4. **GRACEFUL FALLBACK.** If `validate_pathway` is NOT available in this session (an older server without the tool), fall back to the offline structural check from step 1 as the gate and say so explicitly: report that the authoritative compile was unavailable and only the offline structural pre-check ran, so contracts the compiler would catch (loop/tool-input/dialogue/routing) were NOT verified. Do not claim a clean offline pass is a full compile.
 
 5. If this validation is part of a create, edit, or fix task and the compile is clean (`valid: true`), continue: run targeted tests when useful (`/norm:test`), then commit in the same run (`/norm:commit`). Do not stop at a clean validation pass and ask whether to save.
 

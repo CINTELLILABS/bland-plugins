@@ -3,9 +3,13 @@ description: Clone a Bland pathway into a local file workspace, or scaffold a br
 argument-hint: "<pathway_id | new <name>>"
 allowed-tools:
   - "mcp__bland__bland_api_get"
+  - "mcp__plugin_norm_bland__bland_api_get"
   - "mcp__bland__call_bland_api"
+  - "mcp__plugin_norm_bland__call_bland_api"
   - "mcp__bland__search_bland_docs"
+  - "mcp__plugin_norm_bland__search_bland_docs"
   - "mcp__bland__query_docs_filesystem_bland"
+  - "mcp__plugin_norm_bland__query_docs_filesystem_bland"
   - "Read"
   - "Write"
   - "Glob"
@@ -28,11 +32,11 @@ Steps:
    - `new <name>` → first create the shell, then clone it (step 3), then continue with step 2's materialization.
 
 2. **Read the graph + version metadata (existing pathway).** Three reads, all read-only (no confirmation):
-   - **Production pointer + metadata:** `mcp__bland__bland_api_get` `{ path: "/v1/pathway/<pathway_id>" }`. Unwrap `.data` — `{ name, description, nodes, edges, production_version_number, … }`. Use this for `name`/`description` and `production_version_number`. (The graph here is the **production** mirror, stripped of canvas-layout keys — fine as a baseline snapshot/drift reference, but do NOT treat it as the canonical editable graph.) If the GET fails because the id is unknown or auth is missing, say exactly that and stop; do not invent a workspace.
-   - **Canonical editable graph:** `mcp__bland__call_bland_api` `{ method: "POST", path: "/v1/convo_pathway/get_one", body: { id: "<pathway_id>", version_number: <production_version_number> } }`. (`get_one` is a read, but it is a POST on the convo_pathway router; it does NOT mutate.) Unwrap `.data.data` — full `{ nodes, edges, version_number, version_name, memory_enabled, entity_schemas }` with no field stripping. This is what you materialize the workspace from.
-   - **Versions list (only source of `revision_number`):** `mcp__bland__bland_api_get` `{ path: "/v1/pathway/<pathway_id>/versions" }`. Unwrap `.data` — an array of `{ id, version_number, revision_number, created_at, name, source_version_number, … }`. Capture the production version row's `revision_number`. `get_one` and `GET /v1/pathway/<id>` do NOT return `revision_number`; this list is the only read that does.
+   - **Production pointer + metadata:** `bland_api_get` `{ path: "/v1/pathway/<pathway_id>" }`. Unwrap `.data` — `{ name, description, nodes, edges, production_version_number, … }`. Use this for `name`/`description` and `production_version_number`. (The graph here is the **production** mirror, stripped of canvas-layout keys — fine as a baseline snapshot/drift reference, but do NOT treat it as the canonical editable graph.) If the GET fails because the id is unknown or auth is missing, say exactly that and stop; do not invent a workspace.
+   - **Canonical editable graph:** `call_bland_api` `{ method: "POST", path: "/v1/convo_pathway/get_one", body: { id: "<pathway_id>", version_number: <production_version_number> } }`. (`get_one` is a read, but it is a POST on the convo_pathway router; it does NOT mutate.) Unwrap `.data.data` — full `{ nodes, edges, version_number, version_name, memory_enabled, entity_schemas }` with no field stripping. This is what you materialize the workspace from.
+   - **Versions list (only source of `revision_number`):** `bland_api_get` `{ path: "/v1/pathway/<pathway_id>/versions" }`. Unwrap `.data` — an array of `{ id, version_number, revision_number, created_at, name, source_version_number, … }`. Capture the production version row's `revision_number`. `get_one` and `GET /v1/pathway/<id>` do NOT return `revision_number`; this list is the only read that does.
 
-3. **Scaffold a new pathway (when `$ARGUMENTS` begins with `new`).** This is a state-changing write — get explicit user confirmation first. Then call `mcp__bland__call_bland_api` with `{ method: "POST", path: "/v1/convo_pathway/create", body: { name: "<name>", description: "<description>" } }`. The save router is `/v1/convo_pathway`, NOT `/v1/pathway` (the latter hits the SMS router and 400s). Read `data.id` from the response (this route returns `id`, not `pathway_id`) — that is the new `pathway_id`. A freshly created pathway has no working version yet: leave `working_version_number`/`working_revision_number` unset in the baseline so the first `/norm:commit` forks one via `create-version`. Then read its (empty) graph per step 2 using the production read where available; for a brand-new shell, `get_one` may have no version yet, so materialize from whatever graph the create/get returns.
+3. **Scaffold a new pathway (when `$ARGUMENTS` begins with `new`).** This is a state-changing write — get explicit user confirmation first. Then call `call_bland_api` with `{ method: "POST", path: "/v1/convo_pathway/create", body: { name: "<name>", description: "<description>" } }`. The save router is `/v1/convo_pathway`, NOT `/v1/pathway` (the latter hits the SMS router and 400s). Read `data.id` from the response (this route returns `id`, not `pathway_id`) — that is the new `pathway_id`. A freshly created pathway has no working version yet: leave `working_version_number`/`working_revision_number` unset in the baseline so the first `/norm:commit` forks one via `create-version`. Then read its (empty) graph per step 2 using the production read where available; for a brand-new shell, `get_one` may have no version yet, so materialize from whatever graph the create/get returns.
 
 4. **Materialize the readable workspace.** Write the unwrapped editable graph JSON (from `get_one` for an existing pathway; the create/get graph for a new one) to a scratch file with native `Write` at `.norm/_server.json` (OUTSIDE `pathway/` — `generate` wipes its out-dir before writing, so a scratch file under `pathway/` would be deleted). Then run the offline codec to expand the tree:
 

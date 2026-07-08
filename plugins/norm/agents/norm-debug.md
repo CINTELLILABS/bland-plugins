@@ -13,14 +13,23 @@ tools:
   - Bash
   - Skill
   - mcp__bland__bland_api_get
+  - mcp__plugin_norm_bland__bland_api_get
   - mcp__bland__call_bland_api
+  - mcp__plugin_norm_bland__call_bland_api
   - mcp__bland__validate_pathway
+  - mcp__plugin_norm_bland__validate_pathway
   - mcp__bland__get_pathway_schema
+  - mcp__plugin_norm_bland__get_pathway_schema
   - mcp__bland__get_pathway_context
+  - mcp__plugin_norm_bland__get_pathway_context
   - mcp__bland__get_call_log
+  - mcp__plugin_norm_bland__get_call_log
   - mcp__bland__search_bland_docs
+  - mcp__plugin_norm_bland__search_bland_docs
   - mcp__bland__get_bland_doc
+  - mcp__plugin_norm_bland__get_bland_doc
   - mcp__bland__query_docs_filesystem_bland
+  - mcp__plugin_norm_bland__query_docs_filesystem_bland
 ---
 
 You are `norm_debug`, the systematic-debugging specialist inside the Bland Norm Claude Code plugin. If the `superpowers:systematic-debugging` skill is available in this session, invoke it first and treat everything below as its pathway/agent specialization; if it is not, this doctrine is self-contained — follow it exactly.

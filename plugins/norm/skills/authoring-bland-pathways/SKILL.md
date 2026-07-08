@@ -50,7 +50,7 @@ edges/<srcSlug>-to-<tgtSlug>.md   # frontmatter (id, source, target, sourceName,
 | node positions | `.pathways/layout.yaml` | never — auto-derived |
 | clone / validate / test / commit | server, via MCP passthrough | `/norm:*` commands |
 
-Structured edits are persisted by editing the file and committing — the `/norm:commit` flow reconstructs `{ nodes, edges }` from the tree, gates it on `mcp__bland__validate_pathway` (the server compiler), and POSTs it to `/v1/convo_pathway/*`. Keep structured YAML well-formed (the JSON-inlined frontmatter must stay parseable) or `/norm:validate` and the commit POST will reject it.
+Structured edits are persisted by editing the file and committing — the `/norm:commit` flow reconstructs `{ nodes, edges }` from the tree, gates it on `validate_pathway` (the server compiler), and POSTs it to `/v1/convo_pathway/*`. Keep structured YAML well-formed (the JSON-inlined frontmatter must stay parseable) or `/norm:validate` and the commit POST will reject it.
 
 ## New pathway
 
@@ -72,7 +72,7 @@ Structured edits are persisted by editing the file and committing — the `/norm
 ## Validation and commit
 
 - Run validation after meaningful structural or prose changes; fix **errors** before tests or commit. `/norm:validate` is an offline structural pre-check (start node / reachability / edge endpoints / well-formed YAML / round-trip) — fast, but not authoritative.
-- The **authoritative** validation is `mcp__bland__validate_pathway` — the server compiler — run on the rebuilt graph (change-aware with the `.norm/baseline.json` graph) before the save POST. Saves go to `POST /v1/convo_pathway/create-version` (first commit forks a working version) or `POST /v1/convo_pathway/update?force=true` (in place) — never `POST /v1/pathway/:id`, which is the SMS router and 400s. The POST may still surface a server error the compiler could not see; surface it back to the originating file.
+- The **authoritative** validation is `validate_pathway` — the server compiler — run on the rebuilt graph (change-aware with the `.norm/baseline.json` graph) before the save POST. Saves go to `POST /v1/convo_pathway/create-version` (first commit forks a working version) or `POST /v1/convo_pathway/update?force=true` (in place) — never `POST /v1/pathway/:id`, which is the SMS router and 400s. The POST may still surface a server error the compiler could not see; surface it back to the originating file.
 - Keep **warnings** visible and explain them. Missing End Call is advisory — don't add a node just to silence it.
 - After a clean validation pass, commit in the same run. Never ask "should I save it?" after clean validation.
 - New-pathway commits promote to production (`POST /v1/convo_pathway/update` followed by `POST /v1/convo_pathway/publish`). Edit commits save a working version without promoting production — don't claim production changed unless the result says so. If publish fails after a successful upsert, report "saved but not promoted" and offer a retry (the two calls are not atomic).
@@ -106,6 +106,8 @@ Before any real outbound call/message, delete, publish, promote, cancellation, o
 Never state that something was created, saved, fixed, or working without the read-back that proves it: a commit is verified by the server's success envelope + the version it reports; a fix is verified by re-running the exact repro/simulation that caught the bug (not a fresh, easier one); a simulated outcome is verified by the transcript line, variable value, or node name that shows it — quoted, not paraphrased. Grading your own edits is a conflict of interest: hand outcome-judging to a fresh context (`norm_judge` in the loop) and accept its verdicts. If a claim has no evidence yet, say "unverified" — an honest unverified beats a confident guess every time.
 
 ## Platform runtime gotchas (verified live — design around these)
+
+- **Tool namespaces differ by install**: the Bland MCP tools may appear as `mcp__bland__<name>` or `mcp__plugin_norm_bland__<name>` depending on the Claude Code version and how the plugin registered. Refer to tools by their bare name (`validate_pathway`, `bland_api_get`, …) and use whichever namespace exists in the session — both are pre-authorized in every command.
 
 - **Webhook `responseData` variables are NOT substituted into the same node's dialogue on the turn the webhook fires.** A Webhook node whose prompt says "share {{fact}}" will either invent content (the model never saw the value) or speak the literal `{{fact}}` placeholder. Deliver tool-result speech in the NEXT node, where the variable already exists. When judging grounding, compare the SPOKEN text against the VARIABLE value — a fluent invented value with the variable correctly set is still a grounding failure.
 - **`call_bland_api` bodies must be native JSON objects, never stringified**; `bland_api_get` query values must be STRINGS (`{"limit": "5"}`, not `{"limit": 5}`).

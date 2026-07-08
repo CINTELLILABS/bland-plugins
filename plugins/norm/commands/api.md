@@ -5,9 +5,13 @@ allowed-tools:
   - "Task"
   - "Read"
   - "mcp__bland__search_bland"
+  - "mcp__plugin_norm_bland__search_bland"
   - "mcp__bland__query_docs_filesystem_bland"
+  - "mcp__plugin_norm_bland__query_docs_filesystem_bland"
   - "mcp__bland__bland_api_get"
+  - "mcp__plugin_norm_bland__bland_api_get"
   - "mcp__bland__call_bland_api"
+  - "mcp__plugin_norm_bland__call_bland_api"
 ---
 
 # Norm — Raw Bland API

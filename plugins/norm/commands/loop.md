@@ -17,12 +17,19 @@ allowed-tools:
   - "Grep"
   - "SlashCommand"
   - "mcp__bland__bland_api_get"
+  - "mcp__plugin_norm_bland__bland_api_get"
   - "mcp__bland__call_bland_api"
+  - "mcp__plugin_norm_bland__call_bland_api"
   - "mcp__bland__validate_pathway"
+  - "mcp__plugin_norm_bland__validate_pathway"
   - "mcp__bland__get_pathway_schema"
+  - "mcp__plugin_norm_bland__get_pathway_schema"
   - "mcp__bland__get_call_log"
+  - "mcp__plugin_norm_bland__get_call_log"
   - "mcp__bland__search_bland_docs"
+  - "mcp__plugin_norm_bland__search_bland_docs"
   - "mcp__bland__query_docs_filesystem_bland"
+  - "mcp__plugin_norm_bland__query_docs_filesystem_bland"
 disallowed-tools:
   - "AskUserQuestion"
 ---
@@ -46,14 +53,14 @@ Parse `$ARGUMENTS` as a pathway id plus exactly one target source — `--from-ca
 ## Setup (first turn only)
 
 1. **Clone the pathway into the local workspace** so you edit it as files:
-   1. `mcp__bland__bland_api_get` `{ path: "/v1/pathway/<pathway_id>" }` → unwrap the `{ data: … }` envelope to get `{ name, description, nodes, edges, production_version_number }`. If the GET fails (unknown id / missing auth), say exactly that and stop.
+   1. `bland_api_get` `{ path: "/v1/pathway/<pathway_id>" }` → unwrap the `{ data: … }` envelope to get `{ name, description, nodes, edges, production_version_number }`. If the GET fails (unknown id / missing auth), say exactly that and stop.
    2. Write the unwrapped graph JSON to a scratch file with native `Write` at `.norm/_server.json` (OUTSIDE `pathway/` — `generate` wipes its out-dir), then materialize the readable tree:
       ```bash
       node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" generate .norm/_server.json pathway/
       ```
    3. Write a **baseline** copy of that same unwrapped JSON with native `Write` at `.norm/baseline.json` so `/norm:commit` can diff local vs. server without a credentialed pull.
 
-2. **Derive the test from the source.** Reduce `--goal` / `--transcript` / `--from-call` (fetch the call's transcript with `mcp__bland__get_call_log` when given a call id) into two concrete things:
+2. **Derive the test from the source.** Reduce `--goal` / `--transcript` / `--from-call` (fetch the call's transcript with `get_call_log` when given a call id) into two concrete things:
    - **(a) a customer scenario** — a specific persona with a specific reason for calling and the details they'll volunteer (e.g. "a caller whose latest invoice has a charge they don't recognize and who wants to know the refund window"). Read the cloned `pathway/` files so the scenario exercises the real flow.
    - **(b) the expected call outcomes** — the concrete, checkable things the pathway must produce for that scenario (e.g. "greets and asks what they need", "routes the billing question to billing help", "states the 30-day refund window", "asks if there's anything else", "ends with a warm wrap-up"). These outcomes are the fixed bar for the whole run — do not change them mid-loop.
 
@@ -65,7 +72,7 @@ Parse `$ARGUMENTS` as a pathway id plus exactly one target source — `--from-ca
      --outcomes "<the outcomes from (b), ';' separated>"
    ```
 
-   This writes `.norm/loop.json` (`--max` defaults to 8). From here the loop is armed: the Stop hook will not let a turn end while the last recorded verdict is failing.
+   This writes `.norm/loop.json` (`--max` defaults to 8). **Arm it in the session's launch directory tree**: the Stop hook resolves the state file by walking up from the session's working directory, so a loop armed in an unrelated folder is invisible to the gate. From here the loop is armed: the Stop hook will not let a turn end while the last recorded verdict is failing.
 
 ## Drive the loop
 
@@ -81,14 +88,14 @@ The simulation is the doc-confirmed **Pathway Chat** turn surface. It is a safe 
 
 1. **Open a chat instance** against the just-committed pathway (confirm-gate not required — no side effect):
    ```
-   mcp__bland__call_bland_api { method: "POST", path: "/v1/pathway/chat/create",
+   call_bland_api { method: "POST", path: "/v1/pathway/chat/create",
      body: { pathway_id: "<pathway_id>" } }
    ```
    Optional body fields: `start_node_id` (begin mid-flow), `request_data` (an object of initial variables referenced as `{{var}}` in nodes), `pathway_version` (a version number; omit to use production). Read `data.chat_id` from the response.
 
 2. **Play the customer turn-by-turn.** Each turn, send the customer's next message:
    ```
-   mcp__bland__call_bland_api { method: "POST", path: "/v1/pathway/chat/<chat_id>",
+   call_bland_api { method: "POST", path: "/v1/pathway/chat/<chat_id>",
      body: { message: "<the customer's line>" } }
    ```
    The response `data` returns: `assistant_responses` (array of the pathway's reply strings for this turn), `current_node_id` / `current_node_name` (where the pathway is now — your routing evidence), `chat_history` (the full running `{ role, content }[]`), `variables` (current pathway variables — your extraction evidence), and `completed` (the call-ended signal — `true` once an End-Call node fires). Keep sending customer turns, staying in character for your scenario, until `completed` is `true` or the conversation has clearly concluded.
@@ -111,10 +118,10 @@ The simulation is the doc-confirmed **Pathway Chat** turn surface. It is a safe 
    node "${CLAUDE_PLUGIN_ROOT}/bin/norm-loop.cjs" record --passed false --failing "<the judge's FAILING line>"
    ```
 
-   Then make a **minimal, targeted edit** to the pathway FILES to fix exactly that gap — prose (`nodes/<slug>/node.md` body, `condition.md`, edge labels, `.pathways/global_prompt.md`) via native `Read`/`Edit`; structured surfaces (`variables.yaml`, `model.yaml`, `tools.yaml`, node frontmatter) by editing those files directly — they round-trip verbatim through `rebuild`. There are no `set_*` tools; the file is the edit. Before hand-authoring or heavily editing a structured surface, call `mcp__bland__get_pathway_schema` for that surface (`surface: node_tools|variables|model|unit_tests|node|edge`, `tool_type` for a single node-tool variant) to get the authoritative allowed shape + enums so the YAML is valid first-try. Then **validate before committing — CHANGE-AWARE**: `rebuild pathway/`, read the pre-edit graph from `.norm/baseline.json` (written at setup — the graph is the top-level `{ nodes, edges }`, or at `.graph`), and pass the rebuilt graph WITH the baseline to `mcp__bland__validate_pathway` (read-only, no confirm-gate; object bodies only, never stringified):
+   Then make a **minimal, targeted edit** to the pathway FILES to fix exactly that gap — prose (`nodes/<slug>/node.md` body, `condition.md`, edge labels, `.pathways/global_prompt.md`) via native `Read`/`Edit`; structured surfaces (`variables.yaml`, `model.yaml`, `tools.yaml`, node frontmatter) by editing those files directly — they round-trip verbatim through `rebuild`. There are no `set_*` tools; the file is the edit. Before hand-authoring or heavily editing a structured surface, call `get_pathway_schema` for that surface (`surface: node_tools|variables|model|unit_tests|node|edge`, `tool_type` for a single node-tool variant) to get the authoritative allowed shape + enums so the YAML is valid first-try. Then **validate before committing — CHANGE-AWARE**: `rebuild pathway/`, read the pre-edit graph from `.norm/baseline.json` (written at setup — the graph is the top-level `{ nodes, edges }`, or at `.graph`), and pass the rebuilt graph WITH the baseline to `validate_pathway` (read-only, no confirm-gate; object bodies only, never stringified):
 
    ```
-   mcp__bland__validate_pathway {
+   validate_pathway {
      nodes: <rebuilt nodes>,
      edges: <rebuilt edges>,
      baseline: { nodes: <baseline nodes>, edges: <baseline edges> }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.0 — 2026-07-08
+
+- **Fix (blocking, field-reported): tool-namespace mismatch.** Claude Code registers plugin MCP servers under different namespaces depending on version/install (`mcp__bland__*` vs `mcp__plugin_norm_bland__*`), so hardcoded `mcp__bland__*` refs made every /norm:* command fail turnkey on installs using the plugin-prefixed form. All 29 command/agent/skill files now dual-list BOTH namespaces in allowed-tools/tools frontmatter and reference tools by BARE name in prose — the commands run under either registration.
+- Doc notes from field testing: the loop gate's state file must be armed within the session's launch directory tree (the Stop hook walks up from cwd); namespace gotcha added to the skill.
+- Field validation recorded: /norm:loop's full cycle (simulate → independent norm_judge verdict → converge) confirmed end-to-end by external testing on a real production pathway, including the write passthrough on the chat-simulation surface.
+
 ## 1.11.3 — 2026-07-06
 
 - `/norm:config` now accepts `http://localhost[:port]` / `http://127.0.0.1[:port]` — Claude's HTTP-MCP client supports plain-http local servers, so local dev no longer requires a tunnel. Remote URLs still require https.

@@ -7,10 +7,15 @@ maxTurns: 40
 tools:
   - Read
   - mcp__bland__bland_api_get
+  - mcp__plugin_norm_bland__bland_api_get
   - mcp__bland__call_bland_api
+  - mcp__plugin_norm_bland__call_bland_api
   - mcp__bland__search_bland_docs
+  - mcp__plugin_norm_bland__search_bland_docs
   - mcp__bland__get_bland_doc
+  - mcp__plugin_norm_bland__get_bland_doc
   - mcp__bland__query_docs_filesystem_bland
+  - mcp__plugin_norm_bland__query_docs_filesystem_bland
 ---
 
 You are `norm_triage`, packaged inside the Bland Norm Claude Code plugin.

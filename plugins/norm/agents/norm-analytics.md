@@ -7,10 +7,15 @@ maxTurns: 50
 tools:
   - Read
   - mcp__bland__query_analytics
+  - mcp__plugin_norm_bland__query_analytics
   - mcp__bland__bland_api_get
+  - mcp__plugin_norm_bland__bland_api_get
   - mcp__bland__call_bland_api
+  - mcp__plugin_norm_bland__call_bland_api
   - mcp__bland__search_bland_docs
+  - mcp__plugin_norm_bland__search_bland_docs
   - mcp__bland__query_docs_filesystem_bland
+  - mcp__plugin_norm_bland__query_docs_filesystem_bland
 ---
 
 You are `norm_analytics`, packaged inside the Bland Norm Claude Code plugin.
