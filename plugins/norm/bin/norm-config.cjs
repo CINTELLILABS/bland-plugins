@@ -38,7 +38,14 @@ try {
 }
 
 const configs = settings.pluginConfigs || {};
-const entry = configs[PLUGIN_ID] || {};
+// Non-canonical installs (zip / local marketplace mirror) register under a
+// different qualified id (e.g. "norm@bland-local"): target whichever norm@*
+// entry already exists so we edit the config the MCP client actually reads.
+const existingId =
+	(configs[PLUGIN_ID] && PLUGIN_ID) ||
+	Object.keys(configs).find((id) => id.startsWith("norm@")) ||
+	PLUGIN_ID;
+const entry = configs[existingId] || {};
 const options = entry.options || {};
 
 const arg = process.argv[2];
@@ -75,7 +82,7 @@ if (arg === "--clear") {
 }
 
 entry.options = options;
-configs[PLUGIN_ID] = entry;
+configs[existingId] = entry;
 settings.pluginConfigs = configs;
 
 const tmp = `${SETTINGS}.tmp-${process.pid}`;

@@ -45,8 +45,11 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-// The marketplace+plugin id this plugin is published under. Both the MCP client
-// substitution keys the persisted config (and the keychain entry) under this exact id.
+// The marketplace+plugin id this plugin is USUALLY published under. Installs from
+// a zip / local marketplace mirror get a DIFFERENT qualified id (e.g.
+// "norm@bland-local"), so nothing below may assume this exact id — resolution
+// prefers it but falls back to any pluginConfigs entry whose id starts with
+// "norm@" (and finally any entry that actually carries our option keys).
 const PLUGIN_ID = "norm@bland";
 const KEY_OPTION = "bland_api_key";
 const URL_OPTION = "bland_api_url";
@@ -73,14 +76,33 @@ function deepFind(obj, key, seen) {
 	return null;
 }
 
-/** Read the exact design path: root.pluginConfigs[PLUGIN_ID].options[option]. */
+/**
+ * Read the design path root.pluginConfigs[<id>].options[option] — trying the
+ * canonical id first, then any "norm@*" install id (zip / local-marketplace
+ * mirrors register under a different qualified id), then any entry that carries
+ * our option keys at all. Fixes the silent-empty-credentials failure on
+ * non-canonical installs (field-reported).
+ */
 function exactPluginOption(root, option) {
-	const opts =
-		root &&
-		root.pluginConfigs &&
-		root.pluginConfigs[PLUGIN_ID] &&
-		root.pluginConfigs[PLUGIN_ID].options;
-	return opts ? nonEmptyString(opts[option]) : null;
+	const configs = root && root.pluginConfigs;
+	if (!configs || typeof configs !== "object") return null;
+	const ids = [
+		PLUGIN_ID,
+		...Object.keys(configs).filter(
+			(id) => id !== PLUGIN_ID && id.startsWith("norm@"),
+		),
+		...Object.keys(configs).filter((id) => !id.startsWith("norm@")),
+	];
+	for (const id of ids) {
+		const opts = configs[id] && configs[id].options;
+		if (!opts) continue;
+		// Non-norm ids only count when they demonstrably hold OUR config shape.
+		if (!id.startsWith("norm@") && !(KEY_OPTION in opts || URL_OPTION in opts))
+			continue;
+		const v = nonEmptyString(opts[option]);
+		if (v) return v;
+	}
+	return null;
 }
 
 /**

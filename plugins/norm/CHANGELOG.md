@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.13.0 — 2026-07-08
+
+Closing the environment-dimension gaps (every field-reported bug came from a dimension single-machine testing can't expose):
+
+- **Fix (field-reported): non-canonical install ids.** `_credentials.cjs` and `norm-config.cjs` no longer hardcode `norm@bland` — they resolve/write whichever `norm@*` pluginConfigs entry actually exists (zip / local-marketplace installs register under a different qualified id and previously got silent empty credentials or misplaced URL writes). Functionally verified against a simulated `norm@bland-local` install.
+- **New: `/norm:smoke`** — a read-only environment self-test producing a pass/fail matrix: namespace detection (either `mcp__bland__*` or `mcp__plugin_norm_bland__*`), config/URL, auth, calls read, compiler in BOTH directions (valid + broken graph), schema/context, analytics, `get_call_log` against a just-listed id (catches the known org-shape bug signature), docs proxy, and error-path session hygiene. Run it after install, after key/server switches, on new machines/orgs, and before filing bugs.
+- **New: `RELEASING.md`** — the release checklist built around the dimension table (CC version/namespace, install id, org shape, server topology, target, cwd, write paths), with the rule that every "untested by design" gets a tracked owner.
+- Namespace sweep verified complete: every `mcp__bland__*` reference repo-wide has its `mcp__plugin_norm_bland__*` sibling.
+
 ## 1.12.0 — 2026-07-08
 
 - **Fix (blocking, field-reported): tool-namespace mismatch.** Claude Code registers plugin MCP servers under different namespaces depending on version/install (`mcp__bland__*` vs `mcp__plugin_norm_bland__*`), so hardcoded `mcp__bland__*` refs made every /norm:* command fail turnkey on installs using the plugin-prefixed form. All 29 command/agent/skill files now dual-list BOTH namespaces in allowed-tools/tools frontmatter and reference tools by BARE name in prose — the commands run under either registration.

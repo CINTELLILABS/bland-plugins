@@ -73,6 +73,7 @@ async function main() {
 		"Raw API: /norm:api — hyper-focused raw Bland REST API usage guided by the docs (docs tools + a loopback caller only, none of the high-level tools).",
 		"Debugging: /norm:debug — systematic reproduce → isolate → fix → verify for anything misbehaving (tools, endpoints, webhooks, widgets); fixes pathway/config for everyone, and code too when a server codebase is in the working tree.",
 		"Convergence: /norm:loop <pathway_id> (--from-call <id> | --transcript <file> | --goal '<objective>') — keeps editing + re-testing the pathway until it passes the target; an evaluator-optimizer loop gated by the Stop hook until it converges, hits max iterations, or stalls.",
+		"Environment self-test: /norm:smoke — verify the MCP connection, namespace, config, and every read surface in THIS environment (run after install, key/server switches, or on a new machine).",
 		"Start real pathway work by cloning a workspace: /norm:clone <pathway_id> to edit, or /norm:clone new to create.",
 	];
 
