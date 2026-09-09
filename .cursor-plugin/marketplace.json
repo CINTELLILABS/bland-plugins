@@ -1,0 +1,18 @@
+{
+  "name": "bland-cursor",
+  "owner": {
+    "name": "Bland",
+    "email": "kyle@bland.ai"
+  },
+  "metadata": {
+    "description": "Official Cursor marketplace listing for Bland plugins.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "bland",
+      "source": "./plugins/bland",
+      "description": "Bland MCP: query call analytics, run evals, inspect calls, validate pathways, and drive the Bland voice AI platform from Cursor."
+    }
+  ]
+}
