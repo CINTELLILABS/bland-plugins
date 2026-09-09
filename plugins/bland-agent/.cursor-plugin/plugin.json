@@ -1,0 +1,23 @@
+{
+  "name": "bland-agent",
+  "displayName": "Bland (agent onboarding)",
+  "version": "0.1.0",
+  "description": "Give an AI agent its own Bland phone number. The agent authenticates itself through a human approval step, so no API key is needed up front.",
+  "author": {
+    "name": "Bland",
+    "email": "kyle@bland.ai"
+  },
+  "license": "MIT",
+  "homepage": "https://bland.ai",
+  "repository": "https://github.com/CINTELLILABS/bland-plugins",
+  "keywords": [
+    "bland",
+    "mcp",
+    "voice-ai",
+    "voice-agents",
+    "calls",
+    "onboarding",
+    "device-code",
+    "conversational-ai"
+  ]
+}

@@ -21,6 +21,21 @@
         "pathways",
         "voice-agents"
       ]
+    },
+    {
+      "name": "bland-agent",
+      "source": "./plugins/bland-agent",
+      "description": "Give an AI agent its own Bland phone number. The agent authenticates itself through a human approval step, so no API key is needed up front.",
+      "category": "productivity",
+      "keywords": [
+        "bland",
+        "mcp",
+        "voice-ai",
+        "voice-agents",
+        "calls",
+        "onboarding",
+        "device-code"
+      ]
     }
   ]
 }
