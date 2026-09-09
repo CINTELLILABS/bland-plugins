@@ -1,0 +1,32 @@
+{
+  "name": "bland",
+  "version": "2.0.0",
+  "description": "Build, test, and run Bland voice agents from Codex: the hosted Bland MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations.",
+  "author": {
+    "name": "Bland",
+    "email": "kyle@bland.ai",
+    "url": "https://bland.ai"
+  },
+  "homepage": "https://bland.ai",
+  "repository": "https://github.com/CINTELLILABS/bland-plugins",
+  "license": "MIT",
+  "keywords": [
+    "bland",
+    "voice-ai",
+    "voice-agents",
+    "conversational-ai",
+    "calls",
+    "pathways",
+    "analytics",
+    "mcp"
+  ],
+  "skills": ["./skills"],
+  "mcpServers": "./mcp.json",
+  "interface": {
+    "displayName": "Bland",
+    "shortDescription": "Voice agents: build pathways, review calls, run evals, and query analytics over the hosted Bland MCP.",
+    "developerName": "Bland",
+    "websiteURL": "https://bland.ai",
+    "logo": "assets/logo.png"
+  }
+}

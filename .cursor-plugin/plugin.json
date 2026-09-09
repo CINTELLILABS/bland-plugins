@@ -1,0 +1,50 @@
+{
+  "name": "bland",
+  "displayName": "Bland",
+  "version": "2.0.0",
+  "description": "Build, test, and run Bland voice agents from Cursor: the hosted Bland MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations.",
+  "author": {
+    "name": "Bland",
+    "email": "kyle@bland.ai",
+    "url": "https://bland.ai"
+  },
+  "license": "MIT",
+  "homepage": "https://bland.ai",
+  "repository": "https://github.com/CINTELLILABS/bland-plugins",
+  "logo": "assets/logo.png",
+  "keywords": [
+    "bland",
+    "voice-ai",
+    "voice-agents",
+    "conversational-ai",
+    "calls",
+    "pathways",
+    "analytics",
+    "mcp"
+  ],
+  "category": "developer-tools",
+  "tags": [
+    "voice-ai",
+    "voice-agents",
+    "calls",
+    "mcp"
+  ],
+  "mcpServers": "./mcp.json",
+  "variables": {
+    "type": "object",
+    "properties": {
+      "BLAND_API_KEY": {
+        "type": "string",
+        "title": "Bland API key",
+        "description": "Your Bland API key. Get one at https://app.bland.ai/settings/api-keys."
+      },
+      "BLAND_API_URL": {
+        "type": "string",
+        "title": "Bland API URL (optional)",
+        "description": "Defaults to production (https://api.bland.ai). Only override to point at a dev or staging server.",
+        "default": "https://api.bland.ai"
+      }
+    },
+    "required": ["BLAND_API_KEY"]
+  }
+}
