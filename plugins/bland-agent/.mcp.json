@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "bland": {
+      "command": "npx",
+      "args": ["-y", "bland-cli@0.9.0", "mcp"]
+    }
+  }
+}
