@@ -26,7 +26,7 @@ Ask the Cursor agent something like:
 
 > Use the Bland MCP to show me my last five calls and their outcomes.
 
-The agent will call the `calls` tool, which authenticates with your key and returns from your Bland org.
+The agent will reach for `bland_api_get` on `/v1/calls` (or `get_call_log` for a single call by id), authenticate with your key, and return results scoped to your Bland org.
 
 ## Auth
 
