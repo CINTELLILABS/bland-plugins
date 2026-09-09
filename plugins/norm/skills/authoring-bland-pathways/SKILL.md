@@ -52,6 +52,14 @@ edges/<srcSlug>-to-<tgtSlug>.md   # frontmatter (id, source, target, sourceName,
 
 Structured edits are persisted by editing the file and committing — the `/norm:commit` flow reconstructs `{ nodes, edges }` from the tree, gates it on `validate_pathway` (the server compiler), and POSTs it to `/v1/convo_pathway/*`. Keep structured YAML well-formed (the JSON-inlined frontmatter must stay parseable) or `/norm:validate` and the commit POST will reject it.
 
+## Golden references (read before writing prose surfaces)
+
+`references/` holds sanitized production artifacts that show what good looks like — imitate their techniques, never copy their brands/facts. Consult `references/README.md` for the index. Before writing:
+
+- a **global prompt** → read the matching register: `references/global-prompts/outbound-conversational-sales.md` (outbound, warm, earn-one-next-step) or `references/global-prompts/inbound-direct-support.md` (inbound, task-led). They're a matched pair sharing one skeleton; pick by call type.
+- **KB content** for a Vector DB node → read `references/knowledge-bases/refund-preference-kb.md` (epistemic-limit rules, "Say:" blocks, symptom tables, pinned language).
+- a **multi-node graph, tools, or edge conditions** → read `references/pathways/golden-service-scheduling.md` (deterministic-code-over-prompt-trust, honesty gates, loop protection, edge-description patterns). Grep the sibling `.json` for a specific node to emulate — it's ~200KB, don't read it whole.
+
 ## New pathway
 
 1. Create the shell and clone the workspace (the create flow under `/norm:*`: `call_bland_api POST /v1/convo_pathway/create`, then `/norm:clone`).
