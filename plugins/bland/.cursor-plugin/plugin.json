@@ -21,6 +21,14 @@
     "analytics",
     "conversational-ai"
   ],
+  "category": "developer-tools",
+  "tags": [
+    "voice-ai",
+    "voice-agents",
+    "calls",
+    "mcp"
+  ],
+  "mcpServers": "./mcp.json",
   "variables": {
     "type": "object",
     "properties": {
