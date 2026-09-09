@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.2 — 2026-09-08
+
+- `norm_review` now names dial-time call settings as a fix surface. Two root causes it could already diagnose had no home in its handoff list, which only offered pathway edits, triage, and the regression loop: a call that ended at voicemail (fix: the `voicemail` parameters) and a transcript with a mangled proper noun (fix: the `keywords` transcription boost, not just a one-off `/correct`). Both are now called out at the point of diagnosis and in the guardrails.
+
 ## 1.13.1 — 2026-07-08
 
 - Same install-id fix applied to the SessionStart banner (`hook-status.cjs` no longer hardcodes `norm@bland` when reading the configured URL) — completes the non-canonical-install sweep across all three config readers.
