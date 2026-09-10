@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.3 — 2026-09-09
+
+Fixes from exercising every command, skill, agent, and hook against production with a throwaway pathway.
+
+- **Norm agent could not run the workspace commands.** Inside a Task subagent the Skill tool does not expand plugin commands (it returns only `Execute skill: bland:clone`), so the agent stalled and bypassed the file workspace. `/bland:norm` now hands the agent the resolved command file paths, and the pathways skill and agent tell it to Read those files.
+- **Codec round trips are stable.** Node slugs are assigned in id order (the default template's `randomnode_<ts>` ids share a prefix and swapped directories on every rebuild); the canvas-only edge flag `isHighlighted` is dropped in both directions; generated files end with a newline; the offline validator round-trips through the bundled engine and ignores derived edge names.
+- **Dirty-workspace Stop hook no longer fires on every turn.** It regenerates from `.norm/baseline.json`, whose graph sits under `graph`; the codec now unwraps that shape, so a clean workspace is reported clean.
+- **Command guidance corrected:** create returns `pathway_id` and seeds a three-node template plus a staging version; `/bland:test` passes `pathway_version` so it simulates the committed working version, not production; status drift ignores canvas-only fields; the persona skill warns that `GET /v1/voices` is ~1,000 voices with no limit and shows how to filter the saved result.
+
+
 ## 2.0.2 — 2026-09-09
 
 - Codex now has an inline HTTP MCP config with a concrete production URL and `bearer_token_env_var: "BLAND_API_KEY"`. Added instructions for supplying the key in the Codex launch environment.
