@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "bland": {
+      "type": "http",
+      "url": "${BLAND_API_URL:-https://api.bland.ai}/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${BLAND_API_KEY:-}"
+      },
+      "note": "Hosted Bland MCP server. Set BLAND_API_KEY in the environment that launches Grok Build (key from https://app.bland.ai/settings/api-keys). BLAND_API_URL is optional and only for dev or staging servers."
+    }
+  }
+}
