@@ -58,7 +58,7 @@ if (!arg) {
       ok: true,
       action: "show",
       bland_api_url: options.bland_api_url || `(default: ${PROD_URL})`,
-      api_key: "stored separately (OS keychain, sensitive) — never shown here",
+      api_key: "not checked here (sensitive; lives in the OS keychain on Claude Code, or BLAND_API_KEY). Verify with bland_api_get /v1/me.",
       note: "Pass a https URL, --prod, or --clear to switch. Restart the session after a change.",
     }),
   );
