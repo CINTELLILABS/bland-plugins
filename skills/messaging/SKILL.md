@@ -24,7 +24,7 @@ Call `call_bland_api` with `method: "POST"`, `path: "/v1/sms/send"`, and a body 
 - `user_number`: the person who receives the text, in E.164.
 - `agent_number`: the Bland number the text comes from. It must be a number on the account that is set up for SMS. Agent Phone Plan numbers are set up automatically.
 - `agent_message`: the first text. Leave it out and Bland writes the first text from the objective.
-- `objective`: what this conversation is for. Bland answers every reply in the conversation from it. `prompt` and `task` work as aliases. Up to 20,000 characters.
+- `objective`: what this conversation is for. Bland answers every reply in the conversation from it. Up to 20,000 characters. Use this exact name: `/v1/sms/send` ignores `prompt` and `task`.
 
 The response includes `conversation_id`, and `message_id` when you sent `agent_message`. A status of `processing` means the text was accepted for delivery, not that it was delivered.
 
