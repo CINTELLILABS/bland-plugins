@@ -10,6 +10,20 @@ A Bland pathway is worked on as a **local workspace of files** (the canonical en
 - **Everything is authored in local files** — node prompts, conditions, edge labels, the global prompt, AND the structured surfaces (variables, model config, node tools, unit tests) are all edited directly in `pathway/` with native `Read` / `Write` / `Edit` / `Glob` / `Grep`. Prose lives in markdown bodies; structured config lives in YAML / JSON-inlined frontmatter.
 - **Validation and persistence go through the `/bland:*` commands** — which call the Bland MCP passthrough (`bland_api_get` to read, `call_bland_api` to write) against the documented `/v1/pathway/*` REST endpoints. `/bland:clone`, `/bland:validate`, `/bland:test`, and `/bland:commit` are the boundary; the offline `norm-sync.cjs` codec is the glue that turns the GETted JSON into files and the files back into JSON.
 
+## Where the procedures live (read this when you are an agent)
+
+The five workspace procedures are plain markdown files. In the main session, type them as slash commands. **Inside an agent (a `Task` subagent such as `norm`), the `Skill` tool cannot expand plugin commands — it returns only the text `Execute skill: bland:clone` — so never wait on it: `Read` the file and follow its steps instead.**
+
+| Procedure | File |
+|---|---|
+| clone / list / scaffold | `${CLAUDE_PLUGIN_ROOT}/commands/clone.md` |
+| validate | `${CLAUDE_PLUGIN_ROOT}/commands/validate.md` |
+| test (chat simulation) | `${CLAUDE_PLUGIN_ROOT}/commands/test.md` |
+| commit (and publish) | `${CLAUDE_PLUGIN_ROOT}/commands/commit.md` |
+| status / drift / self-test | `${CLAUDE_PLUGIN_ROOT}/commands/status.md` |
+
+The codec they all call is `node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" <generate|rebuild|validate>`. Skipping the file workspace and posting graph JSON straight to the server bypasses the offline round-trip check, the change-aware compile against `.norm/baseline.json`, and the drift guard; do it only when the codec itself is genuinely unavailable, and say so.
+
 Edit structured YAMLs carefully — they are typed config persisted verbatim as part of the graph. Do not treat a clean local file tree as a saved pathway — only a commit persists.
 
 ## Canonical workspace layout (match exactly)

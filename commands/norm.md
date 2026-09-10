@@ -28,7 +28,20 @@ $ARGUMENTS
 
 Steps:
 
-1. Launch the `norm` agent (via the `Task` tool, `subagent_type: norm`) and hand it the user request verbatim. Let it classify the work as create, edit, simulate/test, debug, publish, or inspect and drive the lanes:
+1. Launch the `norm` agent (via the `Task` tool, `subagent_type: norm`) and hand it the user request verbatim, followed by this handoff block (resolved paths — the agent cannot expand `/bland:*` commands itself, so it reads them):
+
+   ```text
+   Plugin root: ${CLAUDE_PLUGIN_ROOT}
+   Workspace procedures (Read each file and follow its steps; the Skill tool cannot expand these inside an agent):
+     clone:    ${CLAUDE_PLUGIN_ROOT}/commands/clone.md
+     validate: ${CLAUDE_PLUGIN_ROOT}/commands/validate.md
+     test:     ${CLAUDE_PLUGIN_ROOT}/commands/test.md
+     commit:   ${CLAUDE_PLUGIN_ROOT}/commands/commit.md
+     status:   ${CLAUDE_PLUGIN_ROOT}/commands/status.md
+   Codec: node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" <generate|rebuild|validate>
+   ```
+
+   Let it classify the work as create, edit, simulate/test, debug, publish, or inspect and drive the lanes:
    - Prose surfaces (`node.md`, `condition.md`, edge labels, `.pathways/global_prompt.md`) → native `Read`/`Write`/`Edit`.
    - Structured surfaces (variables, model, node tools, unit tests) → also edited as workspace files (`variables.yaml`, `model.yaml`, `tools.yaml`, `unit-tests.yaml`); they round-trip verbatim and persist as part of the `{ nodes, edges }` graph on `/bland:commit` (`call_bland_api`). There are no per-surface server tools — the file is the edit.
    - Server round-trips (clone, validate, test, commit, status) → the `/bland:*` commands. Each reads/writes the live server through the Bland MCP passthrough; the bundled `${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs` codec is OFFLINE/networkless and only transforms JSON ↔ files (`generate`/`rebuild`/`validate`).
