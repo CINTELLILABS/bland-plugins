@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "bland",
+  "displayName": "Bland",
+  "version": "2.0.4",
+  "description": "Build, test, and run Bland voice agents from your coding agent: the hosted Bland MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations, and the Norm agent builder with a self-driving convergence loop.",
+  "author": {
+    "name": "Bland",
+    "email": "kyle@bland.ai",
+    "url": "https://bland.ai"
+  },
+  "homepage": "https://bland.ai",
+  "repository": "https://github.com/CINTELLILABS/bland-plugins",
+  "license": "MIT",
+  "keywords": [
+    "bland",
+    "voice-ai",
+    "voice-agents",
+    "conversational-ai",
+    "calls",
+    "pathways",
+    "analytics",
+    "mcp",
+    "norm"
+  ],
+  "defaultEnabled": true,
+  "mcpServers": {
+    "bland": {
+      "type": "http",
+      "url": "${user_config.bland_api_url}/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${user_config.bland_api_key}"
+      }
+    }
+  },
+  "userConfig": {
+    "bland_api_key": {
+      "type": "string",
+      "title": "Bland API key",
+      "description": "Your Bland API key from app.bland.ai/settings/api-keys. Masked on entry and stored encrypted in the OS keychain.",
+      "sensitive": true,
+      "required": true
+    },
+    "bland_api_url": {
+      "type": "string",
+      "title": "Bland API URL (optional)",
+      "description": "Optional. Defaults to production (https://api.bland.ai); only set this to point at a dev/staging server. Not a secret.",
+      "default": "https://api.bland.ai",
+      "required": false
+    }
+  }
+}

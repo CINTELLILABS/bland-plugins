@@ -1,6 +1,6 @@
 {
   "name": "bland",
-  "description": "Official marketplace for Bland Claude Code plugins.",
+  "description": "Official marketplace for the Bland plugin.",
   "owner": {
     "name": "Bland",
     "email": "kyle@bland.ai"
@@ -9,32 +9,22 @@
   "repository": "https://github.com/CINTELLILABS/bland-plugins",
   "plugins": [
     {
-      "name": "norm",
-      "source": "./plugins/norm",
-      "description": "Bland Norm: activate the super_norm custom agent over the first-class Bland MCP API.",
+      "name": "bland",
+      "source": "./",
+      "description": "Build, test, and run Bland voice agents from your coding agent: the hosted Bland MCP server, skills for every part of the platform, and the Norm agent builder.",
       "category": "productivity",
+      "license": "MIT",
+      "homepage": "https://bland.ai",
       "keywords": [
         "bland",
-        "norm",
-        "supernorm",
-        "mcp",
-        "pathways",
-        "voice-agents"
-      ]
-    },
-    {
-      "name": "bland-agent",
-      "source": "./plugins/bland-agent",
-      "description": "Give an AI agent its own Bland phone number. The agent authenticates itself through a human approval step, so no API key is needed up front.",
-      "category": "productivity",
-      "keywords": [
-        "bland",
-        "mcp",
         "voice-ai",
         "voice-agents",
+        "conversational-ai",
         "calls",
-        "onboarding",
-        "device-code"
+        "pathways",
+        "analytics",
+        "mcp",
+        "norm"
       ]
     }
   ]
