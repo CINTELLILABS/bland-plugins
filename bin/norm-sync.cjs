@@ -27,7 +27,7 @@
  * Edge write asymmetry: GET /v1/pathway/:id nests edge label/description under
  * edge.data.{label,description}; the save POST (POST /v1/convo_pathway/update or
  * /create-version — NOT POST /v1/pathway/:id, which is the SMS router and 400s)
- * expects them TOP-LEVEL per edge. `rebuild` emits them TOP-LEVEL so the save POST
+ * stores them under edge.data. `rebuild` emits them there (verified live) so the save POST
  * round-trips. `generate` accepts both shapes on input. See bin/SYNC.md.
  */
 
@@ -1175,7 +1175,7 @@ function cmdGenerate(args) {
 /**
  * rebuild <dir>
  * Read the pathway/ tree under <dir> and print the rebuilt {nodes,edges} JSON on
- * stdout. Edge label/description are emitted TOP-LEVEL per edge (POST shape). No
+ * stdout. Edge label/description are emitted under edge.data (the stored shape). No
  * network. NOTE: prints the graph JSON directly (NOT the { ok, ... } envelope) so
  * the caller can pipe it straight into a POST body.
  */

@@ -30,7 +30,7 @@ Steps:
 
 2. **Read the baseline + drift check.** Read `.norm/baseline.json` (written on clone). It carries `pathway_id`, `production_version_number`, `working_version_number`, `working_revision_number`, and `source_version_number`. Re-fetch the current server graph for drift with `bland_api_get` `{ path: "/v1/pathway/<pathway_id>" }`, unwrap `.data`, and compare it to the baseline graph snapshot. If the server moved ahead since clone, STOP: tell the user the workspace is stale, do not POST, and re-clone via `/bland:clone <pathway_id>` before re-applying edits — unless `--force` was passed AND the user has explicitly confirmed they want to overwrite the newer server state. Never force silently. (`GET /v1/pathway/<id>` mirrors the **production** snapshot and is fine as a lightweight drift/production-pointer read; it is NOT the editing source.)
 
-3. **Reconstruct the graph.** Run the offline codec to rebuild `{ nodes, edges }` from the local file tree. It prints the raw graph JSON on stdout (NOT the `{ ok, … }` envelope), in the exact POST shape — edge `label`/`description` are emitted at the top level per edge:
+3. **Reconstruct the graph.** Run the offline codec to rebuild `{ nodes, edges }` from the local file tree. It prints the raw graph JSON on stdout (NOT the `{ ok, … }` envelope), in the exact POST shape the server stores — edge `label`/`description` live under `edge.data` (verified live: `create-version` and `update` persist that shape and `get_one` returns it):
 
    ```bash
    node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" rebuild pathway/
