@@ -368,10 +368,67 @@ function isGlobalConfigNode(node) {
 	return node && typeof node === "object" && "globalConfig" in node;
 }
 
+/**
+ * Slugs are assigned in id order, not input order. Two ids that share the same
+ * 8-char prefix (the default template's `randomnode_<ts>` ids do) get the `-1`
+ * suffix on whichever comes SECOND, so an order-dependent assignment would swap
+ * the two directories every time the graph is rebuilt and regenerated. Sorting
+ * first makes the slug for a given id stable across every round trip.
+ */
+function sortedByStableId(nodes) {
+	return [...nodes].sort((a, b) => String(a && a.id).localeCompare(String(b && b.id)));
+}
+
+/**
+ * The server's exporter stamps `data.isHighlighted: false` on every edge and the
+ * generator then writes it back as a `highlighted: false` frontmatter line. A
+ * tree cloned from a never-rebuilt graph has no such line, so every round trip
+ * flagged every edge as "changed". It carries no meaning off the canvas: drop
+ * it when false on both directions so files and graph stay stable.
+ */
+function stripCosmeticEdgeFlags(edges) {
+	return (edges || []).map((e) => {
+		if (!e || !e.data || e.data.isHighlighted !== false) return e;
+		const data = { ...e.data };
+		delete data.isHighlighted;
+		return { ...e, data };
+	});
+}
+
+/** Every text file ends with exactly one newline, the way editors save them. */
+function ensureTrailingNewline(files) {
+	return files.map((f) =>
+		typeof f.content === "string" && /\.(md|ya?ml)$/.test(f.path) && !f.content.endsWith("\n")
+			? { ...f, content: `${f.content}\n` }
+			: f,
+	);
+}
+
+/** The one generate path: bundled engine + the stability rules above. */
+function engineGenerateFiles(nodes, edges) {
+	return ensureTrailingNewline(
+		requireEngine().generateFiles(sortedByStableId(nodes), stripCosmeticEdgeFlags(edges)),
+	);
+}
+
+/**
+ * Round-trip comparison ignores derived or cosmetic frontmatter: sourceName /
+ * targetName are copied from the node names at generate time (a node rename
+ * legitimately leaves them stale on disk), and trailing whitespace is not a
+ * structural change.
+ */
+function normalizeForRoundTrip(content) {
+	return String(content)
+		.split("\n")
+		.filter((line) => !/^(sourceName|targetName|highlighted):/.test(line))
+		.join("\n")
+		.trimEnd();
+}
+
 function buildSlugMap(nodes) {
 	const idToSlug = new Map();
 	const used = new Set();
-	for (const node of nodes) {
+	for (const node of sortedByStableId(nodes)) {
 		if (isGlobalConfigNode(node)) continue;
 		if (!node.data) continue;
 		const shortId = nodeShortId(node.id);
@@ -835,13 +892,15 @@ function structurallyValidateTree(treeMap) {
 	// surface (frontmatter that no longer reconstructs). Layout/derived files are
 	// intentionally lossy and skipped.
 	try {
-		const { nodes, edges } = rebuildGraph(treeMap);
+		// Same engine, same rules as `rebuild` + `generate`, so this check sees
+		// exactly what a commit would send and what a re-clone would write back.
+		const { nodes, edges } = requireEngine().exportToJSON(new Map(Object.entries(treeMap)));
 		const regen = {};
-		for (const f of generateFiles(nodes, edges)) regen[f.path] = f.content;
+		for (const f of engineGenerateFiles(nodes, edges)) regen[f.path] = f.content;
 		for (const p of Object.keys(treeMap)) {
 			if (p.startsWith(".pathways/")) continue;
 			if (!(p in regen)) continue; // edge filename may differ if slugs changed; node files always present
-			if (sha256(treeMap[p]) !== sha256(regen[p])) {
+			if (normalizeForRoundTrip(treeMap[p]) !== normalizeForRoundTrip(regen[p])) {
 				warnings.push(`File does not round-trip cleanly (a structured surface may have been corrupted by a raw edit): ${p}`);
 			}
 		}
@@ -1060,7 +1119,16 @@ function generateCallFiles(call) {
 function nodesEdgesFrom(parsed) {
 	// The MCP passthrough hands back the raw GET body; the agent unwraps {data}.
 	// Accept either the unwrapped pathway or a still-wrapped { data: pathway }.
-	const pathway = parsed && parsed.data && (parsed.data.nodes || parsed.data.edges) ? parsed.data : parsed;
+	// Also accept the clone baseline (`.norm/baseline.json`), whose graph sits
+	// under `graph` — the dirty-workspace Stop hook regenerates from it directly.
+	// Without this the baseline read as an EMPTY graph and every file counted
+	// as an uncommitted edit on every turn.
+	const unwrapped =
+		parsed && parsed.graph && (parsed.graph.nodes || parsed.graph.edges) ? parsed.graph : parsed;
+	const pathway =
+		unwrapped && unwrapped.data && (unwrapped.data.nodes || unwrapped.data.edges)
+			? unwrapped.data
+			: unwrapped;
 	const nodes = Array.isArray(pathway && pathway.nodes) ? pathway.nodes : [];
 	const edges = Array.isArray(pathway && pathway.edges) ? pathway.edges : [];
 	return { nodes, edges, pathway: pathway || {} };
@@ -1087,7 +1155,7 @@ function cmdGenerate(args) {
 		throw new NormError("BAD_JSON", `Could not parse ${jsonPath}: ${err.message}`);
 	}
 	const { nodes, edges, pathway } = nodesEdgesFrom(parsed);
-	const files = requireEngine().generateFiles(nodes, edges);
+	const files = engineGenerateFiles(nodes, edges);
 
 	// Clean + write the pathway/ tree.
 	if (fs.existsSync(outDir)) fs.rmSync(outDir, { recursive: true, force: true });
@@ -1123,7 +1191,9 @@ function cmdRebuild(args) {
 		new Map(Object.entries(treeMap)),
 	);
 	// Print the graph JSON directly for piping into a /v1/convo_pathway/update|create-version body.
-	process.stdout.write(`${JSON.stringify({ nodes, edges }, null, 2)}\n`);
+	process.stdout.write(
+		`${JSON.stringify({ nodes, edges: stripCosmeticEdgeFlags(edges) }, null, 2)}\n`,
+	);
 }
 
 /**

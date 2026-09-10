@@ -4,7 +4,7 @@
  * Bland plugin — end-to-end flow test. Run in your OWN terminal (not through the
  * agent) so writes aren't classifier-gated:
  *
- *   BLAND_API_URL=https://kylelocaldev.internal.bland.ai node scripts/e2e-test.cjs
+ *   BLAND_API_URL=https://your-dev-server.example node dev/scripts/e2e-test.cjs
  *
  * Key: reads BLAND_API_KEY, else ~/Downloads/api_key (4).txt. Needs node >= 18.
  * It creates a THROWAWAY pathway, exercises clone/generate/edit/rebuild/commit/

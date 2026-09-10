@@ -84,4 +84,4 @@ Never echo the API key or include it in any output — it is injected by the MCP
 
 ## Reporting results
 
-Lead with the answer in plain language, then the metrics. State the time range, filters, and group-by actually used, plus any cap that bounded the answer (365d, row limit). When a report was requested, include the full report payload — verbatim queries, metrics, title/sections, visualization hints — so the user or renderer can produce the branded artifact. When a drill-down ran, list the call ids and the the call-review skill handoff.
+Lead with the answer in plain language, then the metrics. State the time range, filters, and group-by actually used, plus any cap that bounded the answer (365d, row limit). When a report was requested, include the full report payload — verbatim queries, metrics, title/sections, visualization hints — so the user or renderer can produce the branded artifact. When a drill-down ran, list the call ids and the call-review skill handoff.
