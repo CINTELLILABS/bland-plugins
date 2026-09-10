@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.4 — 2026-09-09
+
+- **The norm agent's codec calls no longer need a permission prompt.** A slash command's `allowed-tools` does not reach a Task subagent, and in a headless session an unapproved Bash call is denied outright, so `/bland:norm` could not run `norm-sync.cjs` and skipped the file workspace. A new PreToolUse hook (`bin/hook-allow-codec.cjs`) approves exactly one command shape: `node` running `norm-sync.cjs`, `norm-loop.cjs`, or `norm-config.cjs` from this plugin's own `bin/`, optionally redirecting stdout into `.norm/`. Everything else keeps its normal permission flow.
+
+
 ## 2.0.3 — 2026-09-09
 
 Fixes from exercising every command, skill, agent, and hook against production with a throwaway pathway.
