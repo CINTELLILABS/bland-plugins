@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1 — 2026-09-09
+
+- Claude Code MCP config moved from a root `.mcp.json` into the `mcpServers` block of `.claude-plugin/plugin.json`. A root `.mcp.json` is also read as a project-level MCP config by anyone running Claude Code inside this repo, which registered a second `bland` server with an unresolvable `${user_config.*}` URL. Root `mcp.json` (Cursor and Codex) is unchanged.
+- Field-verified on Claude Code 2.1.267 from a local marketplace install: `/bland:status --check` passes all ten checks against production.
+
 ## 2.0.0 — 2026-09-09
 
 One plugin, named `bland`, replacing the four that lived in this repo.

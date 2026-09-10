@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "bland",
   "displayName": "Bland",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Build, test, and run Bland voice agents from your coding agent: the hosted Bland MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations, and the Norm agent builder with a self-driving convergence loop.",
   "author": {
     "name": "Bland",
@@ -24,6 +24,15 @@
     "norm"
   ],
   "defaultEnabled": true,
+  "mcpServers": {
+    "bland": {
+      "type": "http",
+      "url": "${user_config.bland_api_url}/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${user_config.bland_api_key}"
+      }
+    }
+  },
   "userConfig": {
     "bland_api_key": {
       "type": "string",

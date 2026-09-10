@@ -109,7 +109,7 @@ Skills load automatically when the conversation matches their description. Every
 .claude-plugin/   marketplace.json + plugin.json (Claude Code)
 .cursor-plugin/   plugin.json (Cursor)
 .codex-plugin/    plugin.json (Codex)
-.mcp.json         hosted MCP for Claude Code (key from plugin config)
+.claude-plugin/plugin.json also carries the Claude Code MCP config (key from plugin config)
 mcp.json          hosted MCP for Cursor and Codex (key from plugin variables)
 skills/           one folder per skill, SKILL.md plus references/
 commands/         the seven /bland:* commands

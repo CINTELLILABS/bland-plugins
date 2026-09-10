@@ -1,7 +1,7 @@
 {
   "name": "bland",
   "displayName": "Bland",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Build, test, and run Bland voice agents from Cursor: the hosted Bland MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations.",
   "author": {
     "name": "Bland",
@@ -45,6 +45,8 @@
         "default": "https://api.bland.ai"
       }
     },
-    "required": ["BLAND_API_KEY"]
+    "required": [
+      "BLAND_API_KEY"
+    ]
   }
 }
