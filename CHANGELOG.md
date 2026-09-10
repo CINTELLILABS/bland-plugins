@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0 — 2026-09-10
+
+Two skills for the jobs the plugin could not do yet: placing calls and texting. They replace the `create-call`, `monitor-call`, `live-listen`, and `send-sms` skills in `CINTELLILABS/bland-skills`, which is being retired (BLA-8064), rewritten for the hosted MCP tools and the REST passthrough instead of that repo's stdio tool names and shell scripts.
+
+- **`calls`:** place a call with `create_call`, or with `POST /v1/calls` for personas, voicemail handling, transcription keywords, and recording; follow it with `wait_for_call` and `get_call_log`; stop it; stream its live transcript or audio from a terminal. Covers the Agent Phone Plan's default caller ID and its call limits.
+- **`messaging`:** send a text with `POST /v1/sms/send` and give the conversation an `objective` so replies pursue that goal instead of the number's generic prompt; read threads; change the number's texting prompt. Covers the plan's text limits and the delay before a new number can text.
+- `dev/MIGRATION.md` no longer carries the note about the `bland` plugin name clash with the bland-skills marketplace.
+
+
 ## 2.0.4 — 2026-09-09
 
 - **The norm agent's codec calls no longer need a permission prompt.** A slash command's `allowed-tools` does not reach a Task subagent, and in a headless session an unapproved Bash call is denied outright, so `/bland:norm` could not run `norm-sync.cjs` and skipped the file workspace. A new PreToolUse hook (`bin/hook-allow-codec.cjs`) approves exactly one command shape: `node` running `norm-sync.cjs`, `norm-loop.cjs`, or `norm-config.cjs` from this plugin's own `bin/`, optionally redirecting stdout into `.norm/`. Everything else keeps its normal permission flow.

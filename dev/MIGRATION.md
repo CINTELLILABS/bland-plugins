@@ -176,12 +176,12 @@ Run the dimension checklist from `RELEASING.md`, since every field-reported bug 
 - No key at all, device-code login, on Claude Code and Cursor.
 - One reversible create then delete on a throwaway pathway through `/bland:commit`.
 
-Then tag `v2.0.0`, publish, and raise the plugin name with the owner of `CINTELLILABS/bland-skills`, whose marketplace also lists a plugin named `bland`. Their seven skills fit under `skills/` here unchanged if they choose to fold in.
+Then tag `v2.0.0` and publish.
 
 ## Out of scope
 
 - OAuth on the hosted MCP server. It would remove the key step for humans entirely, as ElevenLabs and Cartesia do, but it is a server project and the bridge design above does not depend on it. When it lands, the bridge becomes optional for hosts that support OAuth natively.
-- Folding in `bland-skills` or the CLI's tool set. Their tool vocabularies differ from the hosted server's, and the hosted server's REST passthrough already reaches every documented endpoint.
+- Folding in the CLI's tool set. Its tool vocabulary differs from the hosted server's, and the hosted server's REST passthrough already reaches every documented endpoint.
 - Rewriting the skill bodies for quality. This plan moves and reframes them. Editing the guidance is separate work.
 
 ## Risks

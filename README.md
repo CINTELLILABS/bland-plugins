@@ -5,7 +5,7 @@ Build, test, and run [Bland](https://bland.ai) voice agents from your coding age
 One plugin, three layers:
 
 - **The hosted Bland MCP server** at `api.bland.ai/v1/mcp` does the work: reads and writes against your account, the pathway compiler, call logs, analytics, docs search.
-- **Skills** teach the agent how to use it well: pathways, analytics, evals, call review, tools, personas, knowledge bases, automations, triage, debugging, the raw API, and setup.
+- **Skills** teach the agent how to use it well: calls, messaging, pathways, analytics, evals, call review, tools, personas, knowledge bases, automations, triage, debugging, the raw API, and setup.
 - **Norm**, the agent builder, plus `/bland:*` commands for the pathway workspace and a self-driving convergence loop that keeps fixing a pathway until a simulated call passes.
 
 ## Install
@@ -88,6 +88,8 @@ Skills load automatically when the conversation matches their description. Every
 | Skill | Use when |
 |---|---|
 | [setup](skills/setup/SKILL.md) | Connecting the plugin, adding or rotating a key, pointing at a dev server, fixing auth errors. |
+| [calls](skills/calls/SKILL.md) | Placing a call, waiting on or watching it, live listen, stopping it, getting the transcript and recording. |
+| [messaging](skills/messaging/SKILL.md) | Texting from a Bland number, two-way conversations with a goal, reading threads, the number's texting prompt. |
 | [pathways](skills/pathways/SKILL.md) | Authoring a pathway as local files: nodes, edges, conditions, global prompt, structured YAML, golden references. |
 | [analytics](skills/analytics/SKILL.md) | Call metrics, trends, citation schemas, structured extraction, dashboards. |
 | [evals](skills/evals/SKILL.md) | LLM judges, rubric calibration, scorecards, automatic scoring of production calls. |
