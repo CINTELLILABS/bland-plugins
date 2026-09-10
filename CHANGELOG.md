@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.2 — 2026-09-09
+
+- Codex now has an inline HTTP MCP config with a concrete production URL and `bearer_token_env_var: "BLAND_API_KEY"`. Added instructions for supplying the key in the Codex launch environment.
+- Corrected the upgrade instructions: users must configure their key once for `bland@bland`. The active HTTP connection does not use the legacy credential resolver or the Bland CLI profile.
+- Norm inherits the session's available tools and permissions so the domain skills it loads can use the Bland REST passthrough, docs search, and analytics tools.
+
 ## 2.0.1 — 2026-09-09
 
 - Claude Code MCP config moved from a root `.mcp.json` into the `mcpServers` block of `.claude-plugin/plugin.json`. A root `.mcp.json` is also read as a project-level MCP config by anyone running Claude Code inside this repo, which registered a second `bland` server with an unresolvable `${user_config.*}` URL. Root `mcp.json` (Cursor and Codex) is unchanged.
@@ -9,13 +15,13 @@
 
 One plugin, named `bland`, replacing the four that lived in this repo.
 
-- **Renamed `norm` → `bland`.** Install with `/plugin install bland@bland`. Existing `norm@bland` users: uninstall, reinstall, no key re-entry — the credential resolver reads the old `norm@*` config for this release. Commands moved from `/norm:*` to `/bland:*`.
+- **Renamed `norm` → `bland`.** Install with `/plugin install bland@bland`. Existing `norm@bland` users: uninstall, reinstall, and configure the key for `bland@bland` (corrected in 2.0.2; the legacy resolver is not used by the active HTTP connection). Commands moved from `/norm:*` to `/bland:*`.
 - **Plugin lives at the repo root** with one marketplace and three host manifests (Claude Code, Cursor, Codex). The Cursor-only `bland` plugin, the `bland-agent` plugin, and the stale `bland-lab` copy are removed. The self-onboarding (device-code) flow that `bland-agent` carried moves to the Bland CLI's MCP command; see `dev/MIGRATION.md` Phase 3.
 - **Ten agents became skills:** analytics, api, automations, debug, evals, knowledge, persona, tools, triage, call-review (was `norm_review`). They load on demand in every host that reads `SKILL.md`, with no model pin or tool allowlist. The `authoring-bland-pathways` skill is now `pathways`. New `setup` skill documents auth on each host.
 - **Commands: 20 → 7.** `norm`, `loop`, `clone`, `validate`, `test`, `commit`, `status`. `list` folded into `clone` with no argument; `smoke` folded into `status --check`; `config` is documented in the setup skill (the `norm-config.cjs` helper is unchanged). The ten domain commands were thin wrappers around the agents that are now skills.
 - **Agents: 12 → 2.** `norm` (was `super_norm`) and `norm_judge`.
 - **Tool allowlists** in the remaining commands use the documented `mcp__bland__*` and `mcp__plugin_bland_bland__*` wildcards instead of listing every tool twice.
-- **Credential resolver** also reads the Bland CLI profile (`bland auth login`), so one login serves the CLI and the plugin's bin tools.
+- **Legacy stdio credential resolver** also reads the Bland CLI profile (`bland auth login`). No active manifest launches that bridge; the hosted HTTP connection uses the host-specific credentials documented in the setup skill.
 - Benchmarks, smoke scripts, and the release checklist moved under `dev/`. Added `LICENSE` (MIT).
 
 ## 1.13.2 — 2026-09-08

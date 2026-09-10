@@ -10,7 +10,7 @@ One plugin, three layers:
 
 ## Install
 
-You need a Bland API key from [app.bland.ai/settings/api-keys](https://app.bland.ai/settings/api-keys). Never paste it into the chat; each host has a config panel for it.
+You need a Bland API key from [app.bland.ai/settings/api-keys](https://app.bland.ai/settings/api-keys). Never paste it into the chat; configure it for your host as described below.
 
 ### Claude Code
 
@@ -41,11 +41,21 @@ Install from the [Cursor marketplace](https://cursor.com/marketplace), or add th
 codex plugin marketplace add CINTELLILABS/bland-plugins
 ```
 
-Then install via `/plugins`. Codex support is new and not yet field-tested; the skills load and the MCP config is the same one Cursor uses.
+Then install via `/plugins`. Set `BLAND_API_KEY` in the environment that launches Codex. In your own terminal (Bash or Zsh), enter it without echoing it or putting it in shell history:
+
+```bash
+printf 'Bland API key: '
+read -rs BLAND_API_KEY
+printf '\n'
+export BLAND_API_KEY
+codex
+```
+
+Codex uses its own MCP config with the production URL and `bearer_token_env_var`; it does not read Cursor plugin variables, Claude plugin config, or the CLI profile. For Codex Desktop, the key must be in the app process's environment when it starts. See the [setup skill](skills/setup/SKILL.md) for verification. Full Codex workflow testing is still pending.
 
 ### Upgrading from the `norm` plugin
 
-Version 2.0.0 renames the plugin. Run `/plugin uninstall norm@bland` then install `bland@bland`. Your saved key is picked up from the old config for one release, so you do not need to re-enter it. Commands moved from `/norm:*` to `/bland:*`; the domain commands became skills that load on demand (see the table below).
+Version 2.0.0 renames the plugin. Run `/plugin uninstall norm@bland`, then `/plugin install bland@bland` and enter your key when prompted. On hosts that do not prompt, run `/plugin configure bland@bland`. Configure any custom server URL there too, then restart the session. **The hosted MCP connection does not migrate the old `norm@bland` credentials; key setup is required once for the new plugin.** Commands moved from `/norm:*` to `/bland:*`; the domain commands became skills that load on demand (see the table below).
 
 ## The flow, start to production
 

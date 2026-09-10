@@ -1,5 +1,9 @@
 # Migration plan: four plugins to one `bland` plugin
 
+## Shipping status (2.0.2)
+
+The consolidation is implemented; the hosted CLI forwarder in Phase 3 remains planned. Current connections use HTTP with host-specific configuration: Claude's inline `userConfig` references, Cursor's `mcp.json` plugin variables, and Codex's inline production URL with `bearer_token_env_var`. Upgrades from `norm@bland` require key setup once under `bland@bland`; the legacy stdio resolver is not on the active connection path. Norm inherits the session's available tools so its domain skills can execute. The target layout and phase descriptions below describe the longer-term plan, including shared CLI authentication.
+
 ## TL;DR
 
 Today this repo ships four plugins across two marketplaces that disagree with each other: `norm` (Claude only, the real product), `bland` (Cursor only, MCP config and nothing else), `bland-agent` (a second MCP with a different tool set, for agents that onboard themselves), and `bland-lab` (a stale copy of norm that nobody lists). Inside `norm`, twelve commands are thin wrappers around twelve same-named agents, and every file lists each MCP tool twice to cover two namespaces.
@@ -120,7 +124,7 @@ Goal: the repo has the target layout with today's content, unchanged in behavior
 5. Write the three host manifests from the same metadata: name `bland`, displayName `Bland`, version `2.0.0`, MIT, logo, keywords, `mcpServers: "./mcp.json"`. The Claude manifest keeps `userConfig` for `bland_api_key` (sensitive, optional) and `bland_api_url` (optional). The Cursor manifest carries the same two as `variables`. The Codex manifest adds the `interface` block.
 6. Write the single `mcp.json` launching `npx -y bland-cli@<pinned> mcp --hosted`. Delete every `.mcp.json` variant. Until Phase 3 lands in the CLI, point it at `bin/bland-mcp-proxy.cjs` with `${CLAUDE_PLUGIN_ROOT}` and list on Claude only.
 7. Delete `bin/bland-mcp-proxy.cjs` and `bin/bland-mcp-desktop` once the CLI mode ships. They are the code being moved.
-8. Update `_credentials.cjs` to resolve `bland@*` plugin config entries, keep `norm@*` as a fallback for one release so existing installs keep their key, and add the CLI profile file as a source so the hooks and codec see a device-code login too.
+8. Update the legacy bridge's `_credentials.cjs` to resolve `bland@*` plugin config entries, retain `norm@*` fallback, and add the CLI profile file as a source. This only benefits callers of that bridge; the active HTTP manifests require host-specific key setup, and the offline codec does not use credentials.
 9. Search and replace the plugin id in `hook-status.cjs`, `norm-config.cjs`, and the commands: `norm@bland` becomes `bland@bland`, `/norm:` becomes `/bland:`, and the tool namespace `mcp__plugin_norm_bland__` becomes `mcp__plugin_bland_bland__`.
 
 Verify: install from a local marketplace on Claude Code with a key in config, run `/bland:smoke`, and confirm every row passes as it does today.
@@ -185,5 +189,5 @@ Then tag `v2.0.0`, publish, and raise the plugin name with the owner of `CINTELL
 - **The device-code gate may be off in production.** The routes are on main and the CLI ships against them, but `agent_onboarding_device_flow` is a switch. If it is off, Phases 1, 2, and 4 still ship with the paste-a-key path and Phase 3 waits on the flag, not on code.
 - **Phase 3 lives in another repo.** The hosted mode is a `bland-cli` change. If that team cannot take it this cycle, the fallback is the bridge in `bin/` with `${CLAUDE_PLUGIN_ROOT}`, listed on Claude only until a relative-path launch is verified on Cursor.
 - **Cursor plugin variables may not reach a stdio process.** Undocumented. The CLI profile and device-code login are the paths that do not depend on it, which is one more reason to route everything through the CLI.
-- **Existing `norm@bland` users lose their command names.** The changelog and the credential fallback cover the transition. There is no way to alias a plugin id.
+- **Existing `norm@bland` users lose their command names and must configure the new plugin's key.** The README, setup skill, and changelog cover the transition. There is no way to alias a plugin id; the legacy bridge's fallback does not migrate the active HTTP connection.
 - **Node and npm on the host.** Claude Code ships with Node. Cursor users almost always have it. `npx` downloads the CLI on first launch, so the first session needs network and a few seconds. This is the same requirement `bland-agent` already had.
