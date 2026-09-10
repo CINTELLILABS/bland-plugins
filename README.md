@@ -1,6 +1,6 @@
 # Bland Plugin
 
-Build, test, and run [Bland](https://bland.ai) voice agents from your coding agent. Works with **Claude Code**, the **Claude Desktop app**, **Cursor**, and **Codex**.
+Build, test, and run [Bland](https://bland.ai) voice agents from your coding agent. Works with **Claude Code**, the **Claude Desktop app**, **Cursor**, **Codex**, and **Grok Build**.
 
 One plugin, three layers:
 
@@ -52,6 +52,16 @@ codex
 ```
 
 Codex uses its own MCP config with the production URL and `bearer_token_env_var`; it does not read Cursor plugin variables, Claude plugin config, or the CLI profile. For Codex Desktop, the key must be in the app process's environment when it starts. See the [setup skill](skills/setup/SKILL.md) for verification. Full Codex workflow testing is still pending.
+
+### Grok Build
+
+Install from the xAI plugin marketplace, then set `BLAND_API_KEY` in the environment that launches Grok Build (the same `read -rs` pattern as Codex above works):
+
+```text
+grok plugin install bland --trust
+```
+
+Grok Build reads `.grok-plugin/plugin.json` and `.grok-plugin/mcp.json`, which expand `${BLAND_API_KEY}` and the optional `${BLAND_API_URL}` (defaults to production) from the environment. Hooks, commands, and agents run unchanged; Grok aliases the Claude tool names and `CLAUDE_PLUGIN_ROOT`.
 
 ### Upgrading from the `norm` plugin
 
@@ -121,6 +131,7 @@ Skills load automatically when the conversation matches their description. Every
 .claude-plugin/   marketplace.json + plugin.json (Claude Code)
 .cursor-plugin/   plugin.json (Cursor)
 .codex-plugin/    plugin.json (Codex)
+.grok-plugin/     plugin.json + mcp.json (Grok Build; key from BLAND_API_KEY in the environment)
 .claude-plugin/plugin.json also carries the Claude Code MCP config (key from plugin config)
 mcp.json          hosted MCP for Cursor and Codex (key from plugin variables)
 skills/           one folder per skill, SKILL.md plus references/
@@ -129,6 +140,13 @@ agents/           norm (the builder) and norm-judge (the fresh-context grader)
 hooks/ bin/       session banner, workspace lint, loop gate, and the offline pathway codec
 dev/              benchmarks, smoke scripts, release checklist, migration plan
 ```
+
+## Security and network access
+
+- **Network endpoints.** Everything goes to the Bland API at `https://api.bland.ai` (or the server you set in `BLAND_API_URL` / `bland_api_url`): the hosted MCP server at `/v1/mcp` and, through its passthrough tools, the documented `/v1/*` REST endpoints. The plugin makes no other network calls and sends no telemetry.
+- **Credentials.** One Bland API key, held by the host's plugin config or environment and sent only as a `Bearer` header to that server. It is never printed or written into the conversation.
+- **Local scripts.** Everything under `bin/` and `hooks/` is plain, unminified Node with no dependencies, runs offline, and touches only the pathway workspace in the project directory. `bin/engine.bundle.cjs` is an unminified esbuild bundle of Bland's server-side pathway codec (generator and exporter), built from the Bland server repo by `dev/scripts/bundle-engine.mjs` so local files round-trip byte-identically with the server; it is pure data transformation with no I/O. `bin/_credentials.cjs` is used only by the Claude Desktop stdio bridge (`bin/bland-mcp-desktop`), which cannot receive plugin config from the app; it reads the Bland key from Claude's own plugin settings, the Bland CLI profile, or the macOS keychain entry for this plugin, and forwards it only to the Bland MCP endpoint. No command, agent, or hook calls it.
+- **Hooks.** SessionStart prints workspace status; PreToolUse on `Bash` pre-approves only this plugin's own codec scripts; PostToolUse on `Write|Edit|MultiEdit` lints workspace files; Stop gates the convergence loop and warns on uncommitted workspace changes. None of them run shell commands from tool input.
 
 ## Support
 
