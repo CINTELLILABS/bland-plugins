@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.5 — 2026-09-10
+
+- **Grok Build support.** Added `.grok-plugin/plugin.json` and `.grok-plugin/mcp.json` for listing on the xAI plugin marketplace. Grok reads `.grok-plugin/` ahead of `.claude-plugin/` and has no `${user_config.*}` substitution, so the Grok MCP config takes the key from `BLAND_API_KEY` in the environment (`BLAND_API_URL` optional, defaults to production) using Grok's `${VAR:-default}` expansion. Hooks, commands, agents, and skills are unchanged; Grok aliases the Claude tool names and `CLAUDE_PLUGIN_ROOT`.
+- README gains a Grok Build install section and a security and network access section that declares every endpoint, the credential, what each local script does, and what each hook does.
+
+
 ## 2.0.4 — 2026-09-09
 
 - **The norm agent's codec calls no longer need a permission prompt.** A slash command's `allowed-tools` does not reach a Task subagent, and in a headless session an unapproved Bash call is denied outright, so `/bland:norm` could not run `norm-sync.cjs` and skipped the file workspace. A new PreToolUse hook (`bin/hook-allow-codec.cjs`) approves exactly one command shape: `node` running `norm-sync.cjs`, `norm-loop.cjs`, or `norm-config.cjs` from this plugin's own `bin/`, optionally redirecting stdout into `.norm/`. Everything else keeps its normal permission flow.

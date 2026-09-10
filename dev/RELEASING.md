@@ -16,7 +16,7 @@ Bugs in this plugin have historically lived in **environment differences**, not 
 
 ## Release steps
 
-1. Bump the version in all three manifests — `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.codex-plugin/plugin.json` — and add a CHANGELOG entry (updates NO-OP without a version bump).
+1. Bump the version in all four manifests — `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.codex-plugin/plugin.json`, `.grok-plugin/plugin.json` — and add a CHANGELOG entry (updates NO-OP without a version bump).
 2. `node --check` every changed `bin/*.cjs`; frontmatter sanity on changed md files.
 3. Secret sweep: `git diff --cached | grep -c <your-key-prefix>` must be 0. No internal hostnames/paths in plugin text.
 4. Run **`/bland:status --check`** in your own session (fast regression floor).
