@@ -1,6 +1,6 @@
 ---
 name: calls
-description: "Use when the user wants to place a phone call with Bland, wait on or watch a call in progress, listen to it live, stop it, or get its transcript and recording once it ends. Places simple calls with the curated create_call tool and everything else (personas, voicemail, keywords, recording, scheduling) through POST /v1/calls on the REST passthrough, then follows the call with wait_for_call and get_call_log. To work out why a finished call went wrong, use call-review instead."
+description: "Use when the user wants to place a phone call with Bland, wait on or watch a call in progress, listen to it live, stop it, or get its transcript and recording once it ends. Places simple calls with the curated create_call tool and everything else (personas, voicemail, keywords, recording, scheduling) through POST /v1/calls on the REST passthrough, picks voices from list_voices, follows the call with wait_for_call and get_call_log, and stops it with stop_call. To work out why a finished call went wrong, use call-review instead."
 license: MIT
 ---
 
@@ -18,6 +18,10 @@ Both return a `call_id`. The call is queued at that point, not finished.
 ### Caller ID
 
 Omit `from` unless the user names a number. With no `from`, a call on the Agent Phone Plan leaves from the plan's own number, so the person you called can call or text it back. Other accounts call from a number in Bland's pool. A `from` you pass must be a number on the account.
+
+### Voice
+
+Omit `voice` unless the user asks for one. A call without a voice uses Karen. When the user wants help choosing, call `list_voices`, suggest two or three voices from it, and pass the chosen voice's `id` as `voice`. It lists only Bland's curated voices. If the user names a voice, including one they cloned, use it as given even when it isn't in that list.
 
 ### Persona calls
 
@@ -51,7 +55,7 @@ The transcriber garbles names it has not heard before, and the agent then repeat
 - **Wait for the end:** call `wait_for_call` with `{ "id": "<call_id>" }`. It holds for `timeoutSeconds` (30 by default, 45 at most) and returns the call log as soon as the call finishes. If the log's `status` is not a finished one (`completed`, `failed`, `error`, `no-answer`, `busy`, `canceled`) and `errorMessage` is empty, the call is still running: call `wait_for_call` again. Don't poll `get_call_log` in a loop.
 - **Read the result:** `get_call_log` with `{ "id": "<call_id>" }` returns the transcript, recording URL, summary, and `answeredBy`. For the full record, including `variables`, `pathway_logs`, and `concatenated_transcript`, use `bland_api_get` on `/v1/calls/<call_id>`.
 - **See what is running now:** `bland_api_get` on `/v1/calls/active`.
-- **Stop a call:** `call_bland_api` with `POST /v1/calls/<call_id>/stop`. `POST /v1/calls/active/stop` ends every active call on the account, so confirm with the user before you use it.
+- **Stop a call:** `stop_call` with `{ "id": "<call_id>" }` ends a call in progress or cancels one that is still queued. It hangs up on the person being called, so confirm with the user first. To end every active call on the account, use `call_bland_api` with `POST /v1/calls/active/stop`, and confirm with the user before you do.
 - **Get the recording:** use the call log's recording URL once the call has ended. A call has a recording only if it was placed with `record: true`.
 
 ### Live transcript and live audio
