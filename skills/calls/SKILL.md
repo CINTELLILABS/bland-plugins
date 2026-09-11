@@ -97,6 +97,13 @@ These are long-lived streams that the MCP tools can't carry. Give the user a com
 
 On the plan, calls and transfers go to US and Canada numbers only, one call runs at a time (inbound and outbound combined), a call lasts up to 60 minutes, and the account gets 20 calls an hour, 50 calls a day, and 1,000 call minutes a day. A refused call returns an error code that names the limit, such as `CALL_PLAN_DESTINATION_BLOCKED`, `CALL_RL_PLAN_CONCURRENCY`, or `CALL_RL_PLAN_DAILY_MINUTES`. When a call is already running, wait for it to end before you place the next one.
 
+## Blocked calls
+
+A call can fail before it ever rings because of billing or a plan limit, not a bad request. Don't retry the same call in a loop; tell the user what unlocks it instead.
+
+- **`CALL_UNPAID_INTL_BLOCK`:** the org hasn't completed a purchase, so international calling is off. Adding a card alone does not turn it on. Buying at least $5 of credits in the dashboard under Billing, or turning on auto-recharge, unlocks international calling once the payment settles. If a `buy_credits` tool is available, offer to buy credits with a payment token from the user's agent wallet.
+- **`CALL_PLAN_DESTINATION_BLOCKED` or `CALL_PLAN_TRANSFER_BLOCKED`:** the Agent Phone Plan calls and transfers to US and Canada numbers only. Buying credits doesn't change that; the call needs a US or Canada destination instead.
+
 ## Errors
 
 - **400:** a field is missing or malformed. Check the body against the docs and send it again.
