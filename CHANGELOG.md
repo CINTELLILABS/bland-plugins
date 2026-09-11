@@ -5,7 +5,7 @@
 The hosted MCP gained `stop_call` and `list_voices` (SERVER BLA-8082), and a call without a voice now uses Karen.
 
 - **`calls`:** stop a call with `stop_call` instead of the REST passthrough. A new Voice section says to omit `voice` for the default, suggest voices from `list_voices`, and pass the chosen voice's `id`. A voice the user names is used as given.
-- **`persona`:** choose a voice with `list_voices` first. The `GET /v1/voices` jq recipe now keeps only curated voices whose `service` is `BTTS_V3`, the same set `list_voices` returns.
+- **`persona`:** choose a voice with `list_voices` first. The `GET /v1/voices` jq recipe now keeps only public curated voices whose `service` is `BTTS_V3`, the same set `list_voices` returns.
 
 
 ## 2.1.0 — 2026-09-10
