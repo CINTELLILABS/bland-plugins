@@ -1,8 +1,8 @@
 {
   "name": "bland",
   "displayName": "Bland",
-  "version": "2.0.5",
-  "description": "Build, test, and run Bland voice agents from Cursor: the hosted Bland MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations.",
+  "version": "2.1.0",
+  "description": "Build, test, and run Bland voice agents from Cursor: the hosted Bland MCP server plus skills for calls, messaging, pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations.",
   "author": {
     "name": "Bland",
     "email": "kyle@bland.ai",

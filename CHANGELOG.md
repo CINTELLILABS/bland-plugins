@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0 — 2026-09-10
+
+Two skills for the jobs the plugin could not do yet: placing calls and texting. They replace the `create-call`, `monitor-call`, `live-listen`, and `send-sms` skills in `CINTELLILABS/bland-skills`, which is being retired (BLA-8064), rewritten for the hosted MCP tools and the REST passthrough instead of that repo's stdio tool names and shell scripts.
+
+- **`calls`:** place a call with `create_call`, or with `POST /v1/calls` for personas, voicemail handling, transcription keywords, and recording; follow it with `wait_for_call` and `get_call_log`; stop it; stream its live transcript or audio from a terminal. Covers the Agent Phone Plan's default caller ID and its call limits.
+- **`messaging`:** send a text with `POST /v1/sms/send` and give the conversation an `objective` so replies pursue that goal instead of the number's generic prompt; read threads; change the number's texting prompt. Covers the plan's text limits and the delay before a new number can text.
+- `dev/MIGRATION.md` no longer carries the note about the `bland` plugin name clash with the bland-skills marketplace.
+
+
 ## 2.0.5 — 2026-09-10
 
 - **Grok Build support.** Added `.grok-plugin/plugin.json` and `.grok-plugin/mcp.json` for listing on the xAI plugin marketplace. Grok reads `.grok-plugin/` ahead of `.claude-plugin/` and has no `${user_config.*}` substitution, so the Grok MCP config takes the key from `BLAND_API_KEY` in the environment (`BLAND_API_URL` optional, defaults to production) using Grok's `${VAR:-default}` expansion. Hooks, commands, agents, and skills are unchanged; Grok aliases the Claude tool names and `CLAUDE_PLUGIN_ROOT`.
