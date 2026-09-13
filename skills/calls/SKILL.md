@@ -1,6 +1,6 @@
 ---
 name: calls
-description: "Use when the user wants to place a phone call with Bland, wait on or watch a call in progress, listen to it live, stop it, or get its transcript and recording once it ends. Places simple calls with the curated create_call tool and everything else (personas, voicemail, keywords, recording, scheduling) through POST /v1/calls on the REST passthrough, then follows the call with wait_for_call and get_call_log. To work out why a finished call went wrong, use call-review instead."
+description: "Use when the user wants to place a phone call with Bland, wait on or watch a call in progress, listen to it live, stop it, or get its transcript and recording once it ends. Places simple calls with the curated create_call tool and everything else (personas, voicemail, keywords, recording, scheduling) through POST /v1/calls on the REST passthrough, picks voices from list_voices, follows the call with wait_for_call and get_call_log, and stops it with stop_call. To work out why a finished call went wrong, use call-review instead."
 license: MIT
 ---
 
@@ -18,6 +18,10 @@ Both return a `call_id`. The call is queued at that point, not finished.
 ### Caller ID
 
 Omit `from` unless the user names a number. With no `from`, a call on the Agent Phone Plan leaves from the plan's own number, so the person you called can call or text it back. Other accounts call from a number in Bland's pool. A `from` you pass must be a number on the account.
+
+### Voice
+
+Omit `voice` unless the user asks for one. A call without a voice uses Karen. When the user wants help choosing, call `list_voices`, suggest two or three voices from it, and pass the chosen voice's `id` as `voice`. It lists only Bland's curated voices. If the user names a voice, including one they cloned, use it as given even when it isn't in that list.
 
 ### Persona calls
 
@@ -51,7 +55,7 @@ The transcriber garbles names it has not heard before, and the agent then repeat
 - **Wait for the end:** call `wait_for_call` with `{ "id": "<call_id>" }`. It holds for `timeoutSeconds` (30 by default, 45 at most) and returns the call log as soon as the call finishes. If the log's `status` is not a finished one (`completed`, `failed`, `error`, `no-answer`, `busy`, `canceled`) and `errorMessage` is empty, the call is still running: call `wait_for_call` again. Don't poll `get_call_log` in a loop.
 - **Read the result:** `get_call_log` with `{ "id": "<call_id>" }` returns the transcript, recording URL, summary, and `answeredBy`. For the full record, including `variables`, `pathway_logs`, and `concatenated_transcript`, use `bland_api_get` on `/v1/calls/<call_id>`.
 - **See what is running now:** `bland_api_get` on `/v1/calls/active`.
-- **Stop a call:** `call_bland_api` with `POST /v1/calls/<call_id>/stop`. `POST /v1/calls/active/stop` ends every active call on the account, so confirm with the user before you use it.
+- **Stop a call:** `stop_call` with `{ "id": "<call_id>" }` ends a call in progress or cancels one that is still queued. It hangs up on the person being called, so confirm with the user first. To end every active call on the account, use `call_bland_api` with `POST /v1/calls/active/stop`, and confirm with the user before you do.
 - **Get the recording:** use the call log's recording URL once the call has ended. A call has a recording only if it was placed with `record: true`.
 
 ### Live transcript and live audio
@@ -92,6 +96,13 @@ These are long-lived streams that the MCP tools can't carry. Give the user a com
 ## Agent Phone Plan limits
 
 On the plan, calls and transfers go to US and Canada numbers only, one call runs at a time (inbound and outbound combined), a call lasts up to 60 minutes, and the account gets 20 calls an hour, 50 calls a day, and 1,000 call minutes a day. A refused call returns an error code that names the limit, such as `CALL_PLAN_DESTINATION_BLOCKED`, `CALL_RL_PLAN_CONCURRENCY`, or `CALL_RL_PLAN_DAILY_MINUTES`. When a call is already running, wait for it to end before you place the next one.
+
+## Blocked calls
+
+A call can fail before it ever rings because of billing or a plan limit, not a bad request. Don't retry the same call in a loop; tell the user what unlocks it instead.
+
+- **`CALL_UNPAID_INTL_BLOCK`:** the org hasn't completed a purchase, so international calling is off. Adding a card alone does not turn it on. Buying at least $5 of credits in the dashboard under Billing, or turning on auto-recharge, unlocks international calling once the payment settles. If a `buy_credits` tool is available, offer to buy credits with a payment token from the user's agent wallet.
+- **`CALL_PLAN_DESTINATION_BLOCKED` or `CALL_PLAN_TRANSFER_BLOCKED`:** the Agent Phone Plan calls and transfers to US and Canada numbers only. Buying credits doesn't change that; the call needs a US or Canada destination instead.
 
 ## Errors
 

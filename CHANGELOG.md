@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.1 – 2026-09-10
+
+The hosted MCP gained `stop_call` and `list_voices` (SERVER BLA-8082), and a call without a voice now uses Karen.
+
+- **`calls`:** stop a call with `stop_call` instead of the REST passthrough. A new Voice section says to omit `voice` for the default, suggest voices from `list_voices`, and pass the chosen voice's `id`. A voice the user names is used as given.
+- **`persona`:** choose a voice with `list_voices` first. The `GET /v1/voices` jq recipe now keeps only public curated voices whose `service` is `BTTS_V3`, the same set `list_voices` returns.
+- **`calls`:** a new Blocked calls section covers `CALL_UNPAID_INTL_BLOCK` (buy credits or turn on auto-recharge to unlock international calling) and `CALL_PLAN_DESTINATION_BLOCKED`/`CALL_PLAN_TRANSFER_BLOCKED` (the Agent Phone Plan covers US and Canada only), and says not to retry a blocked call in a loop.
+
+
 ## 2.1.0 — 2026-09-10
 
 Two skills for the jobs the plugin could not do yet: placing calls and texting. They replace the `create-call`, `monitor-call`, `live-listen`, and `send-sms` skills in `CINTELLILABS/bland-skills`, which is being retired (BLA-8064), rewritten for the hosted MCP tools and the REST passthrough instead of that repo's stdio tool names and shell scripts.
