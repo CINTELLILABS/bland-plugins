@@ -26,6 +26,22 @@
         "mcp",
         "norm"
       ]
+    },
+    {
+      "name": "norm",
+      "source": "./v2",
+      "description": "The v2-only Bland plugin: migrate v1 pathways/personas to v2 agents (/norm:migrate), audit snapshots (/norm:validate), and verify with simulations and test chats (/norm:simulate). Raw-JSON workflow with the full hand-migration doctrine and trap catalog; no v1 authoring doctrine.",
+      "category": "productivity",
+      "license": "MIT",
+      "homepage": "https://bland.ai",
+      "keywords": [
+        "bland",
+        "voice-ai",
+        "v2-agents",
+        "migration",
+        "simulation",
+        "norm"
+      ]
     }
   ]
 }

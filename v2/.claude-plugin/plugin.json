@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "norm",
+  "displayName": "Norm for v2 Agents",
+  "version": "1.0.0",
+  "description": "Build, migrate, validate, and test Bland v2 agents from your coding agent. Works directly with raw JSON (v1 pathway exports in, agent version snapshots out) — no scaffolding. Includes the full hand-migration doctrine (/norm:migrate), a mechanical snapshot audit (/norm:validate), and the simulation + test-chat verification loop (/norm:simulate). v2-only: no v1 authoring doctrine; v1 concepts appear solely as migration inputs.",
+  "author": {
+    "name": "Bland",
+    "email": "kyle@bland.ai",
+    "url": "https://bland.ai"
+  },
+  "homepage": "https://bland.ai",
+  "repository": "https://github.com/CINTELLILABS/bland-plugins",
+  "license": "MIT",
+  "keywords": [
+    "bland",
+    "voice-ai",
+    "voice-agents",
+    "v2-agents",
+    "migration",
+    "simulation",
+    "norm"
+  ],
+  "defaultEnabled": true,
+  "mcpServers": {
+    "bland": {
+      "type": "http",
+      "url": "${user_config.bland_api_url}/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${user_config.bland_api_key}"
+      }
+    }
+  },
+  "userConfig": {
+    "bland_api_key": {
+      "type": "string",
+      "title": "Bland API key",
+      "description": "Your Bland API key from app.bland.ai/settings/api-keys. Must belong to the org that OWNS the agent (snippets, tools, KBs, and secrets resolve only there). Masked on entry and stored encrypted in the OS keychain.",
+      "sensitive": true,
+      "required": true
+    },
+    "bland_api_url": {
+      "type": "string",
+      "title": "Bland API URL (optional)",
+      "description": "Optional. Defaults to production (https://api.bland.ai); only set this to point at a dev/staging server. Not a secret.",
+      "default": "https://api.bland.ai",
+      "required": false
+    }
+  }
+}
