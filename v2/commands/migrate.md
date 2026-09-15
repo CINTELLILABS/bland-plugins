@@ -31,6 +31,34 @@ $ARGUMENTS
 - API surface: `GET` reads of the v1 export if not provided as files, `POST /v2/agents/:id/versions` for pushes, `/v1/agent-testing/*` and the test-chat WebSocket for verification. The key must belong to the OWNING org.
 - No test that can fire a write-side integration (scheduler, CRM write, gate, outbound event) without an explicit safety plan the user approved.
 
+## The convergence loop (enforced — not optional)
+
+This command runs under a Stop-hook gate: once you initialize the loop, **the session will not let you finish until the migration is complete**. On every stop attempt the hook re-runs the deterministic v1-parity audit live and checks the push/sim gates; failures are re-fed to you as your next instruction. Complete = audit green AND a version pushed after the last snapshot edit AND the full sim suite recorded green on that exact head.
+
+Initialize it as soon as the snapshot file exists (end of phase 3):
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs" init \
+  --snapshot snapshot.json --source v1-export.json [--persona persona.json] \
+  --agent <agentId> --max 12
+```
+
+Record progress as it happens (the hook trusts only these records):
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs" record-push --head <versionId>
+node "${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs" record-sims --head <versionId> --passed true|false [--failing "a;b"]
+node "${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs" ack-uncovered --lane "<lane>: <why untestable>"
+```
+
+Any snapshot edit after a push automatically stales the head (gate 2) and resets the sim gate — that is the point: no result counts unless it ran on the bytes you're shipping. The audit itself is runnable any time:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/bin/norm-migrate-audit.cjs" --snapshot snapshot.json --source v1-export.json [--persona persona.json]
+```
+
+Never game the gates: recording `--passed true` for a sweep you didn't run, or ack-ing a lane that was merely inconvenient, defeats the migration's only proof. The loop releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — a release by anything other than "complete" goes in the report as an incomplete migration.
+
 ## Phases — each gates the next
 
 1. **Discover.** Census the export(s): node-type counts, orphans, dangling edge targets, the synthetic `global-prompt` node. Build the integration catalog (webhooks + auth, snippets + pinned versions, transfers, SMS, KBs, secrets, terminals) and classify each integration read vs write. Derive the request-data contract (consumed-never-produced variables, including any typo'd keys — carry them bug-for-bug). For personas: capture `personality_prompt`, `pathway_conditions`, `call_config`.
