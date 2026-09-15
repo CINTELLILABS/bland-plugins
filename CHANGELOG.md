@@ -1,5 +1,15 @@
 # Changelog
 
+## norm 1.0.0 – 2026-09-15
+
+New plugin: **norm** (`./v2`) — the v2-only plugin for migrating v1 pathways/personas to v2 agents. Separate from the `bland` plugin so v2 work never inherits v1 doctrine.
+
+- **`/norm:migrate`:** the hand-migration procedure under an ENFORCED convergence loop — a Stop hook re-runs the deterministic v1-parity audit live on every stop attempt and blocks until audit green, a version pushed after the last snapshot edit, and the sim suite recorded green on that exact head (releases: complete, max-iter, stall, 24h TTL).
+- **`/norm:validate` + `bin/norm-migrate-audit.cjs`:** 16+ machine checks — structure, routing crashes (null fallbacks, OR-collapse), reachability, merged exit labels, and byte-parity against the v1 source (snippet/tool pin presence, transfer numbers, webhook URLs, code-tool re-representation, verbatim prompt carriage).
+- **`/norm:simulate`:** simulation + test-chat verification with read/write integration safety rails and engine-trace grading.
+- **Skills:** `v2-snapshot` (the exact snapshot dialect), `v2-runtime` (the routing decision stack and behavioral deltas), `v2-migration` + `references/traps.md` (the trap catalog from four production migrations), `v2-testing`.
+
+
 ## 2.1.1 – 2026-09-10
 
 The hosted MCP gained `stop_call` and `list_voices` (SERVER BLA-8082), and a call without a voice now uses Karen.
