@@ -147,6 +147,21 @@ function main() {
 	}
 	check("S5", "all targets resolve", targetIssues.length === 0, targetIssues.slice(0, 5).join("; "));
 	check("S6", "root end-call exists", nodes.some((n) => n.type === "end-call"), "");
+	check("S7", "contact.inboundNumbers is an array", Array.isArray((snap.contact || {}).inboundNumbers), "the platform validator rejects a snapshot without it");
+	{
+		const badHeaders = [];
+		for (const s of scenarios) {
+			for (const fn of ((s.data || {}).flow || {}).nodes || []) {
+				if (fn.type === "webhook") {
+					const hs = (fn.data || {}).headers;
+					if (Array.isArray(hs) && hs.some((h) => Array.isArray(h) || !h || typeof h.key !== "string")) {
+						badHeaders.push(`${(s.data || {}).name}/${(fn.data || {}).name}`);
+					}
+				}
+			}
+		}
+		check("S8", "webhook headers are {key,value} rows (not v1 tuples)", badHeaders.length === 0, badHeaders.join(", "));
+	}
 	check("R1", "route fallbacks present", routeNoFallback.length === 0, routeNoFallback.join(", "));
 	check("R2", "no OR-collapse", orCollapse.length === 0, orCollapse.slice(0, 5).join("; "));
 	check("R3", "flow steps reachable", unreachable.length === 0, unreachable.slice(0, 6).join(", "));

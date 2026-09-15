@@ -25,7 +25,8 @@ author snapshot ──► gate 1: AUDIT  (hook re-runs bin/norm-migrate-audit.cj
         └────────────  RELEASE (complete)
 ```
 
-- `bin/norm-migrate-audit.cjs` — the deterministic checker: 16+ machine checks including pin-presence against every v1 snippet/tool id, OR-collapse and null-fallback scans, code-tool re-representation, verbatim prompt carriage. No model judgment.
+- `bin/norm-materialize.cjs` — the deterministic BUILDER: the agent authors only judgment (a small `plan.json` — scenario membership, entries, hub + system prompt) and this script carries every byte of content from the v1 export(s) into the snapshot: prompts, extraction variables, route rules (flat = OR, isGroup = AND, fallbacks from source), transfers, webhooks, snippet pins, attached tools, automatic code-tool re-representation, id namespacing, per-label exit edges. Proven by rebuilding a shipped production migration from raw JSON alone: byte-class identical structure (same step census, same pins), passes the platform's own validator, and compiles to the identical graph (82 nodes / 143 edges) the in-repo pipeline produced.
+- `bin/norm-migrate-audit.cjs` — the deterministic checker: 18 machine checks including pin-presence against every v1 snippet/tool id, OR-collapse and null-fallback scans, code-tool re-representation, verbatim prompt carriage. No model judgment.
 - `bin/norm-migration-state.cjs` — loop state (`.norm/migration.json`): `init` / `record-push` / `record-sims` / `ack-uncovered` / `status` / `stop`.
 - `bin/hook-migrate-loop.cjs` — the Stop gate. Fail-soft (never wedges a session); releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — any release other than "complete" is reported as an incomplete migration.
 
