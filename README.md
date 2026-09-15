@@ -10,6 +10,25 @@ The v2-only Bland plugin: build, migrate, validate, and test v2 agents working d
 | `/norm:validate` | Mechanical audit of a snapshot JSON: structure, routing-crash checks, pin presence against the v1 source, exit-label discipline. |
 | `/norm:simulate` | Simulation + test-chat verification loop with safety rails for live integrations and engine-trace grading. |
 
+## The convergence loop (enforced)
+
+`/norm:migrate` doesn't rely on the model choosing to iterate — a Stop hook gates the session until the migration is actually complete:
+
+```
+author snapshot ──► gate 1: AUDIT  (hook re-runs bin/norm-migrate-audit.cjs live:
+        ▲                          structure + routing-crash + byte-parity vs the v1 source)
+        │                 ▼ green
+   failures re-fed    gate 2: PUSH  (a version recorded AFTER the last snapshot edit —
+   as next            ▼ green        editing the snapshot stales the head automatically)
+   instruction        gate 3: SIMS  (full suite recorded green ON that exact head)
+        │                 ▼ green
+        └────────────  RELEASE (complete)
+```
+
+- `bin/norm-migrate-audit.cjs` — the deterministic checker: 16+ machine checks including pin-presence against every v1 snippet/tool id, OR-collapse and null-fallback scans, code-tool re-representation, verbatim prompt carriage. No model judgment.
+- `bin/norm-migration-state.cjs` — loop state (`.norm/migration.json`): `init` / `record-push` / `record-sims` / `ack-uncovered` / `status` / `stop`.
+- `bin/hook-migrate-loop.cjs` — the Stop gate. Fail-soft (never wedges a session); releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — any release other than "complete" is reported as an incomplete migration.
+
 ## Skills (the knowledge base)
 
 Written for agents WITHOUT access to the Bland platform source — everything is documented at the level of observable behavior and public API surfaces.
