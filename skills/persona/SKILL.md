@@ -49,6 +49,9 @@ The old `activate_persona` tool loaded a persona into a session UI; there is no 
 ### Pick the voice by description, set it as call_config.voice
 Call `list_voices` (or `GET /v1/voices`), choose a voice whose `description`/`tags` match the intended character (prefer the curated voices `list_voices` returns), and use that voice's `id` as `call_config.voice` on create or edit. If the user names a voice, including one they cloned, use it as given. Confirm the choice with the user when the brief is ambiguous. Never invent a voice id — read it from `/v1/voices`.
 
+### Set the call config and the prompt so the persona sounds human
+`call_config` decides how the persona sounds before it says a word: set `background_track` (`office` unless the brief wants a silent line), and send `noise_cancellation: true` explicitly on the calls that use the persona. Write the `personality_prompt` the way people actually talk, not like written copy. The dispatch settings, Bland's tone rubric, and the performance-tag grammar (BTTS v3 voices only, which is what `list_voices` returns) are in the calls skill's `references/sounding-human.md` — read it before you write or edit a `personality_prompt`.
+
 ### All edits land on the draft; production changes only by promotion
 `PATCH /v1/personas/{id}` edits the draft. Production is untouched until `POST .../versions/promote`. Do not claim production changed unless the promote call actually returned success.
 
