@@ -26,7 +26,7 @@ Both return a `call_id`. The call is queued at that point, not finished.
 - **`keywords`** — every proper noun the call depends on (see Name the proper nouns below).
 - **`voicemail`** and **`record`** — decide both before you dial.
 
-The prompt matters as much as the settings. Write the `task` the way people actually talk: contractions, short spoken clauses, a filler or a false start where one genuinely lands, never written copy. The full rules, Bland's tone rubric, and the performance-tag grammar (BTTS v3 voices only) are in `references/sounding-human.md`.
+The prompt matters as much as the settings. Write the `task` the way people actually talk: contractions, short spoken clauses, and ums, uhs, and false starts written in on purpose. Those are wanted, not sloppiness. They are what makes a voice sound like a person thinking rather than a machine reading copy, and the failure in practice is always too few of them, because a model left to its own judgment writes clean prose instead. `references/sounding-human.md` has a block you can paste straight into a `task` or `personality_prompt`, plus Bland's tone rubric and the performance-tag grammar (BTTS v3 voices only).
 
 ### Caller ID
 

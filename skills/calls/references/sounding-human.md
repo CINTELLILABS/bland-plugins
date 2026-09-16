@@ -33,6 +33,8 @@ This is Bland's own rubric for what a good call sounds like. The goal is to soun
 
 The voice model was trained on recordings of people actually talking. Text that reads like a transcript performs dramatically better than text that reads like writing. Put these rules in the prompt, and write the prompt's own example lines this way.
 
+**Say it plainly in the prompt: ums, uhs, and false starts are wanted.** They are not sloppiness and not something to apologize for. They are what makes a voice sound like a person thinking instead of a machine reading copy, and a call with none of them is the one people hang up on. Write them in deliberately. In practice the failure is always too few, never too many, because a model left to its own judgment defaults to clean written prose and quietly drops every one of them.
+
 - **Contractions, always.** "I'm", "don't", "it's".
 - **Fillers where they genuinely land.** "um", "uh", "you know", "I mean". Sparingly, at a rate a real person would actually use.
 - **False starts and self-corrections.** "I just- I don't even know what to say." "the thing with the 25th is... well, actually, depends which one you're going to."
@@ -42,6 +44,20 @@ The voice model was trained on recordings of people actually talking. Text that 
 - **Cut the written-English tells.** No semicolons, no nested subclauses, and no words nobody says out loud ("moreover", "utilize", "delve", "additionally").
 
 Read every line aloud in your head. If it sounds like an essay, rewrite it until it sounds like a person.
+
+### Drop this into the prompt
+
+Paste this into the `task` or `personality_prompt` and then write the rest of the prompt's own lines the same way. Do not water it down into "be conversational", which is the instruction every robotic call was already given:
+
+```
+Talk like a person on a phone, not like written copy. Use contractions.
+You are allowed to sound slightly imperfect, and you should: the occasional
+"um" or "uh", a false start you correct mid-sentence, a thought that trails
+off. That is what makes you sound human, so do not clean it up. Keep replies
+to a clause or two, the way people actually talk. Back-channel while the
+other person is speaking ("mhmm", "right", "gotcha"). Never use a word
+nobody says out loud.
+```
 
 Texture taken from production global prompts:
 
