@@ -1,5 +1,15 @@
 # Changelog
 
+## norm 1.4.0 – 2026-09-17
+
+The lifecycle wiki — the plugin now covers the entire v2 API surface, not just authoring:
+
+- **New skill `v2-lifecycle`** + endpoint dictionary (`references/api.md`): the three fixed environments (dev = live head, staging/production = pins; an unpinned production FAILS calls, no fallback), publish/promote/rollback semantics (publish moves staging only and is the sole semver mint; promote takes no body — production := staging; rollback only to previously-deployed versions), which version answers each channel (outbound/inbound = production pin, web/test-chat = DEV HEAD, SMS = the twin pathway's stored graph refreshed only on attach/promote), the fail-open inbound path (2s budget; a broken production silently degrades to the stale twin compile), branches (FF-squash merge, rebase-with-resolutions, direct branch publish), experiments (selector-less traffic only; no winner endpoint — a baseline repoint completes it), `{{env.KEY}}` variables (disjoint namespace, LOUD unresolved failure, selector — not version — picks the env, secret refs), checks (advisory: the server never gates a promote — poll to PASSED yourself), inbound binding/twin materialization, identity/BCID, memory schema, the scenario library, and the platform's own `/migrate*` endpoints with their limits.
+- **Knob dictionary additions**: `settings.guardrails` (timed TCPA rails with the 1–600s window, custom rails = live per-turn LLM evaluators capped at 5, action shapes), agent-level `knowledge.kbIds`, `settings.memorySchema`, and the 2 MiB whole-snapshot validator cap.
+- **`v2-runtime`**: new "which version is the call even running" triage section, `{{env.KEY}}` resolution semantics (opposite failure mode from plain `{{key}}`), and guardrails-at-runtime (rails fire end_call/transfer/move_to_node — check them before blaming the routing stack).
+- **`/norm:build`** step 7 now walks the real ship gates: publish→promote, the dev-head-vs-production test-chat trap, check-run gating discipline, per-env variable coverage.
+
+
 ## norm 1.3.1 – 2026-09-16
 
 Review fixes (12 findings triaged, 8 real):
