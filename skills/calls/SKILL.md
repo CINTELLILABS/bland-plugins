@@ -34,7 +34,7 @@ Omit `from` unless the user names a number. With no `from`, a call on the Agent 
 
 ### Voice
 
-Omit `voice` unless the user asks for one. A call without a voice uses Karen. When the user wants help choosing, call `list_voices`, suggest two or three voices from it, and pass the chosen voice's `id` as `voice`. It lists only Bland's curated voices. If the user names a voice, including one they cloned, use it as given even when it isn't in that list.
+Omit `voice` unless the user asks for one. A call without a voice uses Karen. When the user wants help choosing, call `list_voices`, suggest two or three voices from it, and pass the chosen voice's `id` as `voice`. It lists Bland's curated voices on the server's recommended generation. Check `GET /v1/models` when language or feature requirements matter; browse compatible public alternatives through `/v1/voices/shared`, and find private clones through `/v1/voices/library`. If the user names a voice, including one they cloned, use it as given even when it isn't in that list.
 
 ### Persona calls
 
