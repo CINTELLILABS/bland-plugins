@@ -41,6 +41,7 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 - **v2-runtime** — how the agent behaves at call time: the routing decision stack, hub/scenario semantics, variable resolution, code-step execution, behavioral deltas.
 - **v2-migration** — the migration doctrine + the trap catalog accumulated across production migrations (`references/traps.md`).
 - **v2-testing** — the agent-testing API, test-chat WebSocket, grading discipline, and testing-safety rules.
+- **v2-lifecycle** — the full ship model and API surface: environments (dev/staging/production), publish/promote/rollback and semver minting, which version answers each channel at call time (and the fail-open twin-pathway degradation path), branches/merge/rebase, A/B experiments, `{{env.KEY}}` environment variables, pre-deploy checks (advisory — the client enforces the gate), inbound number binding, identity/BCID, memory schema, the scenario library, and the platform's own migration endpoints. Includes the endpoint dictionary (`references/api.md`).
 
 ## Organization safety (BLA-7919)
 

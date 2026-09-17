@@ -33,6 +33,15 @@ In the builder UI, layer 2 is visible only inside the step's tool inspector pane
 - **Extraction rows** on prompt steps extract from conversation each turn; extracted values persist as call variables.
 - **`{{placeholder}}` resolution**: strings resolve against call variables (plus `{{SECRET.name}}` from the org's secret store). **An unresolvable placeholder stays in the string as the literal text `{{name}}`** — it does not become empty. Consequences: never let a prompt or a code input depend on a variable that may not exist yet, and never treat "the string is non-empty" as "the variable was set". Web-chat sessions do not resolve built-in clock variables like `{{now_utc}}` — supply a real value in request data when testing time-dependent logic (engine format example: "Monday, September 14, 2026 3:00 PM").
 - **request data** (per-call key/values) merge into call variables at call start — this is the call-time contract a caller/integration must supply.
+- **`{{env.KEY}}` is a different namespace with opposite failure semantics**: environment variables (per agent per environment) substitute into the snapshot at call PREPARATION, before the call exists — and a referenced key with no value in the resolving environment fails the call loudly (`AGENT_VARIABLE_UNRESOLVED`), it never passes through as a literal. Plain `{{key}}` and `{{env.KEY}}` cannot collide, and request data cannot shadow an env variable. Which environment's values resolve is decided by the version SELECTOR, not the version: semver/`branch:`/`dev` selectors always resolve dev values, even for the production-pinned version (full model: the `v2-lifecycle` skill).
+
+## Which version is the call even running
+
+Before debugging behavior, confirm the bytes: outbound calls and inbound voice run the **production pin** by default; web chat and test-chat run the **dev head**; SMS on a bound number runs the **twin pathway's stored graph** (refreshed only on attach and production repoints). Inbound resolution is fail-open on a 2s budget — an unpinned/invalid production or unresolved env variable silently degrades the call to the twin's stale compile, unattributed. "The fix didn't take" is usually one of these, not routing. Full lifecycle model: the `v2-lifecycle` skill.
+
+## Guardrails at runtime
+
+`settings.guardrails` resolve straight off the snapshot on every call. Timed TCPA rails (`endSeconds` 1–600) fire their actions if the disclosure hasn't happened within the window from call start; `custom` rails are live LLM evaluators running on EVERY agent turn (hence the cap of 5). Actions: end_call / transfer / move_to_node. When a call ends or transfers "for no visible reason", check the rails before the routing stack.
 
 ## Code steps (`customCode`)
 

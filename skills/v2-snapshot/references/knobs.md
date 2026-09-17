@@ -18,6 +18,28 @@ Field-by-field reference for authors. STATUS meanings: **ACTIVE** (the compiler/
 | `voiceCall.requestData`, `voiceCall.metadata` | ACTIVE | Default request-data/metadata rows for voice calls. |
 | `webChat.*` | ACTIVE | Web-chat widget config (enabled, widgetTitle, greetingMessage, allowedOrigins). |
 | `contact.inboundNumbers` | ACTIVE (required) | Must be an array — the platform validator rejects the snapshot without it. |
+| `guardrails` | ACTIVE | Inline guardrail definitions, resolved at call time straight off the snapshot (see below). |
+| `memorySchema` | ACTIVE | Rides with `enableMemory` — the structured schema cross-call memory extracts into. |
+
+Whole-snapshot cap: the validator rejects any snapshot over **2 MiB serialized**.
+
+## `settings.guardrails` — live call rails
+
+Array of guardrail objects, each `{id, kind, actions[]}`. Kinds:
+
+| Kind | Extra fields | Behavior |
+|---|---|---|
+| `tcpa:ai_disclosure`, `tcpa:recording_disclosure`, `tcpa:self_introduction` | `endSeconds` (REQUIRED, 1–600) | Timed REQUIRE rails: the disclosure must happen within the window from call start or the actions fire. One entry per kind. |
+| `tcpa:opt_out` | — | Opt-out rail (no window). One entry per kind. |
+| `custom` | `name` (non-empty), `description`, `prompt` (non-empty) | A live LLM evaluator running on EVERY agent turn. Max **5 per agent**; adding a new custom rail is enterprise-gated at save time (already-saved ones keep running). |
+
+`actions[]` rows: `{type: "end_call"}` \| `{type: "transfer", phoneNumber}` \| `{type: "move_to_node", nodeId}`. Validator enforces: unique ids, no duplicate built-in kinds, `endSeconds` within bounds (an oversized window would fire at call start instead — the bound is load-bearing).
+
+## Top-level `knowledge` (agent-level)
+
+| Knob | Status | Behavior |
+|---|---|---|
+| `knowledge.kbIds` | ACTIVE | Agent-scope knowledge bases: retrieval is available call-wide, on every step. Synced to KB scopes when the version saves. Distinct from step-level `knowledge` steps (node-scoped kbIds). Migration caveat: lift node-scoped KB here ONLY when v1 semantics were genuinely call-wide — a wrong lift bleeds KB answers into scripted steps. |
 
 ## Step `settings.advanced` (all omit-when-default; absence = default)
 
