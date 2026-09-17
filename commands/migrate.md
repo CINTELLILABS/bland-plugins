@@ -2,6 +2,7 @@
 description: Migrate a Bland v1 pathway or persona (raw JSON export) into a v2 agent, end to end — discovery, architecture, verbatim snapshot authoring, mechanical audit, push, and simulation verification. Use when the user wants to migrate, convert, or port a v1 pathway/persona to a v2 agent.
 argument-hint: "<path to v1 export JSON (and persona JSON), target agent id or org>"
 allowed-tools:
+  - "mcp__plugin_norm_bland__*"
   - "Task"
   - "Read"
   - "Write"
@@ -10,8 +11,6 @@ allowed-tools:
   - "Grep"
   - "Bash"
   - "WebFetch"
-  - "mcp__bland__*"
-  - "mcp__plugin_bland_bland__*"
 ---
 
 # /norm:migrate — v1 → v2 hand migration
@@ -30,6 +29,7 @@ $ARGUMENTS
 - Additive only: you produce agent versions. Number attach/cutover is out of scope — refuse it.
 - API surface: `GET` reads of the v1 export if not provided as files, `POST /v2/agents/:id/versions` for pushes, `/v1/agent-testing/*` and the test-chat WebSocket for verification. The key must belong to the OWNING org.
 - No test that can fire a write-side integration (scheduler, CRM write, gate, outbound event) without an explicit safety plan the user approved.
+- **Org-identity smoke check before the FIRST write**: multiple Bland connections can coexist in one session (a project-scoped server + this plugin's). Namespace alone proves nothing. Before pushing a version or creating scenarios, call `list_agents` (or `get_bland_mcp_setup`) through THIS plugin's server (`mcp__plugin_norm_bland__*`) and confirm the target agent id exists there and the org matches the engagement. On any mismatch, STOP and ask — a write into the wrong organization is the incident class this rule exists to prevent (BLA-7919).
 
 ## The convergence loop (enforced — not optional)
 

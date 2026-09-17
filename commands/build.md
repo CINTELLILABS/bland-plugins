@@ -10,7 +10,6 @@ allowed-tools:
   - "Glob"
   - "Grep"
   - "Bash"
-  - "mcp__bland__*"
   - "mcp__plugin_norm_bland__*"
 ---
 
@@ -31,6 +30,10 @@ Building a v1 pathway and building a v2 agent are DIFFERENT disciplines with dif
    > "Should this be a **v2 agent** (the new agent platform — hub + scenarios, recommended for new builds) or a **v1 pathway** (the classic node-graph builder)?"
 3. **v1 answer** → this plugin does not carry v1 authoring doctrine, on purpose. Hand off: if the `bland` (v1) plugin is installed, tell the user to run `/bland:norm <request>`; if not, tell them to install it (`/plugin install bland@bland`). Do NOT attempt v1 building from here — that cross-contamination is exactly what this plugin exists to prevent.
 4. **v2 answer** → load the `v2-authoring` skill (plus `v2-snapshot` for the dialect and `v2-runtime` for behavior) and continue below.
+
+## Org-identity smoke check (before the first write)
+
+Multiple Bland connections can coexist in one session; namespace alone proves nothing. Before `create_agent` or any version push, call `list_agents` through THIS plugin's server (`mcp__plugin_norm_bland__*`) and confirm the org is the one the user intends (name a known agent back to them if unsure). On mismatch, stop and ask (BLA-7919).
 
 ## v2 build phases
 

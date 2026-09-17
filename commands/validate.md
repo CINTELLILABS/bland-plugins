@@ -2,6 +2,7 @@
 description: Mechanically audit a v2 agent snapshot JSON before pushing — structural checks, routing-crash checks, pin presence, exit-label discipline, and the migration trap checklist. Use before every version push and whenever a snapshot misbehaves.
 argument-hint: "<path to snapshot JSON (and optionally the v1 source JSON to audit against)>"
 allowed-tools:
+  - "mcp__plugin_norm_bland__*"
   - "Read"
   - "Bash"
   - "Glob"
