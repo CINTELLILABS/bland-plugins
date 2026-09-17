@@ -1,5 +1,11 @@
 # Changelog
 
+## norm 1.3.0 – 2026-09-16
+
+- **The knob dictionary** (`v2-snapshot/references/knobs.md`): field-by-field reference for every setting in the snapshot — agent settings, step advanced options (temperature, interruption, backchannel level/config with its OFF sentinel and gating, background track tri-state, privacy), step-level GLOBALS (`settings.global` is active in v2: auto-return/redirect/manual — a correction to "no globals"), per-step-type fields, and the deprecated/inert/nonexistent list (`toolType:"code"`, editor-only inline code, top-level skipUserResponse, v1 tuple spellings, compile-dropped draft rows).
+- `/norm:build` documents the convergence loop's BUILD MODE: state initialized without `--source` gates on the structural audit + push + sims.
+
+
 ## norm 1.2.3 – 2026-09-16
 
 - v1/v2 isolation completed at the skill layer: every v2 skill carries a server-binding rule — all API work through `plugin_norm_bland` only, never the v1 plugin's server or a project-scoped one, with org identity proven by the smoke check rather than namespace.

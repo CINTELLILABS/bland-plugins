@@ -110,6 +110,10 @@ Two hard facts that cost real migrations:
 1. **The field naming in `responsePathways` is deliberately skewed**: `label` = the trigger variable, `variable` = the comparison operator, `condition` = the compared value. Author them in exactly that skew.
 2. **`toolType` supports ONLY `custom_tool` and `track`.** There is NO code-tool lane: a snippet-executing tool cannot be expressed as an attached tool in a v2 snapshot. Represent it as a native `customCode` step (same `snippetId`/`snippetVersion`, explicit `variables` input map) followed by a `route` step that carries the old tool's responsePathways as rules + fallback. Never add unknown keys to tool objects — validation is strict.
 
+## The knob dictionary
+
+Every field on every node/step type — including which knobs are ACTIVE, editor-only, silently dropped at compile, or nonexistent-in-v2 (the "deprecated" list: `toolType:"code"`, inline `code`, top-level `skipUserResponse`, v1 tuple spellings, draft response-pathway rows) — lives in `references/knobs.md` in this skill directory. Read it whenever authoring a field you haven't used before, and NEVER invent a key: unknown keys are rejected or silently ignored depending on surface.
+
 ## Authoring rules (non-negotiable)
 
 - **Carry content verbatim.** Prompts, conditions, transfer numbers, URLs, snippet pins move byte-for-byte from the source JSON. Never paraphrase, never retype — copy programmatically.
