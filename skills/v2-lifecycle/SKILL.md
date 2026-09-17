@@ -51,8 +51,9 @@ Selector grammar (`agent_version`): `production` \| `staging` \| `dev`/`latest` 
 
 Attaching numbers (`POST /:agentId/inbound/attach {inbound_numbers}`) does not bind number→agent directly: it bridges over the v1 runtime by materializing a **twin pathway + twin persona** tagged `v2-agent:<agentId>` and pointing the number's inbound row at them.
 
-- At call time the resolver has a **2-second budget and is fail-open**: any error, timeout, unpinned production, invalid snapshot, or unresolved env variable silently degrades the call to the **twin pathway's stored graph** — unattributed to the agent version. The twin's graph is compiled from the **dev head at attach time** and only refreshed on **production repoints** (promote/rollback). So a degraded or frozen-fleet inbound call can run a stale compile: keep production pinned and valid, and re-promote to refresh the twin.
-- **SMS always runs the twin's stored graph** (never per-call version resolution) — SMS behavior lags until the next promote. Plan SMS verification after promote, not after publish.
+- At call time the resolver has a **2-second budget and is fail-open**: any error, timeout, unpinned production, invalid snapshot, or unresolved env variable silently degrades the call to the **twin pathway's stored graph** — unattributed to the agent version.
+- **The twin's stored graph updates on exactly two events**: an attach/re-attach (compiles the **dev head** of that moment) and any **production repoint** — promote or rollback — (compiles the **production pin**). Publish does not touch it; between those events it is stale. So a degraded or frozen-fleet inbound call can run an old compile: keep production pinned and valid, and promote to refresh the twin.
+- **SMS always runs the twin's stored graph** (never per-call version resolution) — an SMS agent's behavior changes only on those same two events, so a freshly attached number runs dev-head behavior until the first promote. Plan SMS verification after promote, not after publish.
 - One number binds ONE agent (rebinding overwrites); one agent can hold many numbers. Compiled inbound routes cache ~60s (production/staging keys are invalidated on repoints, variable writes, attach/detach).
 
 ## Branches
