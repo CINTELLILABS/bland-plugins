@@ -64,6 +64,14 @@ New plugin: **norm** (`./v2`) — the v2-only plugin for migrating v1 pathways/p
 - **`/norm:simulate`:** simulation + test-chat verification with read/write integration safety rails and engine-trace grading.
 - **Skills:** `v2-snapshot` (the exact snapshot dialect), `v2-runtime` (the routing decision stack and behavioral deltas), `v2-migration` + `references/traps.md` (the trap catalog from four production migrations), `v2-testing`.
 
+## 2.2.0 — 2026-09-15
+
+Agents were placing calls that sound robotic. `create_call` rejects every field outside its six, so nothing was setting noise cancellation, background ambience, or transcription hints, and nothing told the agent how to write a prompt that sounds like a person on a phone rather than written copy. Both halves now have a home.
+
+- **`calls`:** a new "Settings that decide how the call sounds" section. Send `noise_cancellation: true` explicitly (the server applies `true` when the field is omitted while the API reference documented `false`, so the field is safer sent than assumed), choose `background_track` deliberately rather than letting it default (the default is quiet phone static, while `office`, `cafe`, and `restaurant` put a room behind the voice), and route any call needing those through `POST /v1/calls` instead of `create_call`.
+- **`calls`:** new `references/sounding-human.md`, the single place both halves live: the dispatch table, Bland's own tone rubric (midwestern phone tone, fewest words that still land, back-channels, empathy in stride, no recontextualizing), transcript-style prompt writing (contractions, fillers, false starts, trailing off, CAPS on the punched word, and the written-English tells to cut), and the verified performance-tag grammar. Tags are scoped to BTTS v3 voices, which is what `list_voices` returns, because the PlayHT and ElevenLabs paths strip bracketed text before it reaches the model.
+- **`persona`:** a new doctrine section sends the reader to the same reference before writing or editing a `personality_prompt`, and covers `call_config.background_track` plus explicit noise cancellation.
+
 
 ## 2.1.1 – 2026-09-10
 

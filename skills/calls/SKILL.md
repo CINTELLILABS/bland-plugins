@@ -1,6 +1,6 @@
 ---
 name: calls
-description: "Use when the user wants to place a phone call with Bland, wait on or watch a call in progress, listen to it live, stop it, or get its transcript and recording once it ends. Places simple calls with the curated create_call tool and everything else (personas, voicemail, keywords, recording, scheduling) through POST /v1/calls on the REST passthrough, picks voices from list_voices, follows the call with wait_for_call and get_call_log, and stops it with stop_call. To work out why a finished call went wrong, use call-review instead."
+description: "Use when the user wants to place a phone call with Bland, wait on or watch a call in progress, listen to it live, stop it, or get its transcript and recording once it ends. Places simple calls with the curated create_call tool and everything else (personas, voicemail, keywords, recording, scheduling) through POST /v1/calls on the REST passthrough, picks voices from list_voices, follows the call with wait_for_call and get_call_log, and stops it with stop_call. Sends the dispatch settings that decide how a call sounds (noise cancellation, background track, keywords) and writes prompts that sound like a person rather than a robot. To work out why a finished call went wrong, use call-review instead."
 license: MIT
 ---
 
@@ -14,6 +14,19 @@ Pick the tool by what the call needs.
 - **`call_bland_api`** with `method: "POST"` and `path: "/v1/calls"` takes everything else, including `persona_id`, `voicemail`, `keywords`, `record`, `max_duration`, `webhook`, `request_data`, `metadata`, `transfer_phone_number`, and `start_time`. Before you send a field you have not used, read the body shape with `search_bland_docs` and `get_bland_doc`.
 
 Both return a `call_id`. The call is queued at that point, not finished.
+
+### Settings that decide how the call sounds
+
+**Read `references/sounding-human.md` before you write a `task` or a `first_sentence`, and before you dispatch.** A call that sounds robotic is a bad experience for whoever picks up, and they blame the business, not the model.
+
+`create_call` rejects every field outside its six, so a call that needs any of the settings below has to go through `call_bland_api` with `POST /v1/calls`:
+
+- **`noise_cancellation: true`** — send it explicitly on every call. The server applies `true` when the field is omitted, but the API reference documented `false` for a long time, so send the field rather than trusting a default that has already drifted once.
+- **`background_track`** — `office`, `cafe`, or `restaurant` put a room behind the voice; the default (`null`) is quiet phone static and `none` minimizes background noise. Pick one deliberately, because room tone softens the jump between silence and speech.
+- **`keywords`** — every proper noun the call depends on (see Name the proper nouns below).
+- **`voicemail`** and **`record`** — decide both before you dial.
+
+The prompt matters as much as the settings. Write the `task` the way people actually talk: contractions, short spoken clauses, and ums, uhs, and false starts written in on purpose. Those are wanted, not sloppiness. They are what makes a voice sound like a person thinking rather than a machine reading copy, and the failure in practice is always too few of them, because a model left to its own judgment writes clean prose instead. `references/sounding-human.md` has a block you can paste straight into a `task` or `personality_prompt`, plus Bland's tone rubric and the performance-tag grammar (BTTS v3 voices only).
 
 ### Caller ID
 
