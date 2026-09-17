@@ -3,7 +3,7 @@
   "name": "norm",
   "displayName": "Norm for v2 Agents",
   "version": "1.1.0",
-  "description": "Build, migrate, validate, and test Bland v2 agents from your coding agent. Works directly with raw JSON (v1 pathway exports in, agent version snapshots out) \u2014 no scaffolding. Includes the full hand-migration doctrine (/norm:migrate), a mechanical snapshot audit (/norm:validate), and the simulation + test-chat verification loop (/norm:simulate). v2-only: no v1 authoring doctrine; v1 concepts appear solely as migration inputs.",
+  "description": "Build, migrate, validate, and test Bland v2 agents from your coding agent. Works directly with raw JSON (v1 pathway exports in, agent version snapshots out) — no scaffolding. Includes the full hand-migration doctrine (/norm:migrate), a mechanical snapshot audit (/norm:validate), and the simulation + test-chat verification loop (/norm:simulate). v2-only: no v1 authoring doctrine; v1 concepts appear solely as migration inputs.",
   "author": {
     "name": "Bland",
     "email": "kyle@bland.ai",
