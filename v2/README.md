@@ -42,6 +42,12 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 - **v2-migration** — the migration doctrine + the trap catalog accumulated across production migrations (`references/traps.md`).
 - **v2-testing** — the agent-testing API, test-chat WebSocket, grading discipline, and testing-safety rules.
 
+## Organization safety (BLA-7919)
+
+- The plugin's MCP server is distinctly named (`plugin_norm_bland` on hosts without automatic prefixing), and every `/norm:*` command allowlists ONLY the plugin's own namespaced server — never a bare `mcp__bland__*` wildcard that could resolve to a project-scoped server in another organization.
+- `bland_api_key` is OPTIONAL: keyless installs work when the project supplies its own Bland connection.
+- Commands run an org-identity smoke check (`list_agents` through the plugin's server, confirm the target lives there) before the first write — identity is validated by evidence, not namespace.
+
 ## Cross-host behavior (Claude Code, Codex, Cursor, Grok)
 
 Manifests ship for all four hosts (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `.grok-plugin/`), mirroring the v1 plugin's pattern — same skills, same MCP server, per-host auth style (Claude userConfig, Codex `bearer_token_env_var`, Cursor variables, Grok env expansion).

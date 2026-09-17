@@ -2,12 +2,11 @@
 description: Set up, run, and grade platform simulations (and test-chat probes) against a v2 agent — suite design from the agent's lanes, safety rails for live integrations, engine-trace grading, and the green-sweep bar. Use to verify a v2 agent after any push.
 argument-hint: "<agent id, and what to verify>"
 allowed-tools:
+  - "mcp__plugin_norm_bland__*"
   - "Task"
   - "Read"
   - "Write"
   - "Bash"
-  - "mcp__bland__*"
-  - "mcp__plugin_bland_bland__*"
 ---
 
 # /norm:simulate — verification loop

@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "bland": {
+    "plugin_norm_bland": {
       "type": "http",
       "url": "${BLAND_API_URL:-https://api.bland.ai}/v1/mcp",
       "headers": {

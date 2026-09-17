@@ -1,5 +1,15 @@
 # Changelog
 
+## norm 1.2.2 – 2026-09-16
+
+Organization-collision hardening (BLA-7919):
+
+- Every `/norm:*` command's `allowed-tools` now permits ONLY the plugin's own namespaced MCP server — the bare `mcp__bland__*` wildcard (which can match a project-scoped server in a different organization) is gone.
+- Cross-host manifests name the server `plugin_norm_bland` so hosts without automatic prefixing cannot collide with a project-defined `bland` server.
+- `bland_api_key` is now optional (`required: false`) — keyless installs supported when the project supplies its own connection.
+- New ground rule in `/norm:migrate` and `/norm:build`: an org-identity smoke check (`list_agents` via the plugin's server, confirm the target agent/org) before the FIRST write; namespace alone is never trusted.
+
+
 ## norm 1.2.1 – 2026-09-16
 
 - **Cross-host manifests**, mirroring the v1 plugin: `.codex-plugin/` (bearer_token_env_var), `.cursor-plugin/` (variables block + mcp.json), `.grok-plugin/` (env expansion). Same skills and MCP server everywhere.
