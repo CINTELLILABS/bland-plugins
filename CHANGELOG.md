@@ -1,5 +1,13 @@
 # Changelog
 
+## norm 1.2.0 – 2026-09-16
+
+New-agent building joins migration:
+
+- **`/norm:build`:** create a NEW v2 agent, opening with a human-in-the-loop version gate — if the user hasn't said v1 or v2, ask ONE question first; v1 answers hand off to the v1 plugin (`/bland:norm`) instead of cross-contaminating doctrines; v2 answers load the authoring skills and drive design interview → snapshot → audit → push → simulate → lifecycle.
+- **`v2-authoring` skill:** the from-scratch doctrine — the v1→v2 mental-shift table, what a scenario represents (boundaries only at one-way seams; a single-scenario agent is correct for one continuous task), hub/entry authoring, the standard conduct-rule set (each rule traced to a real production incident: tool-truth, copied-never-recalled phone numbers, no side-effect promises, last-turn write gates), deterministic-where-it-matters (static pills over "stay silent" prose), and verification as part of building.
+
+
 ## norm 1.1.0 – 2026-09-16
 
 The fifth production migration (a multi-tenant scheduling agent with live DMS writes) fed everything it taught back into the plugin:
