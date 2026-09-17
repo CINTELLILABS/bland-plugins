@@ -71,6 +71,12 @@ if (sub === "init") {
 		process.stderr.write("--snapshot required\n");
 		process.exit(1);
 	}
+	// Scoping guard: never silently clobber another session's ACTIVE loop.
+	const prior = load();
+	if (prior && prior.active === true && !argv.includes("--force")) {
+		process.stderr.write(`an ACTIVE migration loop already exists (agent ${prior.agent_id || "?"}, snapshot ${prior.snapshot}). Finish it, run 'stop', or re-init with --force.\n`);
+		process.exit(1);
+	}
 	save({
 		active: true,
 		created_at: Date.now(),
@@ -91,12 +97,22 @@ if (sub === "init") {
 } else if (sub === "record-push") {
 	const s = load();
 	if (!s) process.exit(1);
+	const agent = flag("agent");
+	if (agent && s.agent_id && agent !== s.agent_id) {
+		process.stderr.write(`agent mismatch: state is for ${s.agent_id}, record targeted ${agent}. Refusing.\n`);
+		process.exit(1);
+	}
 	s.push = { head: flag("head") || "", at: Date.now() };
 	s.sims = { head: "", passed: false, failing: [], at: 0 };
 	save(s);
 } else if (sub === "record-sims") {
 	const s = load();
 	if (!s) process.exit(1);
+	const agent2 = flag("agent");
+	if (agent2 && s.agent_id && agent2 !== s.agent_id) {
+		process.stderr.write(`agent mismatch: state is for ${s.agent_id}, record targeted ${agent2}. Refusing.\n`);
+		process.exit(1);
+	}
 	s.sims = {
 		head: flag("head") || "",
 		passed: String(flag("passed")) === "true",
