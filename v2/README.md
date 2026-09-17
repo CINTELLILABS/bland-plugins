@@ -42,6 +42,15 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 - **v2-migration** — the migration doctrine + the trap catalog accumulated across production migrations (`references/traps.md`).
 - **v2-testing** — the agent-testing API, test-chat WebSocket, grading discipline, and testing-safety rules.
 
+## Cross-host behavior (Claude Code, Codex, Cursor, Grok)
+
+Manifests ship for all four hosts (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `.grok-plugin/`), mirroring the v1 plugin's pattern — same skills, same MCP server, per-host auth style (Claude userConfig, Codex `bearer_token_env_var`, Cursor variables, Grok env expansion).
+
+Two capabilities degrade gracefully off Claude Code:
+
+- **The v1-or-v2 question gate** (`/norm:build` step 0) uses Claude's AskUserQuestion when available; on every other host it's the same gate as a plain question — the instructions say ask ONE question and end the turn, which every interactive host supports.
+- **The enforced convergence loop** (Stop hook) is Claude Code-only — other hosts don't run hooks. There, the loop is advisory: run `bin/norm-migrate-audit.cjs` and the state manager manually per the /norm:migrate procedure; the audit and builder are plain Node scripts and work everywhere.
+
 ## Relationship to the `bland` plugin
 
 The original `bland` plugin covers the v1 surface (pathways, personas, and the file-workspace Norm builder). This plugin is intentionally separate so v2 work never inherits v1 doctrine. Install both if you work on both; v1 concepts appear here only as migration inputs.

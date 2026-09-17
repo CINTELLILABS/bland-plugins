@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "bland": {
+      "type": "http",
+      "url": "${BLAND_API_URL}/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${BLAND_API_KEY}"
+      }
+    }
+  }
+}

@@ -1,5 +1,11 @@
 # Changelog
 
+## norm 1.2.1 – 2026-09-16
+
+- **Cross-host manifests**, mirroring the v1 plugin: `.codex-plugin/` (bearer_token_env_var), `.cursor-plugin/` (variables block + mcp.json), `.grok-plugin/` (env expansion). Same skills and MCP server everywhere.
+- The `/norm:build` version gate is host-portable by construction: AskUserQuestion on Claude Code, a plain ask-and-end-turn everywhere else. The enforced convergence loop remains Claude Code-only (hooks); on other hosts the audit/state scripts run manually per the procedure — documented in the README.
+
+
 ## norm 1.2.0 – 2026-09-16
 
 New-agent building joins migration:
