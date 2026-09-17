@@ -9,6 +9,8 @@ A Bland pathway is worked on as a **local workspace of files** (the canonical en
 
 When choosing a voice for the pathway or its attached agent/number, use `list_voices` for the curated recommended generation. Honor a specific voice or private clone the user requests, and keep the existing voice during unrelated edits. For language or feature requirements, check `GET /v1/models` and browse compatible public alternatives through `/v1/voices/shared`; private clones are in `/v1/voices/library`.
 
+MCP voice assignments and calls default to V3. To assign or call with an explicitly requested older voice, set `allow_non_v3_voice: true` on `create_call` or at the top level of `call_bland_api`, outside `body`. If compatibility or a saved configuration would require an older voice, explain that and get the user's approval first. Never set the flag as an automatic retry. Unrelated edits preserve the existing voice.
+
 - **Everything is authored in local files** — node prompts, conditions, edge labels, the global prompt, AND the structured surfaces (variables, model config, node tools, unit tests) are all edited directly in `pathway/` with native `Read` / `Write` / `Edit` / `Glob` / `Grep`. Prose lives in markdown bodies; structured config lives in YAML / JSON-inlined frontmatter.
 - **Validation and persistence go through the `/bland:*` commands** — which call the Bland MCP passthrough (`bland_api_get` to read, `call_bland_api` to write) against the documented `/v1/pathway/*` REST endpoints. `/bland:clone`, `/bland:validate`, `/bland:test`, and `/bland:commit` are the boundary; the offline `norm-sync.cjs` codec is the glue that turns the GETted JSON into files and the files back into JSON.
 
