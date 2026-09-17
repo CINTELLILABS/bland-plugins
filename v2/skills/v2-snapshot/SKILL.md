@@ -5,6 +5,9 @@ description: The Bland v2 agent snapshot dialect — the exact JSON shape of an 
 
 # The v2 Agent Snapshot Dialect
 
+> **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
+
+
 A v2 agent version is one JSON document (the "snapshot"). The platform compiles it deterministically into a flat conversation graph at call time — there is no separate v2 runtime. What you author is what runs. Everything below is the exact wire dialect, taken from real production snapshots.
 
 ## Top level

@@ -1,5 +1,10 @@
 # Changelog
 
+## norm 1.2.3 – 2026-09-16
+
+- v1/v2 isolation completed at the skill layer: every v2 skill carries a server-binding rule — all API work through `plugin_norm_bland` only, never the v1 plugin's server or a project-scoped one, with org identity proven by the smoke check rather than namespace.
+
+
 ## norm 1.2.2 – 2026-09-16
 
 Organization-collision hardening (BLA-7919):
