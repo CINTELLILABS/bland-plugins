@@ -27,7 +27,7 @@ $ARGUMENTS
 Building a v1 pathway and building a v2 agent are DIFFERENT disciplines with different primitives, endpoints, and doctrine. Before loading any doctrine or touching any API:
 
 1. If the request already names the platform version explicitly ("v2 agent", "agent snapshot", "v1 pathway", a pathway id, an agent id) — proceed accordingly.
-2. Otherwise **ask the user ONE question and wait** (use AskUserQuestion when available):
+2. Otherwise **ask the user ONE question and wait**. On Claude Code use AskUserQuestion; on hosts without it (Codex, Cursor, Grok), ask in plain text and END YOUR TURN — do not proceed on an assumed answer:
    > "Should this be a **v2 agent** (the new agent platform — hub + scenarios, recommended for new builds) or a **v1 pathway** (the classic node-graph builder)?"
 3. **v1 answer** → this plugin does not carry v1 authoring doctrine, on purpose. Hand off: if the `bland` (v1) plugin is installed, tell the user to run `/bland:norm <request>`; if not, tell them to install it (`/plugin install bland@bland`). Do NOT attempt v1 building from here — that cross-contamination is exactly what this plugin exists to prevent.
 4. **v2 answer** → load the `v2-authoring` skill (plus `v2-snapshot` for the dialect and `v2-runtime` for behavior) and continue below.
