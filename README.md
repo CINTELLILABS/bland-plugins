@@ -6,6 +6,7 @@ The v2-only Bland plugin: build, migrate, validate, and test v2 agents working d
 
 | Command | What it does |
 |---|---|
+| `/norm:build` | Build a NEW v2 agent — starts with a human-in-the-loop gate (v1 pathway or v2 agent?); v1 answers route to the v1 plugin, v2 answers load the authoring doctrine and drive design → snapshot → push → verify. |
 | `/norm:migrate` | Full v1 pathway/persona → v2 agent hand migration: discover → architect → author verbatim → audit → push → simulate. One-shot oriented; every known trap is a pre-push check. |
 | `/norm:validate` | Mechanical audit of a snapshot JSON: structure, routing-crash checks, pin presence against the v1 source, exit-label discipline. |
 | `/norm:simulate` | Simulation + test-chat verification loop with safety rails for live integrations and engine-trace grading. |
@@ -35,6 +36,7 @@ author snapshot ──► gate 1: AUDIT  (hook re-runs bin/norm-migrate-audit.cj
 
 Written for agents WITHOUT access to the Bland platform source — everything is documented at the level of observable behavior and public API surfaces.
 
+- **v2-authoring** — building NEW agents: what scenarios represent (boundaries at one-way seams), hub/entry authoring, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
 - **v2-snapshot** — the exact snapshot dialect (behavior graph, hub, scenarios, step types, tools, settings) and hand-authoring rules.
 - **v2-runtime** — how the agent behaves at call time: the routing decision stack, hub/scenario semantics, variable resolution, code-step execution, behavioral deltas.
 - **v2-migration** — the migration doctrine + the trap catalog accumulated across production migrations (`references/traps.md`).
