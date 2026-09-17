@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "norm",
   "displayName": "Norm for v2 Agents",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Build and migrate Bland v2 agents from your coding agent. /norm:build creates NEW v2 agents (with a human-in-the-loop v1-or-v2 gate), /norm:migrate converts v1 pathways/personas with the full hand-migration doctrine, /norm:validate audits snapshots, /norm:simulate verifies with simulations and test chats. Raw-JSON workflow; v2-only — no v1 authoring doctrine, and v1 requests are routed to the v1 plugin.",
   "author": {
     "name": "Bland",
