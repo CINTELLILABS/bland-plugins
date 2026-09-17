@@ -15,6 +15,10 @@ Classify every integration in the agent as read or write:
 - **Writes** (schedulers, CRM task creation, gate openers, outbound events): NEVER complete these branches in routine testing. Personas must stop short (decline the booking, stay on the unverified lane). Exercise them once, coordinated, with the customer aware — or against customer-provided sandboxes.
 - **Transfers**: inert in chat/sims; they dial real phone lines on voice calls.
 
+## Fixture discovery (before anything else)
+
+Multi-tenant agents hydrate from per-call request data (tenant keys, caller numbers with seeded CRM records). The valid fixture is the one the customer's OWN test scenarios use for this exact pathway/variant — list their scenarios, group by target, copy the request data. Then prove it hydrates: trace the bootstrap step's debug/HTTP calls in one run before grading anything. Stale fixtures (404ing tenant keys) and wrong-variant fixtures (a tenant on a different backend product) produce failure clusters indistinguishable from migration bugs.
+
 ## Platform simulations
 
 Create — `POST /v1/agent-testing/scenarios`:
@@ -45,6 +49,8 @@ Create — `POST /v1/agent-testing/scenarios`:
 2. Classify each failure: harness artifact (fix persona/request_data/assertion) · judge flake (rerun; 3 reps; read reasoning) · routing flake (harden the specific entry/edge description) · real bug (fix the snapshot).
 3. The bar: the FULL suite green in one sweep on ONE version head — not a patchwork of passes across different heads.
 4. A lane that a gate keeps you out of (CRM-found, verified-identity) is NOT covered by sims that ran around it. List uncovered lanes explicitly in the report.
+5. **v1 differential baselines settle disputes**: clone a failing scenario onto the v1 pathway (same persona/judges/request data), rep both 3×. v1-solid = real v2 regression; v1-failing-identically = inherited variance — judges must encode v1's real bar, and "run-to-run oscillation" on a fixed head is expected with LLM judges + live APIs (the record is one green sweep + classified flappers, not every rep green).
+6. **Drain write-side artifacts after every sweep** with the customer's own cleanup scenarios, verified at tool level; record anything undrainable precisely (a booking can land on a generic vehicle/contact row that cancel lookups cannot find).
 
 ## Test-chat probes (the builder WebSocket)
 

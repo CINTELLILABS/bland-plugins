@@ -24,10 +24,24 @@
  *   "persona": "persona.json",                    // optional
  *   "entryScenario": "<scenario name>",           // optional inbound re-point
  *   "scenarios": [{"name","entry":{"label","description"},"rule","members":[ids or unique id prefixes]}],
- *   "endCalls": [{"name","entry":{"label","description"},"prompt"}]
+ *   "endCalls": [{"name","entry":{"label","description"},"prompt"}],
+ *
+ *   // Evidence-based hardening hooks (ship EMPTY on the first build; add only
+ *   // when a sim failure's engine trace proves the need — see the migration
+ *   // skill's hardening doctrine):
+ *   "promptAppends":   { "<legacy node id>": "\n\n## Hard rule — ..." },
+ *   "variableAppends": { "<legacy node id>": { "<variable key>": " HARD RULE: ..." } },
+ *   "silentPills":     [ "<legacy node id>" ]
  * }
  * entry.description may be "@persona:<condition name>" to pull the persona
  * pathway_condition prompt verbatim.
+ *
+ * silentPills: the construct fix for a v1 silent-router node that fabricates
+ * speech as an in-flow v2 step (observed: invented phone numbers resistant to
+ * prompt rules). Sets static "." speech so there is nothing to fabricate;
+ * extraction still runs from the step's variable descriptions (put the rules
+ * THERE via variableAppends) and routing rides the verbatim edge labels — the
+ * one intentional non-verbatim carry, so document it in the report.
  */
 
 const fs = require("node:fs");
@@ -528,6 +542,33 @@ for (const sc of plan.scenarios || []) {
 				data: { mode: "llm", label: row.label, description: row.description, alwaysPick: false, conditions: [] },
 			});
 		}
+	}
+
+	// ── hardening hooks (evidence-based; empty on a first build) ──
+	for (const [legacyId, appendText] of Object.entries(plan.promptAppends || {})) {
+		const i = members.indexOf(legacyId);
+		if (i < 0) continue;
+		const d = steps[i].data;
+		if (typeof d.prompt !== "string") throw new Error(`promptAppends target has no prompt: ${legacyId}`);
+		d.prompt += appendText;
+	}
+	for (const [legacyId, varMap] of Object.entries(plan.variableAppends || {})) {
+		const i = members.indexOf(legacyId);
+		if (i < 0) continue;
+		for (const [key, appendText] of Object.entries(varMap)) {
+			const row = (steps[i].data.variables || []).find((v) => v.key === key);
+			if (!row) throw new Error(`variableAppends: variable "${key}" not on ${legacyId}`);
+			row.value += appendText;
+		}
+	}
+	for (const legacyId of plan.silentPills || []) {
+		const i = members.indexOf(legacyId);
+		if (i < 0) continue;
+		const d = steps[i].data;
+		if (typeof d.prompt !== "string") throw new Error(`silentPills target has no prompt: ${legacyId}`);
+		d.useStaticText = true;
+		d.prompt = ".";
+		warn(`silent pill: "${d.name}" speaks static "." (original prompt superseded — the intentional non-verbatim carry; extraction rides variable descriptions, routing rides edge labels). Document in the report.`);
 	}
 
 	let description = str(sc.entry.description);

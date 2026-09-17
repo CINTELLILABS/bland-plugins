@@ -1,5 +1,15 @@
 # Changelog
 
+## norm 1.1.0 – 2026-09-16
+
+The fifth production migration (a multi-tenant scheduling agent with live DMS writes) fed everything it taught back into the plugin:
+
+- **Builder hardening hooks:** plan.json gains `promptAppends`, `variableAppends`, and `silentPills` — evidence-based hardening lives in the reviewable plan, never as snapshot hand-edits. `silentPills` re-creates a v1 silent-router's observed semantics (static "." speech, extraction rules in variable descriptions) — the construct fix for fabricated speech that prompt rules could not stop. Verified by rebuilding the shipped, fully-hardened production snapshot from raw JSON: identical census, pins, hardening text, and pill state.
+- **Trap catalog +7:** stale/wrong-variant customer fixtures; v1 differential baselines (regression vs inherited variance); construct-over-prose for conduct regressions; scoped guards (unscoped ones leak); tool-argument fabrication on write tools; judge malfunction classes and run-to-run oscillation; write-side test drainage.
+- **`/norm:simulate`:** fixture discovery from the customer's own scenarios as step 1, v1 differential cloning in the grading loop, and a mandatory write-artifact drain step.
+- **`/norm:migrate` + `v2-testing`:** the same disciplines folded into the procedure and skill.
+
+
 ## norm 1.0.0 – 2026-09-15
 
 New plugin: **norm** (`./v2`) — the v2-only plugin for migrating v1 pathways/personas to v2 agents. Separate from the `bland` plugin so v2 work never inherits v1 doctrine.
