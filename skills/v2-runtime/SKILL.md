@@ -46,6 +46,6 @@ In the builder UI, layer 2 is visible only inside the step's tool inspector pane
 Document these per agent instead of discovering them in production:
 
 - **In-flow hang-ups happen one caller-turn later**: an in-flow "end call" becomes a wrap-up step; the actual hang-up occurs when the hub routes to a root end-call node on the following turn.
-- **Global/fire-from-anywhere nodes don't exist**: the hub routes between turns only. Mid-utterance interrupt-and-return semantics are approximated by system-prompt rules plus hub resume.
+- **Fire-from-anywhere defaults don't exist at the hub** — it routes between turns only. HOWEVER, step-level globals DO exist: `settings.global.isGlobal` compiles a step into a runtime global node with auto-return (`returnMode: previous`), redirect, or manual modes (see the knob dictionary). Migrations have preferred systemPrompt folds for carried v1 globals; a deliberate new design may use step globals directly.
 - **Cross-flow deterministic jumps become hub routing**: a deterministic jump between two scenarios rides an exit edge + hub entry (LLM judgment at the hub). Carry the original conditions verbatim into the entry description, and scope any hub hard rules to exactly what they protect — an unqualified rule like "unverified → identity scenario" bounces wrong-number callers into a greeting loop forever.
 - **Attached snippet tools don't exist** — see the snapshot skill for the code-step + route re-representation, including its own deltas (fires on traversal instead of mid-turn; snippet failure falls to the route fallback).
