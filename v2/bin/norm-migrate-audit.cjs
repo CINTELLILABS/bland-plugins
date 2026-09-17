@@ -132,13 +132,16 @@ function main() {
 			}
 			for (const t of nd.tools || []) {
 				for (const rp of t.responsePathways || []) {
-					if (rp.targetId && !idset.has(rp.targetId)) targetIssues.push(`${d.name}/${nd.name}: tool rp target missing`);
-					if (rp.targetId) inboundTargets.add(rp.targetId);
+					const tgt = rp.targetId || rp.targetNodeId;
+					if (tgt && !idset.has(tgt)) targetIssues.push(`${d.name}/${nd.name}: tool rp target missing`);
+					if (tgt) inboundTargets.add(tgt);
 				}
 			}
 			for (const rp of nd.responsePathways || []) {
-				if (rp.targetId && !idset.has(rp.targetId)) targetIssues.push(`${d.name}/${nd.name}: rp target missing`);
-				if (rp.targetId) inboundTargets.add(rp.targetId);
+				// webhook/tool STEP rows use targetNodeId; attached-tool rows use targetId
+				const tgt = rp.targetNodeId || rp.targetId;
+				if (tgt && !idset.has(tgt)) targetIssues.push(`${d.name}/${nd.name}: rp target missing`);
+				if (tgt) inboundTargets.add(tgt);
 			}
 		}
 		for (let i = 1; i < fn.length - 1; i += 1) {
@@ -167,7 +170,28 @@ function main() {
 	check("R3", "flow steps reachable", unreachable.length === 0, unreachable.slice(0, 6).join(", "));
 	check("R4", "no merged exit labels", mergedLabels.length === 0, mergedLabels.slice(0, 4).join("; "));
 
-	// ── Parity vs v1 source(s) ──
+	// ── Parity vs v1 source(s) — SHAPE-ANCHORED, not substring greps ──
+	// Collect what the snapshot actually carries, field-by-field: snippet
+	// (id, version) PAIRS wherever they appear, webhook-step URLs, transfer-step
+	// numbers, customCode-step pin pairs. A swapped version between two
+	// snippets, or a URL that only appears in prose, cannot pass.
+	const snapPinPairs = new Set();
+	const snapCodeStepPairs = new Set();
+	const snapWebhookUrls = new Set();
+	const snapTransferNumbers = new Set();
+	(function collect(o) {
+		if (Array.isArray(o)) return o.forEach(collect);
+		if (!o || typeof o !== "object") return;
+		if (typeof o.snippet_id === "string") snapPinPairs.add(`${o.snippet_id}@${o.snippet_version ?? ""}`);
+		if (typeof o.snippetId === "string") {
+			snapPinPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
+			snapCodeStepPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
+		}
+		if (o.type === "webhook" && o.data && typeof o.data.url === "string") snapWebhookUrls.add(o.data.url);
+		if (o.type === "transfer" && o.data && typeof o.data.transferNumber === "string") snapTransferNumbers.add(o.data.transferNumber);
+		Object.values(o).forEach(collect);
+	})(snap);
+
 	const missingPins = [];
 	const missingTools = [];
 	const missingNumbers = [];
@@ -178,23 +202,29 @@ function main() {
 	for (const sp of sourcePaths) {
 		const src = loadJson(sp);
 		const srcText = JSON.stringify(src);
-		const snippetIds = new Set((srcText.match(/"snippet_id"\s*:\s*"([0-9a-f-]{36})"/g) || []).map((m) => m.slice(-37, -1)));
-		for (const sid of snippetIds) {
-			if (!snapText.includes(sid)) missingPins.push(sid);
-		}
+		// source pin PAIRS (id + pinned version together)
+		(function collectSrc(o) {
+			if (Array.isArray(o)) return o.forEach(collectSrc);
+			if (!o || typeof o !== "object") return;
+			if (typeof o.snippet_id === "string") {
+				const pair = `${o.snippet_id}@${o.snippet_version ?? ""}`;
+				if (!snapPinPairs.has(pair)) missingPins.push(pair);
+			}
+			Object.values(o).forEach(collectSrc);
+		})(src);
 		const toolIds = new Set(srcText.match(/TL-[0-9a-f-]{8,}/g) || []);
 		for (const tid of toolIds) {
 			if (!snapText.includes(tid)) missingTools.push(tid);
 		}
 		for (const n of src.nodes || []) {
 			const nd = (n && n.data) || {};
-			if (nd.transferNumber && !snapText.includes(String(nd.transferNumber))) missingNumbers.push(String(nd.transferNumber));
-			if (nd.url && !snapText.includes(String(nd.url))) missingUrls.push(String(nd.url).slice(0, 60));
+			if (nd.transferNumber && !snapTransferNumbers.has(String(nd.transferNumber))) missingNumbers.push(String(nd.transferNumber));
+			if (nd.url && !snapWebhookUrls.has(String(nd.url))) missingUrls.push(String(nd.url).slice(0, 60));
 			for (const t of nd.tools || []) {
 				if (t.type === "code" && t.config && t.config.snippet_id) {
-					// must exist as a customCode step pin, and must NOT survive as an attached tool
-					const asStep = (snapText.match(new RegExp(`"snippetId"\\s*:\\s*"${t.config.snippet_id}"`)) || []).length > 0;
-					if (!asStep) codeToolsAsTools.push(`${nd.name || n.id}: ${t.name} not re-represented as code step`);
+					// must exist as a customCode STEP with the same id+version pair
+					const pair = `${t.config.snippet_id}@${t.config.snippet_version ?? ""}`;
+					if (!snapCodeStepPairs.has(pair)) codeToolsAsTools.push(`${nd.name || n.id}: ${t.name} not re-represented as code step (pair ${pair.slice(0, 12)}…)`);
 				}
 			}
 			const gp = (n && n.globalConfig && n.globalConfig.globalPrompt) || "";
@@ -218,10 +248,10 @@ function main() {
 		}
 	}
 	if (sourcePaths.length || personaPath) {
-		check("P1", "every source snippet pin present", missingPins.length === 0, missingPins.join(", "));
+		check("P1", "every source snippet (id, version) PAIR present", missingPins.length === 0, missingPins.map((x) => x.slice(0, 14) + "…").join(", "));
 		check("P2", "every source TL- tool id present", missingTools.length === 0, missingTools.join(", "));
-		check("P3", "every transfer number present", missingNumbers.length === 0, missingNumbers.join(", "));
-		check("P4", "every webhook URL present", missingUrls.length === 0, missingUrls.join("; "));
+		check("P3", "every transfer number present on a transfer step", missingNumbers.length === 0, missingNumbers.join(", "));
+		check("P4", "every webhook URL present on a webhook step", missingUrls.length === 0, missingUrls.join("; "));
 		check("P5", "code-type attached tools re-represented as code steps", codeToolsAsTools.length === 0, codeToolsAsTools.join("; "));
 		check("P7", "global/persona prompt carried verbatim", promptContained, promptDetail);
 	}

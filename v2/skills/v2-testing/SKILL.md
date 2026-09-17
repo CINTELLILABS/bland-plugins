@@ -38,6 +38,7 @@ Create — `POST /v1/agent-testing/scenarios`:
 - `assertions[].type` is an ENUM — `LLM_JUDGE`, `NODE_REACHED`, `WEBHOOK_TRIGGERED`, … Uppercase; lowercase is a server validation error.
 - `request_data` supplies the call-time contract (e.g. `from` in E.164 for phone-keyed lookups; a real `now_utc` string when clock logic matters).
 - Run: `POST /v1/agent-testing/scenarios/:id/run` (async — poll). Read: `GET /v1/agent-testing/runs/:id` — transcript in `chat_history`, judge verdict + reasoning in `assertion_results[]` (populates after completion). Do not treat `nodes_visited` as a route trace.
+- **The engine trace lives in the same run detail**: `metadata.turn_details[].logs[]` — per-turn entries typed `decision` (Current Node Name/ID, Chosen Pathway, Assistant Response), `tool_call` / `Tool Result: <name>` (arguments and full results, including a tool's own debug/HTTP evidence when the snippet emits it), `variables` (Request Data / Current Variables), and `loop`. `metadata.node_id_to_name` maps ids to step names. This is the surface every "grade on traces" instruction means — pull it before diagnosing anything.
 
 ### Suite design
 

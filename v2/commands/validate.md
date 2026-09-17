@@ -37,7 +37,7 @@ Load the `v2-snapshot` skill for the dialect. Run EVERY check; report each as PA
 
 ## Content carriage (when the v1 source is provided)
 
-11. **Pin grep**: every `snippet_id`, `snippet_version`, and `TL-` tool id present in the v1 source appears in the snapshot the expected number of times. A missing pin is a silent runtime no-op — release blocker.
+11. **Pin pairs**: every source snippet (id, version) PAIR appears in the snapshot as a pair — ids and versions checked independently would accept two snippets with swapped versions. `TL-` tool ids present. A missing or mispaired pin is a silent runtime no-op — release blocker.
 12. Transfer numbers, webhook URLs, and header sets in the snapshot byte-match the source. Diff each; any difference must be an explicitly documented delta.
 13. No v1 `type:"code"` attached tool was carried as an attached tool — each must have become a `customCode` step (with a non-empty `variables` input map) + route step.
 14. Exit-edge discipline: for each source node with multiple cross-region exits, the snapshot has one end edge per distinct label — no merged labels (flag " / " in exit labels).

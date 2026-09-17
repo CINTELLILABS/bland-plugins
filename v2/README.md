@@ -45,7 +45,7 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 ## Organization safety (BLA-7919)
 
 - The plugin's MCP server is distinctly named (`plugin_norm_bland` on hosts without automatic prefixing), and every `/norm:*` command allowlists ONLY the plugin's own namespaced server — never a bare `mcp__bland__*` wildcard that could resolve to a project-scoped server in another organization.
-- `bland_api_key` is OPTIONAL: keyless installs work when the project supplies its own Bland connection.
+- `bland_api_key` is OPTIONAL — but understand the keyless mode: the plugin's own MCP server cannot authenticate without it, so commands run in local-tools mode (builder, audit, loop) and any API phase either needs the key configured or an explicit per-call human approval of a project-supplied Bland connection (such tools are outside the commands' allowlists ON PURPOSE — the human approval prompt IS the cross-org safety gate).
 - Commands run an org-identity smoke check (`list_agents` through the plugin's server, confirm the target lives there) before the first write — identity is validated by evidence, not namespace.
 
 ## Cross-host behavior (Claude Code, Codex, Cursor, Grok)

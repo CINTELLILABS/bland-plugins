@@ -458,6 +458,7 @@ function personaCondition(name) {
 
 const seenMembers = new Map();
 const scenarioNodes = [];
+const consumedHooks = new Set();
 for (const sc of plan.scenarios || []) {
 	// members: resolve prefixes; auto-insert surgery nodes right after their host
 	const members = [];
@@ -513,7 +514,9 @@ for (const sc of plan.scenarios || []) {
 	for (const e of mergedEdges) {
 		if (!memberSet.has(e.source)) continue;
 		if (memberSet.has(e.target)) {
-			const key = `${e.source}->${e.target}`;
+			// Parallel edges with DIFFERENT labels are real routing alternatives in
+			// v1 — dedup only true duplicates (same endpoints AND same label).
+			const key = `${e.source}->${e.target}::${str((e.data || {}).label)}`;
 			if (seenPairs.has(key)) continue;
 			seenPairs.add(key);
 			flowEdges.push({ id: randomUUID(), type: "pathway", source: newIdByLegacy.get(e.source), target: newIdByLegacy.get(e.target), data: edgeData(e) });
@@ -545,16 +548,27 @@ for (const sc of plan.scenarios || []) {
 	}
 
 	// ── hardening hooks (evidence-based; empty on a first build) ──
+	// Hook keys resolve exactly like plan members (exact id or unique prefix),
+	// and every hook is CONSUMED-tracked at the end of the scenario loop — a
+	// hook that matches no member anywhere in the plan is a hard error, never
+	// a silent no-op.
+	const hookIndex = (idOrPrefix) => {
+		let resolved;
+		try { resolved = resolveMember(idOrPrefix); } catch { return -1; }
+		return members.indexOf(resolved);
+	};
 	for (const [legacyId, appendText] of Object.entries(plan.promptAppends || {})) {
-		const i = members.indexOf(legacyId);
+		const i = hookIndex(legacyId);
 		if (i < 0) continue;
+		consumedHooks.add(`prompt:${legacyId}`);
 		const d = steps[i].data;
 		if (typeof d.prompt !== "string") throw new Error(`promptAppends target has no prompt: ${legacyId}`);
 		d.prompt += appendText;
 	}
 	for (const [legacyId, varMap] of Object.entries(plan.variableAppends || {})) {
-		const i = members.indexOf(legacyId);
+		const i = hookIndex(legacyId);
 		if (i < 0) continue;
+		consumedHooks.add(`variable:${legacyId}`);
 		for (const [key, appendText] of Object.entries(varMap)) {
 			const row = (steps[i].data.variables || []).find((v) => v.key === key);
 			if (!row) throw new Error(`variableAppends: variable "${key}" not on ${legacyId}`);
@@ -562,8 +576,9 @@ for (const sc of plan.scenarios || []) {
 		}
 	}
 	for (const legacyId of plan.silentPills || []) {
-		const i = members.indexOf(legacyId);
+		const i = hookIndex(legacyId);
 		if (i < 0) continue;
+		consumedHooks.add(`pill:${legacyId}`);
 		const d = steps[i].data;
 		if (typeof d.prompt !== "string") throw new Error(`silentPills target has no prompt: ${legacyId}`);
 		d.useStaticText = true;
@@ -585,6 +600,16 @@ for (const sc of plan.scenarios || []) {
 			flow: { nodes: [startPill, ...steps, endPill], edges: flowEdges },
 		},
 	});
+}
+
+for (const k of Object.keys(plan.promptAppends || {})) {
+	if (!consumedHooks.has(`prompt:${k}`)) throw new Error(`promptAppends target matched no scenario member: ${k}`);
+}
+for (const k of Object.keys(plan.variableAppends || {})) {
+	if (!consumedHooks.has(`variable:${k}`)) throw new Error(`variableAppends target matched no scenario member: ${k}`);
+}
+for (const k of plan.silentPills || []) {
+	if (!consumedHooks.has(`pill:${k}`)) throw new Error(`silentPills target matched no scenario member: ${k}`);
 }
 
 const uncovered = mergedNodes.filter((n) => !seenMembers.has(n.id)).map((n) => `${n.id} (${(n.data || {}).name || n.type})`);
@@ -637,11 +662,14 @@ const snapshot = {
 	contact: { inboundNumbers: [] },
 };
 
-fs.writeFileSync(rel(outPath), JSON.stringify(snapshot));
+// --out is CWD-relative (matching how migration-state init resolves the same
+// path); only plan inputs (sources/persona) are plan-relative.
+const outAbs = path.resolve(outPath);
+fs.writeFileSync(outAbs, JSON.stringify(snapshot));
 process.stdout.write(
 	`${JSON.stringify(
 		{
-			out: rel(outPath),
+			out: outAbs,
 			scenarios: scenarioNodes.map((n) => ({ name: n.data.name, steps: n.data.flow.nodes.length - 2, edges: n.data.flow.edges.length })),
 			endCalls: endCallNodes.length,
 			globalPromptsFound: globalPrompts.map((g) => `${g.file} (${g.prompt.length} chars — must be inside plan.systemPrompt verbatim)`),

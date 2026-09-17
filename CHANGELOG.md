@@ -1,5 +1,15 @@
 # Changelog
 
+## norm 1.3.1 – 2026-09-16
+
+Review fixes (12 findings triaged, 8 real):
+
+- **Audit is shape-anchored:** snippet pins verified as (id, version) PAIRS wherever they occur (swapped versions between two snippets now fail); webhook URLs must appear on webhook steps and transfer numbers on transfer steps, not merely anywhere in the JSON; reachability honors `targetNodeId` on webhook/tool step rows.
+- **Builder:** parallel v1 edges with distinct labels are preserved (dedup was endpoint-only and silently dropped routing alternatives); `--out` resolves from the working directory (matching how the loop state resolves the same path); hardening hooks resolve like plan members and a hook matching no member anywhere is a hard error, never a silent no-op.
+- **Loop state is scoped:** `init` refuses to clobber another ACTIVE loop without `--force`; `record-push`/`record-sims` accept `--agent` and refuse on mismatch.
+- **Docs:** first push requires stating target/org/version and (interactively) a go-ahead; the engine-trace surface (`metadata.turn_details[].logs[]`) is documented concretely; keyless mode semantics spelled out (local-tools mode + human-approval gate for project connections); host manifest versions locked in step.
+
+
 ## norm 1.3.0 – 2026-09-16
 
 - **The knob dictionary** (`v2-snapshot/references/knobs.md`): field-by-field reference for every setting in the snapshot — agent settings, step advanced options (temperature, interruption, backchannel level/config with its OFF sentinel and gating, background track tri-state, privacy), step-level GLOBALS (`settings.global` is active in v2: auto-return/redirect/manual — a correction to "no globals"), per-step-type fields, and the deprecated/inert/nonexistent list (`toolType:"code"`, editor-only inline code, top-level skipUserResponse, v1 tuple spellings, compile-dropped draft rows).
