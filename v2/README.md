@@ -2,6 +2,26 @@
 
 The v2-only Bland plugin: build, migrate, validate, and test v2 agents working directly with raw JSON — v1 pathway exports as migration inputs, agent version snapshots as the output. No markdown scaffolding, no v1 authoring doctrine.
 
+## Quickstart: migrate a v1 pathway
+
+Install (you need a Bland API key for the org that owns the pathway — never paste it into the chat; the install prompt stores it outside the conversation):
+
+```text
+/plugin marketplace add CINTELLILABS/bland-plugins
+/plugin install norm@bland
+```
+
+Restart the session, then drop in one prompt — the pathway ID is in the pathway's URL in the dashboard:
+
+```text
+/norm:migrate Migrate my v1 pathway <PATHWAY_ID> into a new v2 agent named "<AGENT NAME>".
+Fetch the pathway export through the Bland MCP server. Show me the proposed scenario
+architecture before authoring anything, ask me before the first version push, and finish
+with the full simulation suite and the migration report.
+```
+
+The session discovers the pathway, proposes the scenario architecture for your approval, carries your content byte-for-byte into a v2 snapshot, audits it against the source, pushes it as a new agent version (asking first), and verifies it with simulations. Migration is additive: your v1 pathway, numbers, and live traffic are never modified. Full walkthrough: [docs.bland.ai — Migrate a v1 pathway to a v2 agent](https://docs.bland.ai/platform/migrate-v1-to-v2).
+
 ## Commands
 
 | Command | What it does |
