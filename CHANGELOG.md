@@ -1,5 +1,15 @@
 # Changelog
 
+## norm 1.4.2 – 2026-09-19
+
+- Fix: the plugin's Bland MCP server never registered on install — the config
+  shipped as `mcp.json` (unread; Claude Code loads `.mcp.json`) with env-var
+  placeholders, while the manifest carried an inline `mcpServers` block that
+  current CLIs ignore. The server now lives in `.mcp.json` keyed `bland` with
+  `${user_config.*}` placeholders (the same proven wiring as the v1 plugin),
+  so `/plugin configure norm@bland` (or `claude plugin install --config`)
+  is all a user needs before /norm:migrate can reach Bland.
+
 ## norm 1.4.1 – 2026-09-17
 
 First fully-autonomous production run of the doctrine (a platform-managed Agent SDK session driving /norm:migrate end to end) fed two real crash classes back into the builder:
