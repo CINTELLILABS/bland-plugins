@@ -73,6 +73,33 @@ function main() {
 		}
 	}
 	check("S3", "scenario entries + start/end pills", entryOk && pillOk, flowIssues.join("; "));
+	// S3b/S3c — the two live-run crash classes: a start pill with no outgoing
+	// edge compiles to an unenterable flow (entryNodeId "" — the hub answers
+	// every lane itself), and a variables row without type/accurateSpelling
+	// crashes the compiler at chat-session creation (ScenarioVariable).
+	let startEdgeOk = true;
+	let varRowOk = true;
+	const wiringIssues = [];
+	for (const s of scenarios) {
+		const d = s.data || {};
+		const fn = ((d.flow || {}).nodes || []);
+		const fe = ((d.flow || {}).edges || []);
+		const startNode = fn.find((n) => n.type === "start");
+		if (startNode && !fe.some((e) => e.source === startNode.id)) {
+			startEdgeOk = false;
+			wiringIssues.push(`${d.name || s.id}: start pill has no outgoing edge`);
+		}
+		for (const step of fn) {
+			for (const row of ((step.data || {}).variables || [])) {
+				if (typeof row.type !== "string" || typeof row.accurateSpelling !== "boolean") {
+					varRowOk = false;
+					wiringIssues.push(`${d.name || s.id}/${(step.data || {}).name || step.id}: variables row "${row.key}" missing type/accurateSpelling`);
+				}
+			}
+		}
+	}
+	check("S3b", "every start pill points at an entry step", startEdgeOk, wiringIssues.filter((x) => x.includes("start pill")).slice(0, 5).join("; "));
+	check("S3c", "variables rows carry type + accurateSpelling", varRowOk, wiringIssues.filter((x) => x.includes("variables row")).slice(0, 5).join("; "));
 
 	const ids = new Map();
 	const dupes = [];

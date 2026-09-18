@@ -1,6 +1,6 @@
 {
   "name": "norm",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Build and migrate Bland v2 agents: /norm:build creates new v2 agents (asking v1-or-v2 first), /norm:migrate converts v1 pathways/personas with the full hand-migration doctrine, plus snapshot audit and simulation verification. v2-only — v1 requests belong to the bland plugin.",
   "author": {
     "name": "Bland",

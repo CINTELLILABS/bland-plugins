@@ -1,5 +1,14 @@
 # Changelog
 
+## norm 1.4.1 – 2026-09-17
+
+First fully-autonomous production run of the doctrine (a platform-managed Agent SDK session driving /norm:migrate end to end) fed two real crash classes back into the builder:
+
+- **Builder: variables rows carry `type` + `accurateSpelling`.** The platform's ScenarioVariable now REQUIRES both — rows without them crash the compiler at chat-session creation (every sim ERRORs). The v1 export tuple's type is carried through, normalized onto the v2 vocabulary (number/boolean/json/string).
+- **Builder: the start pill is wired to the scenario's entry step.** Without that edge a flow compiles with an empty entryNodeId and is unenterable — the hub answers every lane itself (observed live: fabricated store hours). The first plan member is the entry step, per the entry re-point doctrine.
+- **Audit: +2 checks (20 total).** S3b (every start pill has an outgoing edge) and S3c (every variables row carries type/accurateSpelling) — both verified against the live run's artifacts: the pre-fix snapshot FAILS them, the hardened head PASSES.
+
+
 ## norm 1.4.0 – 2026-09-17
 
 The lifecycle wiki — the plugin now covers the entire v2 API surface, not just authoring:
