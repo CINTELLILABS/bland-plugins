@@ -4,21 +4,26 @@ The v2-only Bland plugin: build, migrate, validate, and test v2 agents working d
 
 ## Quickstart: migrate a v1 pathway
 
-Install (you need a Bland API key for the org that owns the pathway — never paste it into the chat; the install prompt stores it outside the conversation):
+One prompt does everything, including installing this plugin. You need a Bland API key for the org that owns the pathway; the pathway ID is in the pathway's URL in the dashboard. Fill in the two blanks and paste into Claude Code:
 
 ```text
-/plugin marketplace add CINTELLILABS/bland-plugins
-/plugin install norm@bland
+Migrate my Bland v1 pathway <PATHWAY_ID> into a new v2 agent named "<AGENT NAME>".
+
+If the Bland migration plugin is not available in this session (no /norm:migrate
+command), set it up for me:
+  claude plugin marketplace add CINTELLILABS/bland-plugins
+  claude plugin install norm@bland
+Do not ask me for my API key in this chat, ever. After installing, tell me to run
+/plugin configure norm@bland to enter my key, restart the session, and paste this
+same prompt again.
+
+If the plugin IS available, run the /norm:migrate command with this request: fetch
+the pathway export through the Bland MCP server, show me the proposed scenario
+architecture before authoring anything, ask me before the first version push, and
+finish with the full simulation suite and the migration report.
 ```
 
-Restart the session, then drop in one prompt — the pathway ID is in the pathway's URL in the dashboard:
-
-```text
-/norm:migrate Migrate my v1 pathway <PATHWAY_ID> into a new v2 agent named "<AGENT NAME>".
-Fetch the pathway export through the Bland MCP server. Show me the proposed scenario
-architecture before authoring anything, ask me before the first version push, and finish
-with the full simulation suite and the migration report.
-```
+First paste on a fresh machine: Claude installs the plugin, then you enter your key (`/plugin configure norm@bland` — stored by the host, never in the conversation), restart, and paste the same prompt again to start the migration. Already set up: the first paste goes straight into the migration.
 
 The session discovers the pathway, proposes the scenario architecture for your approval, carries your content byte-for-byte into a v2 snapshot, audits it against the source, pushes it as a new agent version (asking first), and verifies it with simulations. Migration is additive: your v1 pathway, numbers, and live traffic are never modified. Full walkthrough: [docs.bland.ai — Migrate a v1 pathway to a v2 agent](https://docs.bland.ai/platform/migrate-v1-to-v2).
 
