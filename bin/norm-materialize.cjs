@@ -23,7 +23,8 @@
  *   "sources": [{"file": "v1-export.json", "prefix": "sa"}, ...],
  *   "persona": "persona.json",                    // optional
  *   "entryScenario": "<scenario name>",           // optional inbound re-point
- *   "scenarios": [{"name","entry":{"label","description"},"rule","members":[ids or unique id prefixes]}],
+ *   "scenarios": [{"name","entry":{"label","description"},"rule","members":[ids or unique id prefixes],
+ *                  "entryMember": "<id — the step calls START at; defaults to members[0]>"}],
  *   "endCalls": [{"name","entry":{"label","description"},"prompt"}],
  *
  *   // Evidence-based hardening hooks (ship EMPTY on the first build; add only
@@ -546,15 +547,25 @@ for (const sc of plan.scenarios || []) {
 			exits.set(id, [{ label: "done", description: "" }]);
 		}
 	}
-	// The start pill must point at the scenario's entry step or the flow
+	// The start pill must point at the scenario's ENTRY step or the flow
 	// compiles with an empty entryNodeId and is unenterable (found live by the
-	// first agentic E2E run: the hub answered every lane itself).
+	// first agentic E2E run: the hub answered every lane itself). The entry is
+	// plan.entryMember when set, else members[0] — and a members[0] default
+	// that has an inbound edge from another member is probably a mis-ordered
+	// list, so say so.
 	if (steps.length > 0) {
+		let entryLegacy = members[0];
+		if (sc.entryMember) {
+			entryLegacy = resolveMember(sc.entryMember);
+			if (!memberSet.has(entryLegacy)) throw new Error(`${sc.name}: entryMember "${sc.entryMember}" is not a member of this scenario`);
+		} else if (mergedEdges.some((e) => e.target === entryLegacy && memberSet.has(e.source))) {
+			warn(`${sc.name}: members[0] ("${entryLegacy}") has an inbound edge from another member — if it is not the entry step, set "entryMember"`);
+		}
 		flowEdges.unshift({
 			id: randomUUID(),
 			type: "pathway",
 			source: startPill.id,
-			target: steps[0].id,
+			target: newIdByLegacy.get(entryLegacy),
 			data: { mode: "llm", label: "", description: "", alwaysPick: false, conditions: [] },
 		});
 	}
