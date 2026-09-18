@@ -34,7 +34,9 @@ Omit `from` unless the user names a number. With no `from`, a call on the Agent 
 
 ### Voice
 
-Omit `voice` unless the user asks for one. A call without a voice uses Karen. When the user wants help choosing, call `list_voices`, suggest two or three voices from it, and pass the chosen voice's `id` as `voice`. It lists only Bland's curated voices. If the user names a voice, including one they cloned, use it as given even when it isn't in that list.
+Omit `voice` unless the user asks for one. A call without a voice uses Karen. When the user wants help choosing, call `list_voices`, suggest two or three voices from it, and pass the chosen voice's `id` as `voice`. It lists only Bland's curated voices on the current, recommended voice generation, and every result carries `service` (the same value as `model_id` on `GET /v1/models`) so you can tell a current-generation voice from an older one. If the user names a voice, including one they cloned, use it as given even when it isn't in that list.
+
+When the curated list cannot meet the request: `GET /v1/models` says which generation is recommended (`is_recommended`) and what each supports; `GET /v1/voices/shared` browses the public catalog with `service`, `search`, `tag`, and paging; `GET /v1/voices/library` lists the caller's private clones. Do not fetch the unbounded `GET /v1/voices`. If a language or feature need points at an older generation, say so and let the user choose.
 
 ### Persona calls
 

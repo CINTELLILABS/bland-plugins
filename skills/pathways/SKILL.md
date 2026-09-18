@@ -7,6 +7,8 @@ description: Use whenever the user wants to create, edit, fix, test, simulate, d
 
 A Bland pathway is worked on as a **local workspace of files** (the canonical engine layout, below). The files on disk are the source of truth you edit; persistence to the server happens on **commit**, which reconstructs the pathway JSON from the files and POSTs it through the Bland MCP passthrough.
 
+When choosing a voice for the pathway or its attached agent/number, start with `list_voices`: it returns Bland's curated voices on the current, recommended generation, each with a `service` field. Honor a specific voice or private clone the user requests, and keep the existing voice during unrelated edits. If the curated list cannot meet a language or feature need, check `GET /v1/models` (`is_recommended` marks the current generation) and browse `/v1/voices/shared` or `/v1/voices/library`; never the unbounded `/v1/voices`. Tell the user before picking an older generation.
+
 - **Everything is authored in local files** — node prompts, conditions, edge labels, the global prompt, AND the structured surfaces (variables, model config, node tools, unit tests) are all edited directly in `pathway/` with native `Read` / `Write` / `Edit` / `Glob` / `Grep`. Prose lives in markdown bodies; structured config lives in YAML / JSON-inlined frontmatter.
 - **Validation and persistence go through the `/bland:*` commands** — which call the Bland MCP passthrough (`bland_api_get` to read, `call_bland_api` to write) against the documented `/v1/pathway/*` REST endpoints. `/bland:clone`, `/bland:validate`, `/bland:test`, and `/bland:commit` are the boundary; the offline `norm-sync.cjs` codec is the glue that turns the GETted JSON into files and the files back into JSON.
 
