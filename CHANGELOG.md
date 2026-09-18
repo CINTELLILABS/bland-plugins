@@ -6,6 +6,7 @@ First fully-autonomous production run of the doctrine (a platform-managed Agent 
 
 - **Builder: variables rows carry `type` + `accurateSpelling`.** The platform's ScenarioVariable now REQUIRES both — rows without them crash the compiler at chat-session creation (every sim ERRORs). The v1 export tuple's type is carried through, normalized onto the v2 vocabulary (number/boolean/json/string).
 - **Builder: the start pill is wired to the scenario's entry step.** Without that edge a flow compiles with an empty entryNodeId and is unenterable — the hub answers every lane itself (observed live: fabricated store hours). The first plan member is the entry step, per the entry re-point doctrine.
+- **Builder: explicit `entryMember`.** The start edge targets `plan.scenarios[].entryMember` when set (default stays members[0]); a members[0] default that has an inbound edge from another member now warns — a mis-ordered member list would otherwise start calls mid-flow.
 - **Audit: +2 checks (20 total).** S3b (every start pill has an outgoing edge) and S3c (every variables row carries type/accurateSpelling) — both verified against the live run's artifacts: the pre-fix snapshot FAILS them, the hardened head PASSES.
 
 
