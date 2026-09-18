@@ -112,12 +112,23 @@ function normalizeRpRow(row) {
 	const r = row || {};
 	return { variable: str(r.variable), operator: str(r.condition ?? r.operator), value: str(r.value), targetId: str(r.targetId), targetName: str(r.targetName) };
 }
+// Platform ScenarioVariable requires `type` + `accurateSpelling` — rows
+// without them crash the compiler at chat-session creation (found live by the
+// first agentic E2E run). Carry the v1 tuple's type through, normalized onto
+// the v2 vocabulary.
+function varType(raw) {
+	const t = str(raw).toLowerCase();
+	if (t === "number" || t === "integer" || t === "int" || t === "float") return "number";
+	if (t === "boolean" || t === "bool") return "boolean";
+	if (t === "json" || t === "object" || t === "array") return "json";
+	return "string";
+}
 function varRows(extractVars) {
-	// tuples [name, type, description] or objects {name, description}
+	// tuples [name, type, description] or objects {name, type?, description}
 	return (extractVars || []).map((r) =>
 		Array.isArray(r)
-			? { id: randomUUID(), key: str(r[0]), value: str(r[2]) }
-			: { id: randomUUID(), key: str((r || {}).name), value: str((r || {}).description) },
+			? { id: randomUUID(), key: str(r[0]), value: str(r[2]), type: varType(r[1]), accurateSpelling: false }
+			: { id: randomUUID(), key: str((r || {}).name), value: str((r || {}).description), type: varType((r || {}).type), accurateSpelling: false },
 	);
 }
 function dictRows(obj) {
@@ -534,6 +545,18 @@ for (const sc of plan.scenarios || []) {
 		if ((t === "End Call" || t === "Transfer Call") && !exits.has(id) && !mergedEdges.some((e) => e.source === id && memberSet.has(e.target))) {
 			exits.set(id, [{ label: "done", description: "" }]);
 		}
+	}
+	// The start pill must point at the scenario's entry step or the flow
+	// compiles with an empty entryNodeId and is unenterable (found live by the
+	// first agentic E2E run: the hub answered every lane itself).
+	if (steps.length > 0) {
+		flowEdges.unshift({
+			id: randomUUID(),
+			type: "pathway",
+			source: startPill.id,
+			target: steps[0].id,
+			data: { mode: "llm", label: "", description: "", alwaysPick: false, conditions: [] },
+		});
 	}
 	for (const [legacyId, rows] of exits) {
 		for (const row of rows) {
