@@ -22,6 +22,9 @@ If the plugin IS available, run the /norm:migrate command with this request: fet
 the pathway export through the Bland MCP server, show me the proposed scenario
 architecture before authoring anything, ask me before the first version push, and
 finish with the full simulation suite and the migration report.
+
+My v1 pathways, personas, snippets, tools, and phone numbers are LIVE and
+read-only — never modify them; only create v2 agent versions and test artifacts.
 ```
 
 First paste on a fresh machine: Claude installs the plugin, then you enter your key (`/plugin configure norm@bland` — stored by the host, never in the conversation), restart, and paste the same prompt again to start the migration. Already set up: the first paste goes straight into the migration.
