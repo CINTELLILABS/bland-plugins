@@ -1,5 +1,89 @@
 # Changelog
 
+## norm 1.4.1 – 2026-09-17
+
+First fully-autonomous production run of the doctrine (a platform-managed Agent SDK session driving /norm:migrate end to end) fed two real crash classes back into the builder:
+
+- **Builder: variables rows carry `type` + `accurateSpelling`.** The platform's ScenarioVariable now REQUIRES both — rows without them crash the compiler at chat-session creation (every sim ERRORs). The v1 export tuple's type is carried through, normalized onto the v2 vocabulary (number/boolean/json/string).
+- **Builder: the start pill is wired to the scenario's entry step.** Without that edge a flow compiles with an empty entryNodeId and is unenterable — the hub answers every lane itself (observed live: fabricated store hours). The first plan member is the entry step, per the entry re-point doctrine.
+- **Builder: explicit `entryMember`.** The start edge targets `plan.scenarios[].entryMember` when set (default stays members[0]); a members[0] default that has an inbound edge from another member now warns — a mis-ordered member list would otherwise start calls mid-flow.
+- **Audit: +2 checks (20 total).** S3b (every start pill has an outgoing edge) and S3c (every variables row carries type/accurateSpelling) — both verified against the live run's artifacts: the pre-fix snapshot FAILS them, the hardened head PASSES.
+
+
+## norm 1.4.0 – 2026-09-17
+
+The lifecycle wiki — the plugin now covers the entire v2 API surface, not just authoring:
+
+- **New skill `v2-lifecycle`** + endpoint dictionary (`references/api.md`): the three fixed environments (dev = live head, staging/production = pins; an unpinned production FAILS calls, no fallback), publish/promote/rollback semantics (publish moves staging only and is the sole semver mint; promote takes no body — production := staging; rollback only to previously-deployed versions), which version answers each channel (outbound/inbound = production pin, web/test-chat = DEV HEAD, SMS = the twin pathway's stored graph refreshed only on attach/promote), the fail-open inbound path (2s budget; a broken production silently degrades to the stale twin compile), branches (FF-squash merge, rebase-with-resolutions, direct branch publish), experiments (selector-less traffic only; no winner endpoint — a baseline repoint completes it), `{{env.KEY}}` variables (disjoint namespace, LOUD unresolved failure, selector — not version — picks the env, secret refs), checks (advisory: the server never gates a promote — poll to PASSED yourself), inbound binding/twin materialization, identity/BCID, memory schema, the scenario library, and the platform's own `/migrate*` endpoints with their limits.
+- **Knob dictionary additions**: `settings.guardrails` (timed TCPA rails with the 1–600s window, custom rails = live per-turn LLM evaluators capped at 5, action shapes), agent-level `knowledge.kbIds`, `settings.memorySchema`, and the 2 MiB whole-snapshot validator cap.
+- **`v2-runtime`**: new "which version is the call even running" triage section, `{{env.KEY}}` resolution semantics (opposite failure mode from plain `{{key}}`), and guardrails-at-runtime (rails fire end_call/transfer/move_to_node — check them before blaming the routing stack).
+- **`/norm:build`** step 7 now walks the real ship gates: publish→promote, the dev-head-vs-production test-chat trap, check-run gating discipline, per-env variable coverage.
+
+
+## norm 1.3.1 – 2026-09-16
+
+Review fixes (12 findings triaged, 8 real):
+
+- **Audit is shape-anchored:** snippet pins verified as (id, version) PAIRS wherever they occur (swapped versions between two snippets now fail); webhook URLs must appear on webhook steps and transfer numbers on transfer steps, not merely anywhere in the JSON; reachability honors `targetNodeId` on webhook/tool step rows.
+- **Builder:** parallel v1 edges with distinct labels are preserved (dedup was endpoint-only and silently dropped routing alternatives); `--out` resolves from the working directory (matching how the loop state resolves the same path); hardening hooks resolve like plan members and a hook matching no member anywhere is a hard error, never a silent no-op.
+- **Loop state is scoped:** `init` refuses to clobber another ACTIVE loop without `--force`; `record-push`/`record-sims` accept `--agent` and refuse on mismatch.
+- **Docs:** first push requires stating target/org/version and (interactively) a go-ahead; the engine-trace surface (`metadata.turn_details[].logs[]`) is documented concretely; keyless mode semantics spelled out (local-tools mode + human-approval gate for project connections); host manifest versions locked in step.
+
+
+## norm 1.3.0 – 2026-09-16
+
+- **The knob dictionary** (`v2-snapshot/references/knobs.md`): field-by-field reference for every setting in the snapshot — agent settings, step advanced options (temperature, interruption, backchannel level/config with its OFF sentinel and gating, background track tri-state, privacy), step-level GLOBALS (`settings.global` is active in v2: auto-return/redirect/manual — a correction to "no globals"), per-step-type fields, and the deprecated/inert/nonexistent list (`toolType:"code"`, editor-only inline code, top-level skipUserResponse, v1 tuple spellings, compile-dropped draft rows).
+- `/norm:build` documents the convergence loop's BUILD MODE: state initialized without `--source` gates on the structural audit + push + sims.
+
+
+## norm 1.2.3 – 2026-09-16
+
+- v1/v2 isolation completed at the skill layer: every v2 skill carries a server-binding rule — all API work through `plugin_norm_bland` only, never the v1 plugin's server or a project-scoped one, with org identity proven by the smoke check rather than namespace.
+
+
+## norm 1.2.2 – 2026-09-16
+
+Organization-collision hardening (BLA-7919):
+
+- Every `/norm:*` command's `allowed-tools` now permits ONLY the plugin's own namespaced MCP server — the bare `mcp__bland__*` wildcard (which can match a project-scoped server in a different organization) is gone.
+- Cross-host manifests name the server `plugin_norm_bland` so hosts without automatic prefixing cannot collide with a project-defined `bland` server.
+- `bland_api_key` is now optional (`required: false`) — keyless installs supported when the project supplies its own connection.
+- New ground rule in `/norm:migrate` and `/norm:build`: an org-identity smoke check (`list_agents` via the plugin's server, confirm the target agent/org) before the FIRST write; namespace alone is never trusted.
+
+
+## norm 1.2.1 – 2026-09-16
+
+- **Cross-host manifests**, mirroring the v1 plugin: `.codex-plugin/` (bearer_token_env_var), `.cursor-plugin/` (variables block + mcp.json), `.grok-plugin/` (env expansion). Same skills and MCP server everywhere.
+- The `/norm:build` version gate is host-portable by construction: AskUserQuestion on Claude Code, a plain ask-and-end-turn everywhere else. The enforced convergence loop remains Claude Code-only (hooks); on other hosts the audit/state scripts run manually per the procedure — documented in the README.
+
+
+## norm 1.2.0 – 2026-09-16
+
+New-agent building joins migration:
+
+- **`/norm:build`:** create a NEW v2 agent, opening with a human-in-the-loop version gate — if the user hasn't said v1 or v2, ask ONE question first; v1 answers hand off to the v1 plugin (`/bland:norm`) instead of cross-contaminating doctrines; v2 answers load the authoring skills and drive design interview → snapshot → audit → push → simulate → lifecycle.
+- **`v2-authoring` skill:** the from-scratch doctrine — the v1→v2 mental-shift table, what a scenario represents (boundaries only at one-way seams; a single-scenario agent is correct for one continuous task), hub/entry authoring, the standard conduct-rule set (each rule traced to a real production incident: tool-truth, copied-never-recalled phone numbers, no side-effect promises, last-turn write gates), deterministic-where-it-matters (static pills over "stay silent" prose), and verification as part of building.
+
+
+## norm 1.1.0 – 2026-09-16
+
+The fifth production migration (a multi-tenant scheduling agent with live DMS writes) fed everything it taught back into the plugin:
+
+- **Builder hardening hooks:** plan.json gains `promptAppends`, `variableAppends`, and `silentPills` — evidence-based hardening lives in the reviewable plan, never as snapshot hand-edits. `silentPills` re-creates a v1 silent-router's observed semantics (static "." speech, extraction rules in variable descriptions) — the construct fix for fabricated speech that prompt rules could not stop. Verified by rebuilding the shipped, fully-hardened production snapshot from raw JSON: identical census, pins, hardening text, and pill state.
+- **Trap catalog +7:** stale/wrong-variant customer fixtures; v1 differential baselines (regression vs inherited variance); construct-over-prose for conduct regressions; scoped guards (unscoped ones leak); tool-argument fabrication on write tools; judge malfunction classes and run-to-run oscillation; write-side test drainage.
+- **`/norm:simulate`:** fixture discovery from the customer's own scenarios as step 1, v1 differential cloning in the grading loop, and a mandatory write-artifact drain step.
+- **`/norm:migrate` + `v2-testing`:** the same disciplines folded into the procedure and skill.
+
+
+## norm 1.0.0 – 2026-09-15
+
+New plugin: **norm** (`./v2`) — the v2-only plugin for migrating v1 pathways/personas to v2 agents. Separate from the `bland` plugin so v2 work never inherits v1 doctrine.
+
+- **`/norm:migrate`:** the hand-migration procedure under an ENFORCED convergence loop — a Stop hook re-runs the deterministic v1-parity audit live on every stop attempt and blocks until audit green, a version pushed after the last snapshot edit, and the sim suite recorded green on that exact head (releases: complete, max-iter, stall, 24h TTL).
+- **`/norm:validate` + `bin/norm-migrate-audit.cjs`:** 16+ machine checks — structure, routing crashes (null fallbacks, OR-collapse), reachability, merged exit labels, and byte-parity against the v1 source (snippet/tool pin presence, transfer numbers, webhook URLs, code-tool re-representation, verbatim prompt carriage).
+- **`/norm:simulate`:** simulation + test-chat verification with read/write integration safety rails and engine-trace grading.
+- **Skills:** `v2-snapshot` (the exact snapshot dialect), `v2-runtime` (the routing decision stack and behavioral deltas), `v2-migration` + `references/traps.md` (the trap catalog from four production migrations), `v2-testing`.
+
 ## 2.2.0 — 2026-09-15
 
 Agents were placing calls that sound robotic. `create_call` rejects every field outside its six, so nothing was setting noise cancellation, background ambience, or transcription hints, and nothing told the agent how to write a prompt that sounds like a person on a phone rather than written copy. Both halves now have a home.
