@@ -132,7 +132,9 @@ async function findSkill() {
 	let page = await anthropic(`/v1/skills?limit=100`);
 	for (;;) {
 		for (const skill of page.data ?? []) {
-			if (skill.display_name === SKILL_NAME) return skill;
+			// Live API returns display_title; older shapes say display_name.
+			if ((skill.display_title ?? skill.display_name) === SKILL_NAME)
+				return skill;
 		}
 		if (!page.next_page) return null;
 		page = await anthropic(
