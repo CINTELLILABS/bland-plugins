@@ -1,5 +1,22 @@
 # Changelog
 
+## norm 1.5.0 – 2026-09-27
+
+- Add task-discoverable API workspace, evaluations, and call-analysis skills with
+  a linked, locally packaged product wiki. References cover execution order,
+  settings interactions, debugging, state reconciliation, judge/test-case
+  workflows, and reproducible analysis of large call cohorts.
+- Add voice-test evidence guidance distinguishing text simulation, browser
+  playback, and phone calls; document interruption and latency measurement limits.
+- Keep API access on the existing Bland MCP primitives. No new server, runtime
+  code, permission grant, or automatic synchronization is introduced.
+- Align the Codex manifest's skill path and logo with plugin-root conventions
+  and add discovery metadata. Host manifest versions remain aligned.
+- Add dependency-free wiki packaging/link/example checks and maintainer guidance.
+- Correct the lifecycle reference's test-chat selector name to `version_id`;
+  use host-provided socket routing rather than a hardcoded deployment address.
+
+
 ## norm 1.4.2 – 2026-09-19
 
 - Fix: the plugin's Bland MCP server never registered on install — the config
