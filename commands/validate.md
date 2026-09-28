@@ -32,7 +32,14 @@ Load the `v2-snapshot` skill for the dialect. Run EVERY check; report each as PA
 
 7. **No empty fallbacks**: every `route` step has a `fallbackNodeId`, or the omission is explicitly documented as a carried v1 defect.
 8. **OR-collapse scan**: within any single rule, flag conditions that AND the same field against different equality values (e.g. `x equals a` AND `x equals b`) — impossible rules mean flat OR rows were collapsed.
-9. Every flow step is reachable (has an inbound edge, is the first step, or is a route/tool-responsePathway target).
+9. Check reachability from the Start edge's actual target, including route rules,
+   response pathways, global selection/return, and applicable guardrail targets.
+   Being first in the array or having an inbound edge is not proof: an isolated
+   cycle can satisfy both. Consult the
+   [builder/runtime mapping](../skills/v2-runtime/references/builder-runtime-map.md).
+   The bundled migration script's incoming-target check is only a structural
+   heuristic, not this full analysis. Report unsupported validation separately;
+   do not add cosmetic edges to silence it or call an unresolved check passed.
 10. Steps with no outgoing edge and no route onward must be intentional terminals (wrap-ups before the end pill count only via their exit edge).
 
 ## Content carriage (when the v1 source is provided)

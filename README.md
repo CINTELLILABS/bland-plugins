@@ -94,7 +94,10 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 
 - **v2-authoring** — building NEW agents: what scenarios represent (boundaries at one-way seams), hub/entry authoring, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
 - **v2-snapshot** — the exact snapshot dialect (behavior graph, hub, scenarios, step types, tools, settings) and hand-authoring rules.
-- **v2-runtime** — how the agent behaves at call time: the routing decision stack, hub/scenario semantics, variable resolution, code-step execution, behavioral deltas.
+- **v2-runtime** — routing and runtime behavior, plus the JSON → builder →
+  executable-pathway mapping: implicit entry/sibling/return routes, component
+  boundaries, inspector-only routes, global-node returns, and audio versus
+  routing interruptions. Documents retained settings that no longer execute.
 - **v2-migration** — the migration doctrine + the trap catalog accumulated across production migrations (`references/traps.md`).
 - **v2-testing** — the agent-testing API, test-chat WebSocket, grading discipline,
   testing-safety rules, and speech-to-speech evidence (interruption, actual

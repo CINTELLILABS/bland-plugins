@@ -24,19 +24,37 @@ Example PATCH body for an existing editable judge version:
 
 ```json
 {
-  "prompt_md":"Determine whether the agent requested and received explicit confirmation before committing a booking. Cite the relevant turns. If no booking was attempted or required evidence is missing, choose inconclusive.",
+  "prompt_md":"Determine whether the agent requested and received explicit confirmation before committing a booking. Cite the relevant turns. If the supplied evidence cannot establish the criterion, return is_insufficient_evidence=true and selected_level_key=null in the structured judge result, explaining the missing evidence in reasoning_md. Do not infer failure or commitment from missing evidence.",
   "levels":[
-    {"level_key":"confirmed","label":"Confirmed","prompt_md":"The caller explicitly agreed before the booking was committed."},
     {"level_key":"not_confirmed","label":"Not confirmed","prompt_md":"The agent committed a booking without prior explicit caller agreement."},
-    {"level_key":"inconclusive","label":"Inconclusive","prompt_md":"No booking was attempted, or the transcript cannot establish ordering or commitment."}
+    {"level_key":"confirmed","label":"Confirmed","prompt_md":"The caller explicitly agreed before the booking was committed."}
   ],
   "target_level_keys":["confirmed"]
 }
 ```
 
+Order scored levels worst to best: numeric scoring maps the first to 0 and the
+last to 100. Target keys specify the passing level independently.
+
 Only judge what the chosen evidence can establish. If backend commitment is not
 observable in transcript evidence, add supported tool/call evidence or report
-inconclusive; do not infer commitment from reassuring language alone.
+insufficient evidence; do not infer commitment from reassuring language alone.
+
+- Restrict this judge's cohort to applicable booking cases. Report cases with no
+  booking attempt as not applicable, separately from scored results. If cohort
+  eligibility is unknown, establish it before claiming a booking pass rate.
+- Missing evidence uses the judge's structured `is_insufficient_evidence:true`
+  and `selected_level_key:null` (or `verdict:null` for a pass/fail judge), not a
+  custom failure or “inconclusive” level. These are judge output fields, not new
+  PATCH configuration keys. Prompt wording alone does not prove compliance:
+  inspect the actual result and its explanation of the missing evidence.
+- The literal custom level `inconclusive` is excluded from numeric scoring in
+  the current contract, but can still produce `is_target_match:false` (a non-match). It is not
+  equivalent to the structured insufficient-evidence flag.
+- Insufficient-evidence results have null score/target match and are excluded
+  from scoring; they are not passes. A simulation summary can still count an
+  all-insufficient call in its unsuccessful total. Report that separately from
+  observed behavior failures and include the scored denominator.
 
 ## Test scenario with attached judges
 
@@ -55,11 +73,17 @@ inconclusive; do not infer commitment from reassuring language alone.
    `{"simulations_count":3}` starts conversation generation and scoring, returning
    202 and a `simulation_set_id`. This is not a completed score.
 6. Poll `GET /v1/agent-testing/simulation-runs/{simulation_set_id}/results`.
+   Despite the route name, this endpoint accepts the **set ID** returned by
+   `/simulate`, not an individual run ID.
    The assembled result has `summary`, `assertions`, and `logs`.
    `summary.eval_run_id` may be null and arrays empty while scoring initializes.
    That is not proof that no judges were attached or the test passed.
-7. Inspect the linked evaluation run when available. Report execution status,
-   judge assertions, conversation evidence, and missing/failed results separately.
+7. Reconcile all three requested simulations against `logs[]` and
+   `summary.total_calls` after generation/scoring. Each `logs[].run_id` identifies
+   an individual scenario run; read `GET /v1/agent-testing/runs/{run_id}` for its
+   details. One returned log is not evidence all three succeeded. Inspect the
+   linked evaluation run when available; report execution status, judge
+   assertions, conversation evidence, and missing/failed results separately.
 
 The `/scenarios/{id}/run` → `/runs/{id}` inline-assertion workflow is different
 from `/simulate` → `/simulation-runs/{id}/results`. Use the matching read path.

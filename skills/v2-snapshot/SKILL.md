@@ -8,7 +8,11 @@ description: The Bland v2 agent snapshot dialect — the exact JSON shape of an 
 > **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
 
-A v2 agent version is one JSON document (the "snapshot"). The platform compiles it deterministically into a flat conversation graph at call time — there is no separate v2 runtime. What you author is what runs. Everything below is the exact wire dialect, taken from real production snapshots.
+A v2 agent version is one JSON document (the "snapshot"). The platform compiles
+it into an executable conversation graph; the builder is a view of that design,
+not the complete runtime graph. Some retained fields are inactive. Read the
+[builder/runtime mapping](../v2-runtime/references/builder-runtime-map.md) before
+interpreting a visual disconnection or editing a field without a visible control.
 
 ## Top level
 
@@ -43,11 +47,18 @@ A v2 agent version is one JSON document (the "snapshot"). The platform compiles 
 "entry": { "mode": "llm", "label": "Sales", "description": "<the routing criteria, verbatim>", "alwaysPick": false }
 ```
 
-The `description` is the routing contract: the hub model reads all entries after each caller turn and picks. Carry routing criteria **verbatim from the source of truth** (in migrations: the v1 route conditions / persona pathway_conditions). `rule` is a short human summary of what the scenario owns.
+The `description` is the entry routing contract for eligible generated hub and
+sibling routes. Explicit incoming routing edges affect auto-entry eligibility;
+do not assume all entries are available from every step. Carry criteria verbatim
+in migrations. `rule` is a short human summary of what the scenario owns.
 
 ## flow.nodes — the steps inside a complex scenario
 
-Order: `[{type:"start"}, ...steps..., {type:"end"}]`. The `start` and `end` pills are required; the end pill is the exit — an edge to it returns control to the hub. Every node, edge, rule, condition, and variable row carries a unique `id` (UUID). Positions (`position: {x,y}`) are cosmetic but expected.
+Use `[{type:"start"}, ...steps..., {type:"end"}]` as an authoring convention.
+The required Start pill must have an outgoing edge to the intended entry step;
+array order and visual position do not establish that entry. End is a component
+exit, not a phone hang-up or a guarantee of a hub hop. Every node, edge, rule,
+condition, and variable row carries a unique `id` (UUID). Positions are layout.
 
 | type | data shape (key fields) |
 |---|---|
@@ -81,19 +92,23 @@ On `prompt` steps, rows are LLM extraction: `value` describes what to extract. O
 - `mode: "llm"` — the model chooses using label + description.
 - `mode: "deterministic"` — `conditions` rows (`field/operator/value` on call variables) decide mechanically.
 - `alwaysPick: true` — forced traversal (use after a `customCode` step to its router).
-- Exits: draw one edge per DISTINCT exit intent from a step to the end pill, each with its own label — never merge two intents into one exit edge (the hub loses the intent).
+- Exits: preserve one edge per DISTINCT exit intent from a step to the end pill,
+  each with its own label. Verify the outer continuation instead of assuming an
+  exit necessarily visits the hub.
 
 ### Step settings
 
 ```json
 "settings": { "tag": null, "media": [],
   "global": { "isGlobal": false, "label": "", "description": "", "returnMode": "previous", "forwardingNode": "" },
-  "advanced": { "temperature": 0.2, "interruptionThreshold": null, "skipUserResponse": false,
-                "blockInterruptions": false, "interruptibility": null, "disableRecording": false,
-                "disableLogging": false, "backgroundTrack": "" } }
+  "advanced": { "temperature": 0.2, "skipUserResponse": false,
+                "disableRecording": false, "disableLogging": false } }
 ```
 
 `skipUserResponse: true` = the step acts without waiting for the caller (silent pills, code steps).
+Per-node audio overrides retained in old JSON are not active in the current v2
+compiler. Use Calls → Conversation feel; see
+[interruption scope](../v2-runtime/references/interruptions.md).
 
 ## Attached tools on a step (`data.tools[]`)
 

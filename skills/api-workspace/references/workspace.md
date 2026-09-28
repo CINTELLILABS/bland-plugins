@@ -34,6 +34,9 @@ Never overwrite a host-owned injection file expecting it to save the resource.
 
 - Read the complete relevant JSON object; use stable node/step IDs, not visual
   positions or array indices that another edit can reorder.
+- For apparent disconnections, first consult the
+  [builder/runtime mapping](../../v2-runtime/references/builder-runtime-map.md).
+  Configured and generated routes need not have ordinary canvas arrows.
 - Make the smallest patch; preserve unknown/unrelated fields and existing IDs.
 - Parse the result, run available schema/audit checks, and inspect the diff.
   A migration audit is not a complete replacement for the live snapshot schema.
