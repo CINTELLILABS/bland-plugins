@@ -4,6 +4,10 @@ Start with the row matching the task. Open that reference, not every file in
 this index. Local references explain behavior; the connected tool schema and
 current official API documentation determine the request that can be sent.
 
+For the complete navigation/coverage map, including all node families,
+dispositions, external resources and operational surfaces, read the
+[v2 surface map](surface-map.md).
+
 | Task / question | Read |
 |---|---|
 | Find an endpoint; use API tools from code; recover a failed request | [API workspace skill](../SKILL.md), [API contract](api.md) |
@@ -11,6 +15,7 @@ current official API documentation determine the request that can be sent.
 | Why do nodes look disconnected? What does this JSON edit change in the UI? | [Builder JSON → runtime → canvas](../../v2-runtime/references/builder-runtime-map.md) |
 | Is this audio barge-in, a topic change, or a global-node jump? | [Interruption mechanisms and setting scope](../../v2-runtime/references/interruptions.md) |
 | Build a new v2 agent and choose scenario boundaries | [Authoring](../../v2-authoring/SKILL.md) |
+| Update, debug, or manage an existing v2 agent without overwriting other work | [Maintenance](../../v2-maintenance/SKILL.md) |
 | Write or validate snapshot JSON, steps, tools, and edges | [Snapshot dialect](../../v2-snapshot/SKILL.md) |
 | Find an option, default, override, or field interaction | [Option guide](options.md), [field dictionary](../../v2-snapshot/references/knobs.md) |
 | Why did the agent choose this node or miss a tool? | [Execution order](execution.md), [runtime](../../v2-runtime/SKILL.md), [debugging](debugging.md) |

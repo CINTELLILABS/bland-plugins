@@ -7,7 +7,10 @@ description: The Bland v2 agent lifecycle — environments (dev/staging/producti
 
 > **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
-Full endpoint dictionary (bodies, responses, error codes): `references/api.md`. This file is the mental model.
+Read the [endpoint dictionary](references/api.md) for request contracts and
+[resource boundaries](references/resources.md) for knowledge, memory, history,
+collaboration and separate operational objects. This file is the lifecycle model.
+Older deployments can differ; check the connected API before using new modes.
 
 ## The environment model
 
@@ -20,13 +23,18 @@ Every agent has exactly three fixed environments — `dev`, `staging`, `producti
 
 ```
 save version ──► dev (automatic)
-  publish ─────► staging   (mints semver X.Y.Z; the ONLY place semvers are born)
-  promote ─────► production (no body: production := whatever staging points at)
+  publish ─────► staging   (mints semver if not already published)
+  promote ─────► production (empty body selects staging; explicit version selects that candidate)
   rollback ────► production (repoint at any PREVIOUSLY-DEPLOYED production version)
 ```
 
 - **Publish** moves ONLY staging. Three body modes: `{snapshot}` (save new version + publish it), `{version_id}` (publish an existing one; `branch_id` alongside publishes a branch head directly — the branch stays open), `{}` (publish the dev head). `bump: patch|minor|major` (default patch) mints the next semver above the MAX ever minted; re-publishing an already-published version re-records its original semver, never re-mints.
-- **Promote** takes NO parameters. It cannot skip staging and cannot choose a version. 400 `STAGING_UNPINNED` when staging is empty.
+- **Promote** supports an empty body (production := staging's current pin) or
+  `{version_id, branch_id?, bump?}` for an exact candidate on dev or an open branch.
+  Exact-version promotion also repoints staging and can mint a semver for a
+  never-published version. `branch_id` must match the candidate's branch. Empty
+  staging blocks the empty-body form, not a supported explicit candidate.
+  Promotion enforces the current staging check policy described below.
 - **Rollback** = `{version_id}` that already has a production deployment row; `already_current` and `not_previously_deployed` are 400s. `GET /deployments?env=production` rows carry `is_rollback_eligible` — that list IS the valid candidate set.
 - Every staging/production repoint appends an immutable **deployment row** (`GET /deployments`) — the audit history. dev never writes one.
 - Version naming matters: a **named** version is pinned forever; an unnamed save is an autosave head that later autosaves coalesce into (its snapshot can be rewritten in place). Always name versions you intend to reference.
@@ -62,7 +70,11 @@ A branch is a **dev workspace**, never a deployable line of its own. Names: 1–
 
 - Cut from the current dev head (`base_version_id`). Save onto it with `branch_id` on the version POST; read with `?branch=`.
 - **Merge is fast-forward-only squash**: produces exactly ONE new dev version carrying the branch head's snapshot; 409 `BRANCH_BEHIND` when dev moved — run **rebase-preview** (three-way merge dry run) then **rebase** `{dev_head_version_id, resolutions}` (resolutions: `"ours"` = branch, `"theirs"` = dev, or `{value}`). Rebase writes to the BRANCH and advances its base; then merge fast-forwards. Order-sensitive routing arrays (`conditions`, `responsePathways`) and `position` conflict atomically — they are never element-merged.
-- A branch head can run live traffic two ways without merging: dial it via selector `branch:<name>` (resolves DEV variables), or publish it straight to staging with `{version_id, branch_id}` (409 `BRANCH_CLOSED` if the branch merged/was deleted).
+- A branch head can be tested with selector `branch:<name>` (dev variables),
+  published to staging with `{version_id, branch_id}`, or promoted by explicit
+  candidate on supporting deployments. The latter changes production and staging,
+  subject to the promotion policy; publishing alone changes only staging.
+  Closed/merged branches cannot be selected for these branch release modes.
 
 ## Experiments (A/B)
 
@@ -80,18 +92,38 @@ Per-(agent, env) key/values. Keys: `[A-Za-z0-9_]+` — **no dots** (the resolver
 - `{is_secret: true}` stores the value in the org secret store and keeps only a `{{SECRET.name}}` reference in the row; reads return the reference, never the value; secrets expand live at runtime and never land at rest.
 - A whole-string `{{env.KEY}}` is accepted even where the validator expects a typed field (e.g. `contact.inboundNumbers`).
 
-## Checks — advisory gates you must enforce yourself
+## Checks and promotion policy
 
 A check config per (agent, `staging`|`production`): 1–5 agent-testing scenarios × judge evals (`required` defaults true), `simulations_count` per scenario (default 5, max 50). `POST /environments/:env/check-runs` (body `{version_id?}`) runs simulations against the pinned candidate and scores them in one eval run. Default candidate = what a promotion into that env would deploy: **staging's pin for production, the dev head for staging**.
 
 - Statuses `PENDING→RUNNING→PASSED|FAILED|ERROR|CANCELLED`; `overall_passed` = every REQUIRED judge ≥ 0.5 match rate (no required judges = vacuously passed).
-- **The server NEVER blocks publish/promote on a check.** Deployment rows merely display the latest run. The discipline: start a run, poll to terminal, and only promote on PASSED — the gate is yours to enforce.
+- **Current production promotion enforces the saved staging check policy.** If
+  enabled with required judges, the latest staging check run for the exact
+  candidate must match the current scenarios, simulation count, judge versions
+  and targets, and satisfy every required verdict. Missing/stale results, pending
+  runs or failed required verdicts block with `409 CHECKS_BLOCKED`.
+- No enabled required policy means no check gate; it does not prove quality.
+  Non-required failures and required failures differ. Read detailed verdicts,
+  not only a headline status or an old passing run.
+- Check runs freeze the candidate and use the selected check environment's
+  variables for generation and scoring. A staging check is not evidence the
+  production bindings work; verify production separately where relevant.
+- `force:true` is an explicit, audited policy bypass. Never add it, disable checks
+  or remove required judges just to make a failed promotion succeed. A request
+  to deploy does not implicitly authorize bypassing a known safety gate.
+- Publishing to staging, running a check and promoting are distinct operations.
+  Older servers may expose advisory-only checks; retain verification discipline
+  and discover the deployed contract instead of assuming identical enforcement.
 - One active run per (agent, env) — a wedged run 409s new starts until cancel or the 45-minute stale reaper.
 
 ## The rest of the surface (see references/api.md)
 
 - **Agent CRUD**: create takes `{name}` only (config lives in versions); PATCH renames only; DELETE is soft; list has only `?limit`.
-- **Version reads**: `GET /versions/latest` = full snapshot (the export — see api.md); `GET /versions/:semver` takes a minted `X.Y.Z` ONLY (published versions only — never a version row id); `GET /versions` = metadata list. Concurrent-editor saves use the `parent_version_id`/`parent_revision` fence (409 `STALE_HEAD`).
+- **Version reads**: `GET /versions/latest` = full snapshot; `GET /versions/:semver`
+  takes a minted `X.Y.Z`, never a row UUID; `GET /versions` = metadata list.
+  `GET /versions/:versionId/graph` accepts a row UUID but returns a compiled
+  graph, not an editable snapshot. Concurrent-editor saves retain the documented
+  fence and any host collaboration fields (see resource boundaries).
 - **Identity / branded calling**: per-agent contact card (logo, vCard) + BCID submission to carrier review (T-Mobile/Verizon) — an org-external registry write; treat as a customer-approval action.
 - **Memory**: `settings.enableMemory` + `settings.memorySchema` (entity schemas); `GET/POST /memory/schema[/infer]` — infer persists nothing, the builder saves the result into settings. Inbound/SMS memory gates on the TWIN persona's copy, refreshed on promote.
 - **Library**: `GET /library/scenarios` (reusable scenario nodes read live from the org's other agents' dev heads) and archived nodes (self-contained copies; archive never edits the canvas).

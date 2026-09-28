@@ -93,6 +93,9 @@ Written for agents WITHOUT access to the Bland platform source — everything is
   cohorts, workspace analysis, evidence-linked categories, and report artifacts.
 
 - **v2-authoring** — building NEW agents: what scenarios represent (boundaries at one-way seams), hub/entry authoring, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
+- **[v2-maintenance](skills/v2-maintenance/SKILL.md)** — update and debug existing
+  agents: minimal stable-ID edits, unsaved-draft reconciliation, concurrency
+  fences, ambiguous-write recovery, exact-version tests, and lifecycle guidance.
 - **v2-snapshot** — the exact snapshot dialect (behavior graph, hub, scenarios, step types, tools, settings) and hand-authoring rules.
 - **v2-runtime** — routing and runtime behavior, plus the JSON → builder →
   executable-pathway mapping: implicit entry/sibling/return routes, component
@@ -102,7 +105,16 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 - **v2-testing** — the agent-testing API, test-chat WebSocket, grading discipline,
   testing-safety rules, and speech-to-speech evidence (interruption, actual
   playback, response timing, and adaptive versus deterministic callers).
-- **v2-lifecycle** — the full ship model and API surface: environments (dev/staging/production), publish/promote/rollback and semver minting, which version answers each channel at call time (and the fail-open twin-pathway degradation path), branches/merge/rebase, A/B experiments, `{{env.KEY}}` environment variables, pre-deploy checks (advisory — the client enforces the gate), inbound number binding, identity/BCID, memory schema, the scenario library, and the platform's own migration endpoints. Includes the endpoint dictionary (`references/api.md`).
+- **v2-lifecycle** — environments, exact-version promotion, saved promotion-check
+  policy, rollback, channel/version selection, branches, experiments, variables,
+  number binding, identity, memory, library/history and migration endpoints.
+  Includes an API map and separate-resource lifecycle guide.
+
+The [full v2 surface map](skills/api-workspace/references/surface-map.md) also
+indexes the complete node-family catalog, verification zones, execution phases,
+tools/handoffs, collaboration, dispositions, and ancillary operational APIs.
+It identifies where live schema discovery is required rather than promising
+every feature is enabled or every future endpoint is documented offline.
 
 ## Organization safety
 

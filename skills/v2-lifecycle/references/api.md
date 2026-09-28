@@ -19,6 +19,7 @@ Base: `/v2/agents`. Auth: the org's API key. Writes require an editor role (admi
 | `POST /:agentId/versions` | `{snapshot!, name?, branch_id?, autosave?, parent_version_id?, parent_revision?}` | 201 full version row (+`warnings[]`) | Validator: ≤2 MiB serialized, unique node ids, edge integrity, flow nesting ≤10, guardrail rules, `contact.inboundNumbers` (array or whole-string `{{env.KEY}}`). Named version = pinned forever; unnamed = coalescing autosave head. `parent_*` = optimistic-concurrency fence → 409 `STALE_HEAD` (+`head_version_id`,`head_revision`). No semver here — publish mints it. |
 | `GET /:agentId/versions/latest` | `?branch=` | full row incl. `snapshot` | **The whole-agent JSON export.** Dev head, or branch head (falls back to the branch's base). |
 | `GET /:agentId/versions/:semver` | — | full row incl. snapshot | `:semver` is a minted `X.Y.Z` string — never a row id, no `v` prefix. Only PUBLISHED versions are addressable → 400 `INVALID_VERSION` / 404. |
+| `GET /:agentId/versions/:versionId/graph` | — | `{agent_id, version_id, nodes, edges}` | Row UUID, including historical call attribution. Compiled graph, not full editable snapshot or frozen historical runtime inputs. |
 | `GET /:agentId/versions` | `?branch=&limit=` (default 50, max 200) | metadata only `{id, name, created_via, created_by, created_at, semver\|null}` | `semver` = first deployment's mint. |
 
 ## Lifecycle
@@ -26,7 +27,8 @@ Base: `/v2/agents`. Auth: the org's API key. Writes require an editor role (admi
 | Endpoint | Body | Returns | Errors |
 |---|---|---|---|
 | `POST /:agentId/publish` | `{snapshot, bump?}` \| `{version_id, bump?, branch_id?}` \| `{bump?}` (dev head) | 201 `{version, semver, environments}` (200 when `already_published`) | 400 `INVALID_BUMP`/`INVALID_SNAPSHOT`/`NO_VERSIONS`, 404 `VERSION_NOT_FOUND`, 409 `PUBLISH_IN_PROGRESS`, 409 `BRANCH_CLOSED` (branch merged/deleted). Moves STAGING only. `bump` default `patch`; mints above the max semver ever minted. |
-| `POST /:agentId/promote` | — (none) | 200 `{semver, environments}` | 400 `STAGING_UNPINNED`. production := staging's pin; re-records original semver; checks-free by design. Refreshes the twin pathway + invalidates inbound route cache. |
+| `POST /:agentId/promote` | `{}` or `{version_id, branch_id?, bump?}`; optional `force` | 200 `{semver, environments, production_moved}` | Empty body uses staging; explicit candidate also aligns staging and can mint semver. Current staging policy enforced: 409 `CHECKS_BLOCKED`; invalid/closed branches rejected. `force:true` is an audited bypass, not a normal retry. |
+| `GET /:agentId/publish-preview` | `?version_id=` | Candidate comparison / release preview | Read-only planning, not a lock or proof promotion succeeded. |
 | `POST /:agentId/rollback` | `{version_id}` | 200 `{semver, environments}` | 400 `already_current` / `not_previously_deployed`. Production only; candidates = `is_rollback_eligible` deployment rows. |
 | `GET /:agentId/environments` | — | 3 rows `{env_type, current_version_id, current_version:{name,semver}\|null}` | dev is always null. |
 | `GET /:agentId/deployments` | `?env=` (default production) `&limit=` (default 50, max 200) | newest-first `{env_type, agent_version_id, version_name, semver, deployed_by, deployed_at, check_run\|null, is_rollback_eligible}` | Append-only history; never written for dev. |
@@ -69,7 +71,25 @@ No winner endpoint: promote the variant (baseline repoint auto-completes as `bas
 |---|---|---|
 | `GET/PUT/DELETE /:agentId/environments/:env/checks` | PUT: `{enabled?, scenario_ids! (1–5, this agent's, non-pathway), simulations_count? (1–50, default 5), evals!: [{eval_agent_id, eval_agent_version_id, target_level_keys?, required? (default true)}]}` | `:env` = staging\|production only. Full replace; GET returns `null` when unconfigured. Graded evals need `target_level_keys`; pass/fail must omit. |
 | `POST /:agentId/environments/:env/check-runs` | `{version_id?}` | 202 PENDING run. Default candidate: staging pin (for production) / dev head (for staging). 400 `no_config`/`invalid`/`no_candidate`; 409 one-active-per-env (45-min stale reaper). Config frozen into the run. |
-| `GET /:agentId/check-runs?env=&limit=` (default 25/max 100) · `GET …/check-runs/:runId` · `POST …/check-runs/:runId/cancel` | — | Run carries `simulation_set_id`/`eval_run_id` deep links, `verdicts[]`, `overall_passed` (= all REQUIRED judges ≥0.5 match rate). NEVER gates publish/promote server-side. |
+| `GET /:agentId/check-runs?env=&limit=` (default 25/max 100) · `GET …/check-runs/:runId` · `POST …/check-runs/:runId/cancel` | — | Candidate/environment, frozen judge roster and result links. Current production promotion validates the saved staging policy against the candidate's latest staging run; see [policy](../SKILL.md#checks-and-promotion-policy). |
+
+Check simulations use the check environment's variables, independently of the
+candidate row's identity. `DELETE …/checks/evals/:evalAgentId` removes a configured
+judge; that weakens the policy and is not a workaround for failing results.
+
+## Additional agent surfaces
+
+- `GET /starter` reads the starter agent; `POST /starter` ensures one and may
+  start its supported simulation. It is not a read-only discovery operation.
+- `POST /:agentId/collaboration`, `/edit`, `/heartbeat`, `/leave` support the
+  builder's scoped collaboration protocol. Reuse host support and preserve its
+  tokens/baselines; do not guess payloads or substitute a cursor for edit ownership.
+- `/:agentId/dispositions/*` owns definitions, extractor versions and result
+  workflows. Read the [disposition API guide](../../evaluations/references/dispositions.md).
+- `POST /migrations` starts the managed migration workflow; GET
+  `/migrations/:runId` observes it and POST `/migrations/:runId/cancellations`
+  requests cancellation. This is distinct from the `/migrate*` converters below;
+  discover the current request and eligibility before starting billed work.
 
 ## Inbound numbers & identity
 

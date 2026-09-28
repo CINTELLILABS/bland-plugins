@@ -73,6 +73,31 @@ hub/scenario cards. Stored JSON presence does not prove activation at that scope
 
 ## Diagnostic examples
 
+### Repetition after barge-in is not a diagnosis
+
+An early interruption can regenerate the response on the current node. Recovery
+also avoids replaying a previous tool, code, router, transfer, or other action
+step. Neither outcome alone proves a broken route, missed transcription, or
+noise-cancellation problem. Other recovery paths can revisit a previous node;
+do not promise a universal rewind rule.
+
+Before changing settings, align the caller audio and agent playback with the
+accepted caller text, interruption/recovery events (when exposed), current and
+previous nodes, chosen next node, variables, and tool results. Distinguish:
+
+- Playback stopped, accepted text is correct, response regenerated on the same
+  node: inspect recovery and loop/verification state before changing audio.
+- Caller speech is audible but absent from accepted text: investigate the input
+  path; this still does not identify which setting caused the loss.
+- Correct caller text but unexpected next node: inspect routing evidence and
+  gates, not just audio sensitivity.
+
+If recovery details are unavailable, state that limit. A controlled comparison
+on the same version and fixture can test a hypothesis; do not diagnose noise
+cancellation from repetition or transcript evidence alone.
+
+### Other symptoms
+
 - **“It stopped talking but stayed on the same question.”** Check audio cutoff
   separately from node/variable progress. Barge-in can work without a route change.
 - **“Help has no incoming arrow but it answered.”** Inspect global matching and

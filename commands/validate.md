@@ -1,5 +1,5 @@
 ---
-description: Mechanically audit a v2 agent snapshot JSON before pushing — structural checks, routing-crash checks, pin presence, exit-label discipline, and the migration trap checklist. Use before every version push and whenever a snapshot misbehaves.
+description: Audit a v2 agent snapshot before saving — schema, references, routing hazards, and tool pins; apply migration-specific architecture and carriage checks only to migrations.
 argument-hint: "<path to snapshot JSON (and optionally the v1 source JSON to audit against)>"
 allowed-tools:
   - "mcp__plugin_norm_bland__*"
@@ -17,20 +17,31 @@ Audit the snapshot at:
 $ARGUMENTS
 ```
 
-Load the `v2-snapshot` skill for the dialect. Run EVERY check; report each as PASS/FAIL with the offending JSON path. All must pass before a push. Use jq/python — never eyeball.
+Load the `v2-snapshot` skill for the dialect and the current supported schema.
+Classify the task as new authoring, migration, or maintenance. Evaluate each
+applicable check mechanically using workspace code; report PASS, FAIL, N/A
+(with reason), or NOT VERIFIED. Applicable failures block saving; unsupported
+checks are not passes. This checklist is not a substitute for schema validation
+or behavioral tests.
+
+For maintenance, preserve the existing design. Migration conventions such as
+an explicit root end-call and array-first Start/array-last End are not universal
+schema requirements. Do not rebuild a valid agent merely to satisfy them. Check
+the actual Start edge and intended termination behavior instead. Source-carriage
+checks apply only when migrating; intentional requested edits are allowed.
 
 ## Structural
 
 1. Top level has `behavior.nodes`, `behavior.edges`, `settings.systemPrompt` (non-empty).
 2. Exactly one `inbound` node and one `agent` (hub) node; the inbound edge targets the hub OR a deliberate bootstrap scenario (if so, confirm that was intended).
-3. Every `complex-scenario` has `entry.description` (non-empty), `name`, and a `flow` whose nodes start with `start` and end with `end`.
+3. Every `complex-scenario` has the required entry/name/flow fields for the supported schema. Each flow's Start edge targets its intended entry. Start-first/End-last array ordering is an authoring convention, not executable entry selection.
 4. Every node, flow node, edge, rule, condition, and variable row has a unique `id`. No duplicate ids anywhere in the document.
 5. Every flow edge's `source`/`target` exist in that flow; every route `targetNodeId`/`fallbackNodeId` exists in that flow.
-6. At least one root `end-call` node exists.
+6. For migration doctrine, require a root `end-call`. Otherwise verify the intended termination action/continuation; missing a root end-call alone is not proof that an existing snapshot is invalid.
 
 ## Routing-crash checks
 
-7. **No empty fallbacks**: every `route` step has a `fallbackNodeId`, or the omission is explicitly documented as a carried v1 defect.
+7. **No empty fallbacks**: every `route` step has a `fallbackNodeId`, or the omission is explicitly documented as a pre-existing defect (v1 or native v2). Report the no-match failure risk and resolve scope before saving; do not silently invent a fallback during an unrelated prompt edit.
 8. **OR-collapse scan**: within any single rule, flag conditions that AND the same field against different equality values (e.g. `x equals a` AND `x equals b`) — impossible rules mean flat OR rows were collapsed.
 9. Check reachability from the Start edge's actual target, including route rules,
    response pathways, global selection/return, and applicable guardrail targets.
@@ -60,4 +71,6 @@ Load the `v2-snapshot` skill for the dialect. Run EVERY check; report each as PA
 18. No plaintext credential printed into your report output (check headers/URLs before quoting them — redact).
 19. Unresolvable `{{placeholders}}` in prompts flagged (they render as literal text at runtime).
 
-Output: a numbered PASS/FAIL table, each FAIL with the JSON path and the one-line fix.
+Output: a numbered status table, each FAIL with the JSON path and the one-line
+fix, and each N/A or NOT VERIFIED with its reason. Keep schema failures,
+behavioral hazards, and migration-only conventions distinct.

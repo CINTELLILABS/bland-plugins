@@ -14,6 +14,9 @@ Read [builder/runtime mapping](references/builder-runtime-map.md) when nodes loo
 disconnected or a JSON edit has no visible effect. Read
 [interruptions](references/interruptions.md) for audio barge-in, scenario changes,
 global-node returns, and active versus retired setting scopes.
+Read [execution phases](references/execution-order.md) for preparation, turn
+processing and post-call order; [tools and handoffs](references/tools-and-handoffs.md)
+for code pins, webhook outcomes, repeated tools, and cold/warm transfer evidence.
 
 ## The routing decision stack
 
@@ -23,7 +26,7 @@ verification gates, after-run actions, and component routing also affect the
 result. Use the actual decision trace and the interruption reference.
 
 1. **Tool loop condition (waiting).** A step tool can carry a loop condition on its response. While it is unmet, the step holds ordinary onward routing and the model keeps conversing on the same step. This is not a blanket prohibition on global diversion or other exceptional routing; check their separate eligibility gates. "Waiting" is not a route the model picks — it is the gate not having released.
-2. **Tool response pathways (deterministic).** When an attached tool fires and has `responsePathways`, each row is checked top to bottom against the tool's output (`trigger variable / operator / value`); the first match FORCES the next step. No model judgment.
+2. **Tool response pathways (deterministic).** When an attached tool fires and has `responsePathways`, conditional rows are checked top to bottom against the tool's output (`trigger variable / operator / value`); the first matching condition FORCES the next step. **`Default/Webhook Completion` is a deferred fallback, regardless of its array position**: it is used only when no conditional row matches. If multiple default rows exist, the first supplies the fallback. A default row before `success == true` does not steal a successful response; do not reorder it to fix that imagined bug. Ordinary broad conditions are still first-match, not deferred defaults. No model judgment.
 3. **Deterministic edges and route steps.** Edge `conditions` rows and `route` step rules evaluate mechanically against call variables. A route step with no matching rule falls to `fallbackNodeId`; with no fallback either, the call hard-fails for that caller.
 4. **Model choice (last).** Only when nothing above decided does the model pick among the step's outgoing edges, using edge labels + descriptions, the step prompt, the system prompt, and conversation history. A self-loop edge is the model-chosen form of waiting. `alwaysPick: true` edges are forced.
 
