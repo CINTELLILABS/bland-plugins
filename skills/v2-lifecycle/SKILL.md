@@ -37,7 +37,7 @@ save version ──► dev (automatic)
 |---|---|---|
 | Outbound `POST /v1/calls` + `agent_id` | **production pin** | `agent_version` selector |
 | Inbound voice (bound number) | **production pin** (or a live experiment arm) | none per-call |
-| Web chat / test-chat socket | **dev head** ("a chat surface shouldn't need a deploy") | `agent_chat_version` |
+| Web chat / test-chat socket | **dev head** ("a chat surface shouldn't need a deploy") | `version_id` query parameter |
 | Builder preview | dev head | — |
 | SMS on a bound number | **the twin pathway's stored graph** — no per-call resolution at all (see below) | none |
 

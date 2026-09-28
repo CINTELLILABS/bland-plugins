@@ -2,6 +2,27 @@
 
 The v2-only Bland plugin: build, migrate, validate, and test v2 agents working directly with raw JSON — v1 pathway exports as migration inputs, agent version snapshots as the output. No markdown scaffolding, no v1 authoring doctrine.
 
+It also supplies a local [product wiki](skills/api-workspace/references/index.md)
+for API-first workspace work, evaluation judges, call analysis, and debugging.
+The plugin owns this reusable product knowledge; the host provides execution,
+credentials, and optional dashboard/voice bridges.
+
+## Codex-native knowledge, loaded as needed
+
+- Short `SKILL.md` entrypoints make tasks discoverable; detailed files live under
+  each skill's `references/` directory inside the plugin archive.
+- Start from the wiki index or the relevant skill. Read the necessary references
+  on demand—do not inject the whole wiki or all call data into every prompt.
+- Work on JSON and large datasets with workspace files and code. Read/change
+  platform resources through the existing Bland MCP/API connection. Dashboard
+  effects reflect accepted work rather than replace the API.
+- Current tool schemas and official docs remain authoritative for requests;
+  this package is not an exhaustive offline API schema or a new SDK.
+- No additional MCP server, runtime service, dependency, or credential is added.
+- Updating this repository does not update a pinned managed runtime. Its owner
+  must refresh the approved plugin revision/file inventory and test the packaged
+  artifact separately. This is not an automatic deployment.
+
 ## Quickstart: migrate a v1 pathway
 
 One prompt does everything, including installing this plugin. You need a Bland API key for the org that owns the pathway; the pathway ID is in the pathway's URL in the dashboard. Fill in the two blanks and paste into Claude Code:
@@ -62,14 +83,25 @@ author snapshot ──► gate 1: AUDIT  (hook re-runs bin/norm-migrate-audit.cj
 
 Written for agents WITHOUT access to the Bland platform source — everything is documented at the level of observable behavior and public API surfaces.
 
+- **api-workspace** — wiki index, generic API primitives, authentication boundaries,
+  async recovery, workspace versus unsaved/saved state, execution-order overview,
+  option navigation, and evidence-first debugging.
+- **evaluations** — judge identity versus rubric versions, calibration, scenario
+  attachments, simulation scoring, call-cohort runs, and execution versus verdict
+  failures.
+- **call-analysis** — bounded call retrieval, offset pagination, reproducible
+  cohorts, workspace analysis, evidence-linked categories, and report artifacts.
+
 - **v2-authoring** — building NEW agents: what scenarios represent (boundaries at one-way seams), hub/entry authoring, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
 - **v2-snapshot** — the exact snapshot dialect (behavior graph, hub, scenarios, step types, tools, settings) and hand-authoring rules.
 - **v2-runtime** — how the agent behaves at call time: the routing decision stack, hub/scenario semantics, variable resolution, code-step execution, behavioral deltas.
 - **v2-migration** — the migration doctrine + the trap catalog accumulated across production migrations (`references/traps.md`).
-- **v2-testing** — the agent-testing API, test-chat WebSocket, grading discipline, and testing-safety rules.
+- **v2-testing** — the agent-testing API, test-chat WebSocket, grading discipline,
+  testing-safety rules, and speech-to-speech evidence (interruption, actual
+  playback, response timing, and adaptive versus deterministic callers).
 - **v2-lifecycle** — the full ship model and API surface: environments (dev/staging/production), publish/promote/rollback and semver minting, which version answers each channel at call time (and the fail-open twin-pathway degradation path), branches/merge/rebase, A/B experiments, `{{env.KEY}}` environment variables, pre-deploy checks (advisory — the client enforces the gate), inbound number binding, identity/BCID, memory schema, the scenario library, and the platform's own migration endpoints. Includes the endpoint dictionary (`references/api.md`).
 
-## Organization safety (BLA-7919)
+## Organization safety
 
 - The plugin's MCP server is distinctly named (`plugin_norm_bland` on hosts without automatic prefixing), and every `/norm:*` command allowlists ONLY the plugin's own namespaced server — never a bare `mcp__bland__*` wildcard that could resolve to a project-scoped server in another organization.
 - `bland_api_key` is OPTIONAL — but understand the keyless mode: the plugin's own MCP server cannot authenticate without it, so commands run in local-tools mode (builder, audit, loop) and any API phase either needs the key configured or an explicit per-call human approval of a project-supplied Bland connection (such tools are outside the commands' allowlists ON PURPOSE — the human approval prompt IS the cross-org safety gate).
