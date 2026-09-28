@@ -35,6 +35,7 @@ Run from the repository root:
 
 ```sh
 node --test dev/scripts/test-norm-wiki.mjs
+node --test dev/scripts/test-norm-materialize.mjs
 git diff --check
 ```
 
@@ -43,11 +44,30 @@ archive, reference reachability, JSON examples, and aligned release versions.
 They are not an API integration or audio test. Also use the Codex plugin
 validator when available; no installation or credential changes are required.
 
+The materializer's consumer test requires a consuming SERVER checkout. From its
+API directory, set `NORM_V2_COMPILER_PATH` to the absolute `toPathway.ts` path and
+run `pnpm exec tsx --test` with this plugin's absolute
+`dev/scripts/test-norm-materialize.mjs` path. It feeds generated snapshots through
+the real save validator, compiler and transfer-field guard. Without that explicit
+path the consumer test is reported skipped, not passed. It makes no API calls.
+
 Review changed files for sensitive content and scope before publishing. No
 keyword scan is proof of confidentiality; read the diff. Bump all four v2 host
 manifests together when preparing a release, per `dev/RELEASING.md`.
 
 ## Behavioral retrieval checks
+
+For existing-agent edits and behavioral diagnosis, also run the
+[maintenance regression cases](benchmarks/v2-maintenance.md). Keep their grading
+rubric outside the shipped `v2/` archive. The heading check supports plain
+Markdown headings, not raw HTML; unsupported headings fail explicitly.
+
+The [v2 surface cases](benchmarks/v2-surface.md) cover execution, transfer field
+dialects, knowledge/memory activation, auth/channel nodes, current promotion
+policy, historical graphs, variable rows, dispositions and API discovery.
+Keep the coverage map current by checking the supported node-type registry and
+agent API families when preparing a release. Do not claim a whole surface is
+verified merely because its name appears in the index.
 
 Test an agent with only `v2/` as its reference source, without server code or
 network calls. Do not preload the entire wiki into its prompt. Ask:

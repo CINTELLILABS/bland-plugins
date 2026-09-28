@@ -13,6 +13,9 @@ it into an executable conversation graph; the builder is a view of that design,
 not the complete runtime graph. Some retained fields are inactive. Read the
 [builder/runtime mapping](../v2-runtime/references/builder-runtime-map.md) before
 interpreting a visual disconnection or editing a field without a visible control.
+The [node catalog](references/node-catalog.md) covers simple/nested scenarios,
+auth zones, channel routing, scheduling, telephony, and verification nodes beyond
+the common shapes below. Consult it before assuming a node family is unsupported.
 
 ## Top level
 
@@ -28,7 +31,7 @@ interpreting a visual disconnection or editing a field without a visible control
 ```
 
 - `settings.systemPrompt` is the agent's global brain — persona, conduct rules, tone. It applies on every step.
-- Push with `POST /v2/agents/:agentId/versions`, body `{"snapshot": {...}, "name": "optional version name"}`. The server validates the snapshot and rejects malformed ones — treat a 4xx here as YOUR bug. An unnamed push may coalesce into an unnamed head version; name versions you want to keep addressable.
+- Push with `POST /v2/agents/:agentId/versions`, body `{"snapshot": {...}, "name": "optional version name"}` plus the documented concurrency fence when editing an existing head. The server rejects malformed snapshots; distinguish validation errors from authentication, conflicts and rate limits using the [API recovery rules](../api-workspace/references/api.md). An unnamed push may coalesce into an unnamed head version; name versions you want to keep addressable.
 
 ## behavior.nodes — the agent graph
 
@@ -73,10 +76,15 @@ condition, and variable row carries a unique `id` (UUID). Positions are layout.
 ### Variables rows (extraction and code inputs)
 
 ```json
-"variables": [{ "id": "<uuid>", "key": "sales_reason", "value": "<what to extract / or a {{placeholder}} for code inputs>" }]
+"variables": [{ "id": "<uuid>", "key": "sales_reason", "value": "The caller's reason for contacting sales", "type": "string", "accurateSpelling": false }]
 ```
 
-On `prompt` steps, rows are LLM extraction: `value` describes what to extract. On `customCode` steps, rows are the snippet's INPUT map: the runtime sends the snippet ONLY these mapped values (resolved against call variables) — nothing else. Map the snippet's full read-set explicitly, e.g. `{"key": "said_name", "value": "{{said_name}}"}`. An unresolved `{{placeholder}}` passes through as the literal string — see the runtime skill for why that matters.
+On `prompt` steps, rows are extraction: `value` describes what to extract;
+`type` and `accurateSpelling` belong to this row contract. On `customCode` steps,
+rows are the snippet's INPUT map (`id`, `key`, `value`), not extraction rows.
+Only these mapped values reach the snippet. Map its full read-set explicitly,
+e.g. `{"id":"<uuid>","key":"said_name","value":"{{said_name}}"}`.
+An unresolved `{{placeholder}}` remains literal; see the runtime skill.
 
 ### Route steps
 
@@ -127,11 +135,19 @@ Two hard facts that cost real migrations:
 
 ## The knob dictionary
 
-Every field on every node/step type — including which knobs are ACTIVE, editor-only, silently dropped at compile, or nonexistent-in-v2 (the "deprecated" list: `toolType:"code"`, inline `code`, top-level `skipUserResponse`, v1 tuple spellings, draft response-pathway rows) — lives in `references/knobs.md` in this skill directory. Read it whenever authoring a field you haven't used before, and NEVER invent a key: unknown keys are rejected or silently ignored depending on surface.
+The [field guide](references/knobs.md) documents important active, editor-only,
+dropped and unsupported options. It is not the exhaustive live schema; use the
+[node catalog](references/node-catalog.md) and connected schema/docs for fields
+not listed. Unknown keys can be rejected or silently ignored depending on the
+surface—never invent them from v1 names or compiled output.
 
 ## Authoring rules (non-negotiable)
 
-- **Carry content verbatim.** Prompts, conditions, transfer numbers, URLs, snippet pins move byte-for-byte from the source JSON. Never paraphrase, never retype — copy programmatically.
+- **During migration, carry content verbatim.** Prompts, conditions, transfer numbers, URLs, snippet pins move byte-for-byte from the source JSON unless an explicit change is approved. For maintenance, make the requested edit and preserve unrelated content; verbatim carriage does not prohibit an authorized prompt change.
 - **Org-scoping**: `snippetId`s, `TL-` tool ids, KB ids, and `{{SECRET.*}}` references resolve ONLY in the org that owns them. Push the agent into the owning org or code steps silently no-op.
 - **A `customCode` step without `snippetId` is inert** — the runtime executes only the pin, never inline `code`.
-- After authoring, run the `/norm:validate` audit before any push, and prove the pins survived: grep the final snapshot for every snippet id and tool id the source used.
+- Before saving, validate the supported schema and applicable checks in
+  [/norm:validate](../../commands/validate.md). Migration architecture conventions
+  are not universal validity requirements. For existing-agent edits follow
+  [maintenance](../v2-maintenance/SKILL.md); preserve unchanged pins as id/version
+  pairs and verify changed behavior on the exact candidate.

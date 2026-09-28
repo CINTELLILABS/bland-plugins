@@ -38,3 +38,7 @@ For live audio evidence read [voice testing](../v2-testing/references/voice.md).
 For agent-testing inline assertions and traces read
 [v2 testing](../v2-testing/SKILL.md). These are related but distinct surfaces;
 do not substitute one surface's status names or request fields for another's.
+
+For agent-scoped structured outputs, extractor versions, annotations and alignment,
+read [dispositions](references/dispositions.md). These have a separate
+draft/estimate/publish lifecycle and are not evaluation-judge configuration fields.

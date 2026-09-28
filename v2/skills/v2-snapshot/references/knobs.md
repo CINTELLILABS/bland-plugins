@@ -25,7 +25,7 @@ target deployment's schema/behavior; plugin availability is not deployment proof
 | `voiceCall.enabled/.record/.fallbackNumber/.maxDurationMinutes/.noiseCancellation/.ignoreButtonPress` | ACTIVE | Voice-channel behavior; `record: false` = no recording. |
 | `voiceCall.requestData`, `voiceCall.metadata` | ACTIVE | Default request-data/metadata rows for voice calls. |
 | `webChat.*` | ACTIVE | Web-chat widget config (enabled, widgetTitle, greetingMessage, allowedOrigins). |
-| `contact.inboundNumbers` | ACTIVE (required) | Must be an array — the platform validator rejects the snapshot without it. |
+| Top-level `contact.inboundNumbers` | ACTIVE (required) | Array, or supported whole-string `{{env.KEY}}`; not nested inside `settings`. Verify resolved values. |
 | `guardrails` | ACTIVE | Inline guardrail definitions, resolved at call time straight off the snapshot (see below). |
 | `memorySchema` | ACTIVE | Rides with `enableMemory` — the structured schema cross-call memory extracts into. |
 
@@ -90,7 +90,7 @@ Design note: migrations to date have preferred systemPrompt folds / hub scenario
 | `prompt` | ACTIVE | The step's instruction text (or static speech when `useStaticText`). |
 | `useStaticText` | ACTIVE | true = `prompt` is spoken verbatim (a `"."` static prompt = the silent pill: nothing generated, nothing to fabricate). |
 | `loopWhile` | ACTIVE | The v2 spelling of v1's node `condition` — hold criteria for the step. |
-| `variables` rows `{id,key,value}` | ACTIVE | LLM extraction (prompt steps) — re-extracted per turn, values persist as call variables. On customCode steps: the EXCLUSIVE snippet input map. |
+| Extraction `variables` rows `{id,key,value,type,accurateSpelling}` | ACTIVE | Conversational extraction; values persist as call variables. Code inputs instead use key/value rows; see the [node catalog](node-catalog.md#variable-rows-two-different-contracts). |
 | `ignorePreviousExtractions`, `useAudioExtraction` | ACTIVE | Extraction modifiers. |
 | `tag` | ACTIVE | Disposition tag carried onto the compiled node. |
 | `media` | ACTIVE | Compiles to `mediaAttachments`. |
@@ -112,7 +112,13 @@ Design note: migrations to date have preferred systemPrompt folds / hub scenario
 
 ## `transfer` steps
 
-`transferNumber` (supports `{{variable}}` destinations), `transferType` ("phone"), `transferExtension`, and `warmTransfer` `{enabled, agentPrompt, mergePrompt, fromNumber, holdMusicUrl, optimizeForIVR, useCustomFromNumber, useCustomHoldMusic, isAgentPromptStatic, useVoicemailMessage, voicemailMessage, voicemailResponseType}` — all ACTIVE. v1 spelling differences: `isEnabled`→`enabled`, `mergeCallPrompt`→`mergePrompt`.
+`transferNumber` (supports `{{variable}}` destinations), `transferType`
+(`phone` or supported `twilio-app`), `transferExtension`, `warmTransfer`, and
+supported SIP/application fields. The native warm-transfer shape uses
+`agentPromptStatic`, `mergePromptStatic`, `timeout`, `dtmfSequence`, and optional
+retry policy—not compiled `isAgentPromptStatic`/`useCustomHoldMusic` names.
+Read [tools and handoffs](../../v2-runtime/references/tools-and-handoffs.md) for
+the field map, warm/cold differences, and what proves a successful transfer.
 
 ## `webhook` steps
 
@@ -141,4 +147,4 @@ Design note: migrations to date have preferred systemPrompt folds / hub scenario
 | Draft responsePathway rows (no variable/target) | DROPPED | Silently removed at compile. |
 | Attached-tool rp field names read literally | TRAP | The skew (label/variable/condition) is deliberate; author in the skew. |
 | v1 tuple spellings (`extractVars` `[name,type,desc]`, header `[k,v]` tuples, `response_data {name,data}`) | NONEXISTENT | v2 uses row objects; carrying v1 tuples verbatim produces inert or crashing config. |
-| `contact` omitted | REJECTED | Validator requires `contact.inboundNumbers` as an array. |
+| `contact` omitted | REJECTED | Validator requires `contact.inboundNumbers` in the supported array/environment-reference form. |

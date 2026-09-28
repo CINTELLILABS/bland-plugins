@@ -2,6 +2,24 @@
 
 ## norm 1.5.0 – 2026-09-27
 
+- Expand the v2 surface map with complete node-family navigation, verification
+  zones, execution phases, tools and handoffs, knowledge/memory activation,
+  collaboration/history, and disposition/extractor workflows.
+- Refresh lifecycle contracts: exact-version promotion, enforced staging check
+  policy, explicit audited bypass semantics, check-environment variables,
+  historical compiled-graph reads and publish preview. Correct extraction-row
+  fields and native warm-transfer field names. Preserve older-server discovery.
+- Correct the migration materializer's native warm-transfer field mapping;
+  preserve static speech, timeout, retry, DTMF and explicit disabled settings.
+  Add a consumer contract test for generated snapshot validation/compilation.
+
+- Add an existing-agent maintenance skill for minimal edits, draft conflicts,
+  version fences, uncertain write outcomes, exact-candidate tests, and management.
+  Correct default tool-response fallback precedence and distinguish interruption
+  recovery from input/audio defects. Add retrieval regression scenarios.
+- Remove HTML stripping from the plain-Markdown heading checker; reject unsupported
+  HTML headings explicitly, with a negative regression test.
+
 - Add explicit JSON → builder → runtime mapping and interruption references.
   Correct mandatory hub-hop and “no globals” guidance, document implicit sibling
   routing and Start-edge entry, and distinguish retired per-node audio fields

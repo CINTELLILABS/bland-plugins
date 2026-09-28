@@ -43,4 +43,14 @@ Multiple Bland connections can coexist in one session; namespace alone proves no
 4. **Create + push**: `create_agent` (or the user's existing agent id) → `save_agent_version` / `POST /v2/agents/:id/versions` with a named version.
 5. **Verify**: `/norm:simulate` — full-coverage suite from the design's lanes + the standard conduct probes (no invented times/numbers/bookings, no callback promises, AI disclosure, chant escalation), write-tool temptation probes, green sweep on one head.
 6. **Convergence loop (recommended)**: the migrate loop works in BUILD MODE — init the state with NO `--source` (`node "${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs" init --snapshot snapshot.json --agent <id>`): the Stop-hook then gates on the STRUCTURAL audit (parity checks skip with no source) + push-after-edit + sims-green-on-head, same as migrations.
-7. **Lifecycle**: load the `v2-lifecycle` skill and ship per the org's flow — publish (dev→staging, mints the semver) then promote (staging→production, no parameters). **Promotion changes what answers live calls — it gets its own approval boundary**: state what you are about to do (`POST /v2/agents/:id/promote`, the semver staging holds, the org) and, in an interactive session, get an explicit go-ahead — the earlier push approval does not carry over (autonomous runs may declare autonomy in the brief; note it in the report). The gates that matter: a call to an agent with NO production pin fails (`AGENT_ENV_UNPINNED`); test-chat runs the DEV HEAD, so a green sweep proves the head, not production; checks (`start_agent_check_run`) never block a promote server-side — start one, poll to PASSED, and only then promote. Branches for ongoing edits; `{{env.KEY}}` variables must have values in EVERY environment the agent will run in before that env takes traffic.
+7. **Lifecycle**: load [v2-lifecycle](../skills/v2-lifecycle/SKILL.md) and follow
+   the supported release mode: publish to staging then promote, or an explicitly
+   selected exact-version promotion. State the org and exact candidate before
+   changing live traffic; approval to save is not approval to promote. Respect
+   the user's explicit authorization and the host's permission policy. Verify
+   the current staging check policy and candidate results; pending/failed required
+   checks block current-server promotion. Do not add `force` or weaken checks to
+   get around a failure. Test-chat defaults to dev, not production. Verify all
+   referenced environment values for the environment taking traffic and read
+   back the resulting pins/deployment history. No production pin can fail calls;
+   inbound fallback behavior is separately described in the lifecycle skill.

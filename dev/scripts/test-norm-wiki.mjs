@@ -7,12 +7,23 @@ import test from 'node:test';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../v2');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const entries = ['api-workspace', 'evaluations', 'call-analysis'];
+const surfaceReferences = [
+  'skills/api-workspace/references/surface-map.md',
+  'skills/v2-runtime/references/execution-order.md',
+  'skills/v2-runtime/references/tools-and-handoffs.md',
+  'skills/v2-snapshot/references/node-catalog.md',
+  'skills/v2-lifecycle/references/resources.md',
+  'skills/evaluations/references/dispositions.md',
+];
 function headingAnchors(text) {
   const anchors = new Set();
   // Packaged references use ATX headings; ignore fenced examples.
   const prose = text.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, '');
   for (const match of prose.matchAll(/^#{1,6}\s+(.+?)\s*#*$/gm)) {
-    const base = match[1].toLowerCase().replace(/<[^>]*>/g, '')
+    // This is a plain-Markdown slug checker, not an HTML sanitizer/renderer.
+    // Fail explicitly rather than guessing how raw HTML changes a heading slug.
+    assert.ok(!/<\/?[a-z!]/i.test(match[1]), 'HTML headings are unsupported; use plain Markdown');
+    const base = match[1].toLowerCase()
       .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, '').replace(/\s/g, '-');
     let slug = base;
     for (let suffix = 1; anchors.has(slug); suffix++) slug = `${base}-${suffix}`;
@@ -53,7 +64,18 @@ const newPages = () => entries.flatMap((name) => {
   resolve(root, 'skills/v2-testing/references/voice.md'),
   resolve(root, 'skills/v2-runtime/references/builder-runtime-map.md'),
   resolve(root, 'skills/v2-runtime/references/interruptions.md'),
+  ...surfaceReferences.map((file) => resolve(root, file)),
 );
+
+test('full-surface references are reachable from the wiki and their specialist skill', () => {
+  const wiki = visitReferences(resolve(root, 'skills/api-workspace/references/index.md'));
+  for (const file of surfaceReferences) {
+    assert.ok(existsSync(resolve(root, file)), `missing surface reference: ${file}`);
+    assert.ok(wiki.has(resolve(root, file)), `not discoverable: ${file}`);
+    const skill = resolve(root, file.split('/references/')[0], 'SKILL.md');
+    assert.ok(visitReferences(skill).has(resolve(root, file)), `unlinked from skill: ${file}`);
+  }
+});
 
 test('runtime entrypoint and wiki index both discover the mapping references', () => {
   for (const entry of ['skills/v2-runtime/SKILL.md', 'skills/api-workspace/references/index.md']) {
@@ -62,6 +84,20 @@ test('runtime entrypoint and wiki index both discover the mapping references', (
       assert.ok(seen.has(resolve(root, `skills/v2-runtime/references/${name}`)),
         `${entry} cannot discover ${name}`);
     }
+  }
+});
+
+test('maintenance is discoverable and routes to existing specialist skills', () => {
+  const entry = 'skills/v2-maintenance/SKILL.md';
+  const text = read(entry);
+  assert.match(text, /^---\nname: v2-maintenance\ndescription: Use when .+\n---\n/);
+  assert.ok(text.split(/\s+/).length < 650);
+  for (const start of ['README.md', 'skills/api-workspace/references/index.md']) {
+    assert.ok(visitReferences(resolve(root, start)).has(resolve(root, entry)), start);
+  }
+  const seen = visitReferences(resolve(root, entry));
+  for (const name of ['api-workspace', 'v2-snapshot', 'v2-runtime', 'v2-testing', 'v2-lifecycle', 'evaluations', 'call-analysis']) {
+    assert.ok(seen.has(resolve(root, `skills/${name}/SKILL.md`)), `missing maintenance capability: ${name}`);
   }
 });
 
@@ -112,6 +148,13 @@ test('reference validation checks local and cross-file heading anchors', () => {
   assert.equal(localLinks('[good](#variables)', from)[0], from);
   assert.equal(localLinks('[good](references/interruptions.md#scenariotopic-changes)', from)[0],
     resolve(root, 'skills/v2-runtime/references/interruptions.md'));
+});
+
+test('heading checks reject unsupported HTML rather than pretending to sanitize it', () => {
+  for (const heading of ['# <b>Heading</b>', '# <scr<script>ipt>Heading']) {
+    assert.throws(() => headingAnchors(heading), /HTML headings are unsupported/);
+  }
+  assert.deepEqual([...headingAnchors('# Plain `text`\n# Plain `text`')], ['plain-text', 'plain-text-1']);
 });
 
 test('reference validation rejects broken and escaped links', () => {

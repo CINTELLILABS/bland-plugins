@@ -14,6 +14,8 @@ substitute for missing API access.
 ## Load only what this task needs
 
 - [Wiki index](references/index.md): task → relevant skill/reference.
+- [Full v2 surface map](references/surface-map.md): product families, state ownership,
+  node/runtime semantics, operations and capability limits.
 - [API contract](references/api.md): discovery, authentication, bounded retries,
   asynchronous operations, and write verification.
 - [Workspace and page state](references/workspace.md): local files, unsaved draft,
