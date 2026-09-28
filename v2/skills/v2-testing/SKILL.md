@@ -1,9 +1,15 @@
 ---
 name: v2-testing
-description: Verifying a Bland v2 agent with platform simulations and test-chat probes — the agent-testing API contract, request-data fixtures, engine-trace grading, the test-chat WebSocket recipe, and testing-safety rules for live integrations. Use when setting up sims, grading results, running test chats, or deciding whether a test is safe to run at all.
+description: Use when verifying Bland v2 agents with simulations, test chat, or speech-to-speech tests; measuring interruptions or response latency; grading engine traces; or deciding whether a test is safe. Covers fixtures, the agent-testing API, voice evidence, and live-integration safety.
 ---
 
 # Testing v2 Agents
+
+For speech-to-speech, interruptions, and latency, read
+[voice testing and evidence](references/voice.md). Text tests do not prove audible
+behavior. For persistent judges attached to test cases and `/simulate` scoring,
+read [evaluations](../evaluations/SKILL.md); the inline-assertion `/run` flow below
+is a distinct API surface.
 
 > **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
@@ -44,7 +50,7 @@ Create — `POST /v1/agent-testing/scenarios`:
 
 - ~1 scenario per terminal/lane of the agent: each transfer destination, each deflection, each close, plus conduct probes (AI disclosure, human-request).
 - Personas must be COMPLETABLE: give them every fact the flow can demand (account numbers, confirmations), and make probe timing explicit ("ask on your FIRST turn") — a persona that can't finish wedges the flow exactly as a real broken caller would, and that's a harness artifact, not an agent bug.
-- Judges grade outcomes and conduct, worded to ignore hang-up timing (v2 hangs up one turn later by design).
+- Judges grade outcomes and conduct. Test termination timing separately; do not assume a fixed extra turn from the authoring graph.
 - Assertions encode the SOURCE system's actual behavior, not idealized behavior.
 
 ### Grading discipline
@@ -58,14 +64,20 @@ Create — `POST /v1/agent-testing/scenarios`:
 
 ## Test-chat probes (the builder WebSocket)
 
-The real test chat surface (works for voice-style agents; the SMS preview endpoint does not):
+The real test chat surface supports voice-style agents; the SMS preview endpoint
+does not. **Prerequisite:** the host must supply an approved test-chat WebSocket
+URL (base and path), a WebSocket-capable connection mechanism, and permission to
+use the short-lived token on that target. The plugin's packaged HTTP MCP URL is
+not that socket URL and cannot be transformed into one. No socket target is
+bundled. If this host configuration is absent, skip direct probes, use platform
+simulations, and explicitly report the missing direct-chat coverage.
 
-1. `GET /v1/pathway/session` with your API key → `data.token`.
-2. Connect: `wss://stream-v2.aws.<dc>.bland.ai/ws/connect/<placementGroup>?agent_chat=<agentId>&version_id=latest&token=<token>` (shared orgs: placement group `blandpathwaychat`, dc `dc8`).
+1. Use the authenticated Bland connection for `GET /v1/pathway/session` → `data.token`. Keep the short-lived token out of chat and reports.
+2. Use the host's configured test-chat WebSocket base/path, with URL-encoded query parameters `agent_chat=<agentId>&version_id=<selector>&token=<token>`. `version_id` is the public query field and defaults to `latest`; use the intended explicit selector when testing a specific environment or published version. Do not guess a regional hostname or switch connection targets. If the host does not expose a supported connection mechanism, use the simulation API or report that direct socket testing is unavailable.
 3. Send `{"type":"setup","payload":{"requestData":[{"key":"from","value":"+15555550100"}]}}`, then `{"type":"text","payload":"<caller turn>"}` per turn.
 4. Keepalive: a binary `[1]` frame every ~10s. A `pathway_end_call` close is a real hang-up. `callID` frames give you the call id for log retrieval.
 
-Probes are for scripted mechanics (does the greeting fire, does lane X route, does the AI-disclosure rule hold) — drive fixed turns, print every frame, judge by eye + call log. A dead-silent socket against a dedicated placement group usually means that group's infrastructure predates agent test chat — test on the shared group or ask Bland.
+Probes are for scripted mechanics (does the greeting fire, does lane X route, does the AI-disclosure rule hold) — drive fixed turns and inspect relevant, redacted frames plus the call log. A silent socket does not identify the cause: check the supported connection, authentication, target version, and events. Do not switch organizations or endpoints to make a test appear to work.
 
 ## What testing cannot prove alone
 

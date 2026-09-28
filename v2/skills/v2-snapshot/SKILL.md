@@ -8,7 +8,14 @@ description: The Bland v2 agent snapshot dialect — the exact JSON shape of an 
 > **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
 
-A v2 agent version is one JSON document (the "snapshot"). The platform compiles it deterministically into a flat conversation graph at call time — there is no separate v2 runtime. What you author is what runs. Everything below is the exact wire dialect, taken from real production snapshots.
+A v2 agent version is one JSON document (the "snapshot"). The platform compiles
+it into an executable conversation graph; the builder is a view of that design,
+not the complete runtime graph. Some retained fields are inactive. Read the
+[builder/runtime mapping](../v2-runtime/references/builder-runtime-map.md) before
+interpreting a visual disconnection or editing a field without a visible control.
+The [node catalog](references/node-catalog.md) covers simple/nested scenarios,
+auth zones, channel routing, scheduling, telephony, and verification nodes beyond
+the common shapes below. Consult it before assuming a node family is unsupported.
 
 ## Top level
 
@@ -24,7 +31,7 @@ A v2 agent version is one JSON document (the "snapshot"). The platform compiles 
 ```
 
 - `settings.systemPrompt` is the agent's global brain — persona, conduct rules, tone. It applies on every step.
-- Push with `POST /v2/agents/:agentId/versions`, body `{"snapshot": {...}, "name": "optional version name"}`. The server validates the snapshot and rejects malformed ones — treat a 4xx here as YOUR bug. An unnamed push may coalesce into an unnamed head version; name versions you want to keep addressable.
+- Push with `POST /v2/agents/:agentId/versions`, body `{"snapshot": {...}, "name": "optional version name"}` plus the documented concurrency fence when editing an existing head. The server rejects malformed snapshots; distinguish validation errors from authentication, conflicts and rate limits using the [API recovery rules](../api-workspace/references/api.md). An unnamed push may coalesce into an unnamed head version; name versions you want to keep addressable.
 
 ## behavior.nodes — the agent graph
 
@@ -43,11 +50,18 @@ A v2 agent version is one JSON document (the "snapshot"). The platform compiles 
 "entry": { "mode": "llm", "label": "Sales", "description": "<the routing criteria, verbatim>", "alwaysPick": false }
 ```
 
-The `description` is the routing contract: the hub model reads all entries after each caller turn and picks. Carry routing criteria **verbatim from the source of truth** (in migrations: the v1 route conditions / persona pathway_conditions). `rule` is a short human summary of what the scenario owns.
+The `description` is the entry routing contract for eligible generated hub and
+sibling routes. Explicit incoming routing edges affect auto-entry eligibility;
+do not assume all entries are available from every step. Carry criteria verbatim
+in migrations. `rule` is a short human summary of what the scenario owns.
 
 ## flow.nodes — the steps inside a complex scenario
 
-Order: `[{type:"start"}, ...steps..., {type:"end"}]`. The `start` and `end` pills are required; the end pill is the exit — an edge to it returns control to the hub. Every node, edge, rule, condition, and variable row carries a unique `id` (UUID). Positions (`position: {x,y}`) are cosmetic but expected.
+Use `[{type:"start"}, ...steps..., {type:"end"}]` as an authoring convention.
+The required Start pill must have an outgoing edge to the intended entry step;
+array order and visual position do not establish that entry. End is a component
+exit, not a phone hang-up or a guarantee of a hub hop. Every node, edge, rule,
+condition, and variable row carries a unique `id` (UUID). Positions are layout.
 
 | type | data shape (key fields) |
 |---|---|
@@ -62,10 +76,15 @@ Order: `[{type:"start"}, ...steps..., {type:"end"}]`. The `start` and `end` pill
 ### Variables rows (extraction and code inputs)
 
 ```json
-"variables": [{ "id": "<uuid>", "key": "sales_reason", "value": "<what to extract / or a {{placeholder}} for code inputs>" }]
+"variables": [{ "id": "<uuid>", "key": "sales_reason", "value": "The caller's reason for contacting sales", "type": "string", "accurateSpelling": false }]
 ```
 
-On `prompt` steps, rows are LLM extraction: `value` describes what to extract. On `customCode` steps, rows are the snippet's INPUT map: the runtime sends the snippet ONLY these mapped values (resolved against call variables) — nothing else. Map the snippet's full read-set explicitly, e.g. `{"key": "said_name", "value": "{{said_name}}"}`. An unresolved `{{placeholder}}` passes through as the literal string — see the runtime skill for why that matters.
+On `prompt` steps, rows are extraction: `value` describes what to extract;
+`type` and `accurateSpelling` belong to this row contract. On `customCode` steps,
+rows are the snippet's INPUT map (`id`, `key`, `value`), not extraction rows.
+Only these mapped values reach the snippet. Map its full read-set explicitly,
+e.g. `{"id":"<uuid>","key":"said_name","value":"{{said_name}}"}`.
+An unresolved `{{placeholder}}` remains literal; see the runtime skill.
 
 ### Route steps
 
@@ -81,19 +100,23 @@ On `prompt` steps, rows are LLM extraction: `value` describes what to extract. O
 - `mode: "llm"` — the model chooses using label + description.
 - `mode: "deterministic"` — `conditions` rows (`field/operator/value` on call variables) decide mechanically.
 - `alwaysPick: true` — forced traversal (use after a `customCode` step to its router).
-- Exits: draw one edge per DISTINCT exit intent from a step to the end pill, each with its own label — never merge two intents into one exit edge (the hub loses the intent).
+- Exits: preserve one edge per DISTINCT exit intent from a step to the end pill,
+  each with its own label. Verify the outer continuation instead of assuming an
+  exit necessarily visits the hub.
 
 ### Step settings
 
 ```json
 "settings": { "tag": null, "media": [],
   "global": { "isGlobal": false, "label": "", "description": "", "returnMode": "previous", "forwardingNode": "" },
-  "advanced": { "temperature": 0.2, "interruptionThreshold": null, "skipUserResponse": false,
-                "blockInterruptions": false, "interruptibility": null, "disableRecording": false,
-                "disableLogging": false, "backgroundTrack": "" } }
+  "advanced": { "temperature": 0.2, "skipUserResponse": false,
+                "disableRecording": false, "disableLogging": false } }
 ```
 
 `skipUserResponse: true` = the step acts without waiting for the caller (silent pills, code steps).
+Per-node audio overrides retained in old JSON are not active in the current v2
+compiler. Use Calls → Conversation feel; see
+[interruption scope](../v2-runtime/references/interruptions.md).
 
 ## Attached tools on a step (`data.tools[]`)
 
@@ -112,11 +135,19 @@ Two hard facts that cost real migrations:
 
 ## The knob dictionary
 
-Every field on every node/step type — including which knobs are ACTIVE, editor-only, silently dropped at compile, or nonexistent-in-v2 (the "deprecated" list: `toolType:"code"`, inline `code`, top-level `skipUserResponse`, v1 tuple spellings, draft response-pathway rows) — lives in `references/knobs.md` in this skill directory. Read it whenever authoring a field you haven't used before, and NEVER invent a key: unknown keys are rejected or silently ignored depending on surface.
+The [field guide](references/knobs.md) documents important active, editor-only,
+dropped and unsupported options. It is not the exhaustive live schema; use the
+[node catalog](references/node-catalog.md) and connected schema/docs for fields
+not listed. Unknown keys can be rejected or silently ignored depending on the
+surface—never invent them from v1 names or compiled output.
 
 ## Authoring rules (non-negotiable)
 
-- **Carry content verbatim.** Prompts, conditions, transfer numbers, URLs, snippet pins move byte-for-byte from the source JSON. Never paraphrase, never retype — copy programmatically.
+- **During migration, carry content verbatim.** Prompts, conditions, transfer numbers, URLs, snippet pins move byte-for-byte from the source JSON unless an explicit change is approved. For maintenance, make the requested edit and preserve unrelated content; verbatim carriage does not prohibit an authorized prompt change.
 - **Org-scoping**: `snippetId`s, `TL-` tool ids, KB ids, and `{{SECRET.*}}` references resolve ONLY in the org that owns them. Push the agent into the owning org or code steps silently no-op.
 - **A `customCode` step without `snippetId` is inert** — the runtime executes only the pin, never inline `code`.
-- After authoring, run the `/norm:validate` audit before any push, and prove the pins survived: grep the final snapshot for every snippet id and tool id the source used.
+- Before saving, validate the supported schema and applicable checks in
+  [/norm:validate](../../commands/validate.md). Migration architecture conventions
+  are not universal validity requirements. For existing-agent edits follow
+  [maintenance](../v2-maintenance/SKILL.md); preserve unchanged pins as id/version
+  pairs and verify changed behavior on the exact candidate.

@@ -2,6 +2,12 @@
 
 Field-by-field reference for authors. STATUS meanings: **ACTIVE** (the compiler/runtime consumes it), **EDITOR-ONLY** (persisted for the editor, never executes), **DROPPED** (silently discarded at compile), **NONEXISTENT** (a v1 concept with no v2 spelling — authoring it does nothing or fails). Facts here are compile-observable: a knob is ACTIVE iff it changes the compiled graph or runtime behavior.
 
+Scope matters: the current v2 compiler omits retired per-node audio fields even
+when an older snapshot still contains them. See
+[interruptions](../../v2-runtime/references/interruptions.md) and
+[builder mapping](../../v2-runtime/references/builder-runtime-map.md). Confirm the
+target deployment's schema/behavior; plugin availability is not deployment proof.
+
 ## Agent-level `settings`
 
 | Knob | Status | Behavior |
@@ -10,14 +16,16 @@ Field-by-field reference for authors. STATUS meanings: **ACTIVE** (the compiler/
 | `displayName` | ACTIVE | Agent display name. |
 | `voice` | ACTIVE | Voice id; `""` = platform default. |
 | `languages` | ACTIVE | e.g. `["english"]`. |
-| `interruptionSensitivity` | ACTIVE | CALL-level interruption baseline (number, e.g. 350). Distinct from the per-step `interruptionThreshold`. |
-| `backgroundNoise` | ACTIVE | `"off"` or a track preset — call-level baseline; steps can override via `advanced.backgroundTrack`. |
+| `interruptionSensitivity` | ACTIVE | Call-level threshold; not a measured response time. Retained per-step thresholds are not active overrides in the current v2 compiler. |
+| `blockInterruptions`, `interruptibility` | ACTIVE | Call-level audio controls under Calls → Conversation feel; blocking is distinct from routing holds. |
+| `agentBackchannelLevel`, `agentBackchannelConfig` | ACTIVE | Call-level acknowledgment/murmur policy; consult current schema for supported levels and defaults. |
+| `backgroundNoise` | ACTIVE | Call-level background selection; retained `advanced.backgroundTrack` does not override it in the current v2 compiler. |
 | `enableMemory` | ACTIVE | Cross-call memory toggle. |
 | `reactions`, `tapbackReactions` | ACTIVE | Chat-channel reaction config. |
 | `voiceCall.enabled/.record/.fallbackNumber/.maxDurationMinutes/.noiseCancellation/.ignoreButtonPress` | ACTIVE | Voice-channel behavior; `record: false` = no recording. |
 | `voiceCall.requestData`, `voiceCall.metadata` | ACTIVE | Default request-data/metadata rows for voice calls. |
 | `webChat.*` | ACTIVE | Web-chat widget config (enabled, widgetTitle, greetingMessage, allowedOrigins). |
-| `contact.inboundNumbers` | ACTIVE (required) | Must be an array — the platform validator rejects the snapshot without it. |
+| Top-level `contact.inboundNumbers` | ACTIVE (required) | Array, or supported whole-string `{{env.KEY}}`; not nested inside `settings`. Verify resolved values. |
 | `guardrails` | ACTIVE | Inline guardrail definitions, resolved at call time straight off the snapshot (see below). |
 | `memorySchema` | ACTIVE | Rides with `enableMemory` — the structured schema cross-call memory extracts into. |
 
@@ -46,23 +54,28 @@ Array of guardrail objects, each `{id, kind, actions[]}`. Kinds:
 | Knob | Default | Status | Behavior |
 |---|---|---|---|
 | `temperature` | 0.2 | ACTIVE | Emitted only when ≠ 0.2. |
-| `interruptionThreshold` | null | ACTIVE | Per-step interruption override (ms-ish score, e.g. 573/800/900). null = inherit call baseline. |
+| `interruptionThreshold` | retained legacy value | DROPPED | Per-node audio setting retired; use the active call-level control. |
 | `skipUserResponse` | false | ACTIVE | Step acts without waiting for a caller turn (silent pills, code steps). Must live HERE — a top-level key of the same name is not a v2 spelling. |
-| `blockInterruptions` | false | ACTIVE | Compiles to `block_interruptions`. |
-| `interruptibility` | null | ACTIVE | Fine-grained interruptibility override. |
-| `agentBackchannelLevel` | null | ACTIVE | null = inherit call baseline; **0 = explicit OFF** (the one value that must be emitted to mean off); >0 enables per-step murmurs. |
-| `agentBackchannelConfig` | — | ACTIVE, gated | `{continuersOnly, blockedTokens[]}` — only emitted when riding an enabled level (>0); with level null/0 a stored config is DROPPED at compile (would contradict off/inherit). |
-| `backgroundTrack` | "" | ACTIVE, tri-state | `""` = inherit the call-level track; `"off"` = explicitly silence at this step; any other value = preset name/URL. |
+| `blockInterruptions` | retained legacy value | DROPPED | Per-node audio setting retired; does not prevent routing changes. |
+| `interruptibility` | retained legacy value | DROPPED | Per-node audio setting retired. |
+| `agentBackchannelLevel` | retained legacy value | DROPPED | Per-node acknowledgment setting retired. |
+| `agentBackchannelConfig` | retained legacy value | DROPPED | Per-node policy retired regardless of stored level. |
+| `backgroundTrack` | retained legacy value | DROPPED | Per-node background setting retired. |
 | `disableRecording`, `disableLogging` | false | ACTIVE | Compile into `privacySettings` on the step. |
 | `disableSilenceRepeat` | false | ACTIVE | Suppresses the silence re-prompt at this step. |
 | `conditionOverridesGlobalPathway` | false | ACTIVE | This step's loop condition outranks global-node interruption. |
 | `excludeResponseFromHistory` | false | ACTIVE | Step's response kept out of the transcript context. |
 
+The active flow-control rows above apply to executable steps. On hub/scenario
+cards, the current compiler omits `temperature`, `skipUserResponse`,
+`disableSilenceRepeat`, `conditionOverridesGlobalPathway`, and tags. Privacy and
+history-exclusion settings remain supported at both scopes.
+
 ## Step `settings.global` — step-level GLOBALS exist in v2
 
 | Knob | Status | Behavior |
 |---|---|---|
-| `isGlobal` | ACTIVE | true compiles the step into a runtime GLOBAL node — reachable from anywhere in the compiled agent when its label/description matches. false = nothing emitted. |
+| `isGlobal` | ACTIVE | Makes the step eligible for global router selection without ordinary inbound edges; loop/verification/other runtime gates can still affect selection. false = nothing emitted. |
 | `label` / `description` | ACTIVE (when global) | Compile to `globalLabel` / `globalDescription` — the fire-condition text. |
 | `returnMode: "previous"` | ACTIVE (default) | Legacy auto-return: after the global speaks, return to the interrupted node. |
 | `returnMode: "redirect"` + `forwardingNode` | ACTIVE | The redirect target generates the response. |
@@ -77,7 +90,7 @@ Design note: migrations to date have preferred systemPrompt folds / hub scenario
 | `prompt` | ACTIVE | The step's instruction text (or static speech when `useStaticText`). |
 | `useStaticText` | ACTIVE | true = `prompt` is spoken verbatim (a `"."` static prompt = the silent pill: nothing generated, nothing to fabricate). |
 | `loopWhile` | ACTIVE | The v2 spelling of v1's node `condition` — hold criteria for the step. |
-| `variables` rows `{id,key,value}` | ACTIVE | LLM extraction (prompt steps) — re-extracted per turn, values persist as call variables. On customCode steps: the EXCLUSIVE snippet input map. |
+| Extraction `variables` rows `{id,key,value,type,accurateSpelling}` | ACTIVE | Conversational extraction; values persist as call variables. Code inputs instead use key/value rows; see the [node catalog](node-catalog.md#variable-rows-two-different-contracts). |
 | `ignorePreviousExtractions`, `useAudioExtraction` | ACTIVE | Extraction modifiers. |
 | `tag` | ACTIVE | Disposition tag carried onto the compiled node. |
 | `media` | ACTIVE | Compiles to `mediaAttachments`. |
@@ -99,7 +112,13 @@ Design note: migrations to date have preferred systemPrompt folds / hub scenario
 
 ## `transfer` steps
 
-`transferNumber` (supports `{{variable}}` destinations), `transferType` ("phone"), `transferExtension`, and `warmTransfer` `{enabled, agentPrompt, mergePrompt, fromNumber, holdMusicUrl, optimizeForIVR, useCustomFromNumber, useCustomHoldMusic, isAgentPromptStatic, useVoicemailMessage, voicemailMessage, voicemailResponseType}` — all ACTIVE. v1 spelling differences: `isEnabled`→`enabled`, `mergeCallPrompt`→`mergePrompt`.
+`transferNumber` (supports `{{variable}}` destinations), `transferType`
+(`phone` or supported `twilio-app`), `transferExtension`, `warmTransfer`, and
+supported SIP/application fields. The native warm-transfer shape uses
+`agentPromptStatic`, `mergePromptStatic`, `timeout`, `dtmfSequence`, and optional
+retry policy—not compiled `isAgentPromptStatic`/`useCustomHoldMusic` names.
+Read [tools and handoffs](../../v2-runtime/references/tools-and-handoffs.md) for
+the field map, warm/cold differences, and what proves a successful transfer.
 
 ## `webhook` steps
 
@@ -124,8 +143,8 @@ Design note: migrations to date have preferred systemPrompt folds / hub scenario
 | `toolType: "code"` | NONEXISTENT | v1's snippet-backed attached tool has no v2 spelling. Re-represent as customCode step + route step (see the migration traps). |
 | `customCode.code` | EDITOR-ONLY | Never executes; the pin is the artifact. |
 | Top-level `skipUserResponse` on a step | NONEXISTENT | Only `settings.advanced.skipUserResponse` is real. |
-| `agentBackchannelConfig` without an enabled level | DROPPED | Compile discards it. |
+| Per-node audio/backchannel/background fields | DROPPED | Current v2 uses call-level controls; retained old values do not prove an active override. |
 | Draft responsePathway rows (no variable/target) | DROPPED | Silently removed at compile. |
 | Attached-tool rp field names read literally | TRAP | The skew (label/variable/condition) is deliberate; author in the skew. |
 | v1 tuple spellings (`extractVars` `[name,type,desc]`, header `[k,v]` tuples, `response_data {name,data}`) | NONEXISTENT | v2 uses row objects; carrying v1 tuples verbatim produces inert or crashing config. |
-| `contact` omitted | REJECTED | Validator requires `contact.inboundNumbers` as an array. |
+| `contact` omitted | REJECTED | Validator requires `contact.inboundNumbers` in the supported array/environment-reference form. |

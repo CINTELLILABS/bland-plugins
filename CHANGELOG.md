@@ -1,5 +1,48 @@
 # Changelog
 
+## norm 1.5.0 – 2026-09-27
+
+- Expand the v2 surface map with complete node-family navigation, verification
+  zones, execution phases, tools and handoffs, knowledge/memory activation,
+  collaboration/history, and disposition/extractor workflows.
+- Refresh lifecycle contracts: exact-version promotion, enforced staging check
+  policy, explicit audited bypass semantics, check-environment variables,
+  historical compiled-graph reads and publish preview. Correct extraction-row
+  fields and native warm-transfer field names. Preserve older-server discovery.
+- Correct the migration materializer's native warm-transfer field mapping;
+  preserve static speech, timeout, retry, DTMF and explicit disabled settings.
+  Add a consumer contract test for generated snapshot validation/compilation.
+
+- Add an existing-agent maintenance skill for minimal edits, draft conflicts,
+  version fences, uncertain write outcomes, exact-candidate tests, and management.
+  Correct default tool-response fallback precedence and distinguish interruption
+  recovery from input/audio defects. Add retrieval regression scenarios.
+- Remove HTML stripping from the plain-Markdown heading checker; reject unsupported
+  HTML headings explicitly, with a negative regression test.
+
+- Add explicit JSON → builder → runtime mapping and interruption references.
+  Correct mandatory hub-hop and “no globals” guidance, document implicit sibling
+  routing and Start-edge entry, and distinguish retired per-node audio fields
+  from active Calls controls. Clarify migration-audit reachability limitations.
+
+- Add task-discoverable API workspace, evaluations, and call-analysis skills with
+  a linked, locally packaged product wiki. References cover execution order,
+  settings interactions, debugging, state reconciliation, judge/test-case
+  workflows, and reproducible analysis of large call cohorts.
+- Add voice-test evidence guidance distinguishing text simulation, browser
+  playback, and phone calls; document interruption and latency measurement limits.
+- Keep API access on the existing Bland MCP primitives. No new server, runtime
+  code, permission grant, or automatic synchronization is introduced.
+- Align the Codex manifest's skill path and logo with plugin-root conventions
+  and add discovery metadata. Host manifest versions remain aligned.
+- Add dependency-free wiki packaging/link/example checks and maintainer guidance.
+- Validate heading anchors and advertise evaluations/call analysis across host
+  listings. Explain structured insufficient-evidence results, simulation set/run
+  identity, and required host configuration for optional direct-chat probes.
+- Correct the lifecycle reference's test-chat selector name to `version_id`;
+  use host-provided socket routing rather than a hardcoded deployment address.
+
+
 ## norm 1.4.2 – 2026-09-19
 
 - Fix: the plugin's Bland MCP server never registered on install — the config
@@ -53,7 +96,7 @@ Review fixes (12 findings triaged, 8 real):
 
 ## norm 1.2.2 – 2026-09-16
 
-Organization-collision hardening (BLA-7919):
+Organization-collision hardening:
 
 - Every `/norm:*` command's `allowed-tools` now permits ONLY the plugin's own namespaced MCP server — the bare `mcp__bland__*` wildcard (which can match a project-scoped server in a different organization) is gone.
 - Cross-host manifests name the server `plugin_norm_bland` so hosts without automatic prefixing cannot collide with a project-defined `bland` server.
@@ -105,7 +148,7 @@ Agents were placing calls that sound robotic. `create_call` rejects every field 
 
 ## 2.1.1 – 2026-09-10
 
-The hosted MCP gained `stop_call` and `list_voices` (SERVER BLA-8082), and a call without a voice now uses Karen.
+The hosted MCP gained `stop_call` and `list_voices`, and a call without a voice now uses Karen.
 
 - **`calls`:** stop a call with `stop_call` instead of the REST passthrough. A new Voice section says to omit `voice` for the default, suggest voices from `list_voices`, and pass the chosen voice's `id`. A voice the user names is used as given.
 - **`persona`:** choose a voice with `list_voices` first. The `GET /v1/voices` jq recipe now keeps only public curated voices whose `service` is `BTTS_V3`, the same set `list_voices` returns.
@@ -114,7 +157,7 @@ The hosted MCP gained `stop_call` and `list_voices` (SERVER BLA-8082), and a cal
 
 ## 2.1.0 — 2026-09-10
 
-Two skills for the jobs the plugin could not do yet: placing calls and texting. They replace the `create-call`, `monitor-call`, `live-listen`, and `send-sms` skills in `CINTELLILABS/bland-skills`, which is being retired (BLA-8064), rewritten for the hosted MCP tools and the REST passthrough instead of that repo's stdio tool names and shell scripts.
+Two skills for the jobs the plugin could not do yet: placing calls and texting. They replace the `create-call`, `monitor-call`, `live-listen`, and `send-sms` skills in `CINTELLILABS/bland-skills`, which is being retired, rewritten for the hosted MCP tools and the REST passthrough instead of that repo's stdio tool names and shell scripts.
 
 - **`calls`:** place a call with `create_call`, or with `POST /v1/calls` for personas, voicemail handling, transcription keywords, and recording; follow it with `wait_for_call` and `get_call_log`; stop it; stream its live transcript or audio from a terminal. Covers the Agent Phone Plan's default caller ID and its call limits.
 - **`messaging`:** send a text with `POST /v1/sms/send` and give the conversation an `objective` so replies pursue that goal instead of the number's generic prompt; read threads; change the number's texting prompt. Covers the plan's text limits and the delay before a new number can text.

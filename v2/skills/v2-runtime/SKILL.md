@@ -1,6 +1,6 @@
 ---
 name: v2-runtime
-description: How a Bland v2 agent actually behaves at call time — the node routing decision stack (loop conditions, tool response pathways, deterministic edges, model choice), hub/scenario semantics, variable resolution, code-step execution, and the behavioral deltas every author must plan for. Use when predicting or debugging live agent behavior, explaining routing decisions, or answering "why did the call go there".
+description: Use when predicting or debugging Bland v2 runtime behavior, explaining routing or interruptions, or reconciling edited snapshot JSON with the builder canvas, hidden routes, and call traces.
 ---
 
 # v2 Agent Runtime Behavior
@@ -10,23 +10,43 @@ description: How a Bland v2 agent actually behaves at call time — the node rou
 
 A v2 snapshot compiles to a flat conversation graph; the same engine that runs pathways runs it. These are the observable rules that govern every call.
 
+Read [builder/runtime mapping](references/builder-runtime-map.md) when nodes look
+disconnected or a JSON edit has no visible effect. Read
+[interruptions](references/interruptions.md) for audio barge-in, scenario changes,
+global-node returns, and active versus retired setting scopes.
+Read [execution phases](references/execution-order.md) for preparation, turn
+processing and post-call order; [tools and handoffs](references/tools-and-handoffs.md)
+for code pins, webhook outcomes, repeated tools, and cold/warm transfer evidence.
+
 ## The routing decision stack
 
-At any step, the next hop is decided by the FIRST layer that claims it — in this order:
+For ordinary step routing, inspect these mechanisms before blaming model choice.
+This is not an exhaustive universal priority order: global-node selection,
+verification gates, after-run actions, and component routing also affect the
+result. Use the actual decision trace and the interruption reference.
 
-1. **Tool loop condition (waiting).** A step tool can carry a loop condition on its response. While it is unmet, the step holds: the model keeps conversing on the same step and no routing happens. "Waiting" is not a route the model picks — it is the gate not having released.
-2. **Tool response pathways (deterministic).** When an attached tool fires and has `responsePathways`, each row is checked top to bottom against the tool's output (`trigger variable / operator / value`); the first match FORCES the next step. No model judgment.
+1. **Tool loop condition (waiting).** A step tool can carry a loop condition on its response. While it is unmet, the step holds ordinary onward routing and the model keeps conversing on the same step. This is not a blanket prohibition on global diversion or other exceptional routing; check their separate eligibility gates. "Waiting" is not a route the model picks — it is the gate not having released.
+2. **Tool response pathways (deterministic).** When an attached tool fires and has `responsePathways`, conditional rows are checked top to bottom against the tool's output (`trigger variable / operator / value`); the first matching condition FORCES the next step. **`Default/Webhook Completion` is a deferred fallback, regardless of its array position**: it is used only when no conditional row matches. If multiple default rows exist, the first supplies the fallback. A default row before `success == true` does not steal a successful response; do not reorder it to fix that imagined bug. Ordinary broad conditions are still first-match, not deferred defaults. No model judgment.
 3. **Deterministic edges and route steps.** Edge `conditions` rows and `route` step rules evaluate mechanically against call variables. A route step with no matching rule falls to `fallbackNodeId`; with no fallback either, the call hard-fails for that caller.
 4. **Model choice (last).** Only when nothing above decided does the model pick among the step's outgoing edges, using edge labels + descriptions, the step prompt, the system prompt, and conversation history. A self-loop edge is the model-chosen form of waiting. `alwaysPick: true` edges are forced.
 
-In the builder UI, layer 2 is visible only inside the step's tool inspector panel ("Response pathways — conditions are checked top to bottom"), never as canvas arrows. The canvas shows layers 3–4. Do not diagnose routing from the canvas alone.
+In the builder UI, layer 2 is configured inside the step's tool inspector panel ("Response pathways — conditions are checked top to bottom"), not ordinary canvas arrows. The canvas shows authored ordinary edges; route-step rules and fallback destinations also live in inspectors, and generated routes need not appear. Do not diagnose routing from the canvas alone.
 
 ## Hub and scenario semantics
 
-- The **hub** (`agent` node) routes BETWEEN caller turns by reading every scenario's `entry.description`. It is generative: it speaks, and it waits for the caller before routing. It cannot be made silent by prompt instruction — if the call must run logic before anyone speaks, re-point the `inbound` edge at a bootstrap scenario.
-- **The last step of a scenario never sees the agent's route list.** Its choice set is only that flow's own edges: self-loops plus the flow's exit edges (to the end pill). Choosing an exit hands control back to the hub, which then routes among scenarios as a second hop — possibly within the same between-turn window, which in a trace can look like one decision. It is two.
-- Scenario **exits carry intent**: the hub routes on the exit edge's label/description. One exit edge per distinct intent.
-- Once inside a scenario, a caller topic-shift can pull the call back to the hub between turns ("hub interruption"). Flows that must hold the caller captive need explicit holds (self-loops with clear conditions, `loopWhile`).
+- The **hub** (`agent` node) is conversational and uses its available routes,
+  including eligible generated entry routes—not every stored entry from every
+  location. If logic must run before the hub speaks, choose an intentional
+  bootstrap entry rather than relying on a “stay silent” instruction.
+- A complex scenario runs its nested flow; Start's outgoing edge selects entry,
+  and End marks a component exit rather than a phone hang-up. Outer continuation
+  can use explicit routes, generated sibling-entry routes, or fallback to the hub.
+  **A mandatory extra hub hop is not the current compilation rule.**
+- Scenario **exits carry intent**: preserve one exit edge per distinct outcome
+  and inspect its relationship to the outer continuation and destination entry.
+- A caller topic change, global-node selection, and audible interruption are
+  separate events. A root sibling route does not prove arbitrary inner-step
+  jumps. Inspect loop state, available routes, and the chosen-node trace.
 
 ## Variables
 
@@ -54,7 +74,14 @@ Before debugging behavior, confirm the bytes: outbound calls and inbound voice r
 
 Document these per agent instead of discovering them in production:
 
-- **In-flow hang-ups happen one caller-turn later**: an in-flow "end call" becomes a wrap-up step; the actual hang-up occurs when the hub routes to a root end-call node on the following turn.
+- **A flow exit is not a hang-up**: an in-flow end-call construct can be a
+  wrap-up step; verify that continuation reaches an actual termination action.
+  A root end-call can be a generated sibling destination. Do not require a hub
+  visit or promise a fixed extra caller-turn count from the canvas alone.
 - **Fire-from-anywhere defaults don't exist at the hub** — it routes between turns only. HOWEVER, step-level globals DO exist: `settings.global.isGlobal` compiles a step into a runtime global node with auto-return (`returnMode: previous`), redirect, or manual modes (see the knob dictionary). Migrations have preferred systemPrompt folds for carried v1 globals; a deliberate new design may use step globals directly.
-- **Cross-flow deterministic jumps become hub routing**: a deterministic jump between two scenarios rides an exit edge + hub entry (LLM judgment at the hub). Carry the original conditions verbatim into the entry description, and scope any hub hard rules to exactly what they protect — an unqualified rule like "unverified → identity scenario" bounces wrong-number callers into a greeting loop forever.
+- **Cross-flow routing needs an explicit mapping check**: a nested step's exit
+  and the root continuation are different scopes. Root sibling routes can be
+  generated without a hub detour, but that does not make an arbitrary jump into
+  another flow equivalent to the source graph. Preserve criteria and verify the
+  executed route; do not insert a hub hop or broaden entry rules to match a diagram.
 - **Attached snippet tools don't exist** — see the snapshot skill for the code-step + route re-representation, including its own deltas (fires on traversal instead of mid-turn; snippet failure falls to the route fallback).
