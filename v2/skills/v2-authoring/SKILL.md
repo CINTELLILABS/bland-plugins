@@ -10,35 +10,48 @@ description: Designing and building a NEW Bland v2 agent from scratch — scenar
 
 This is the authoring doctrine for NEW agents. The snapshot dialect lives in `v2-snapshot`; runtime behavior in `v2-runtime`. If the user hasn't chosen v1 vs v2, ask first — the disciplines don't mix.
 
+Before changing apparently disconnected JSON, read the
+[builder/runtime mapping](../v2-runtime/references/builder-runtime-map.md).
+
 ## How v2 building differs from v1 (the mental shift)
 
 | v1 pathway habit | v2 agent reality |
 |---|---|
 | One flat node graph; you wire everything | A HUB routes between SCENARIOS; each scenario is a self-contained flow |
-| Global nodes fire from anywhere mid-utterance | No globals. Conduct rules live in `settings.systemPrompt`; cross-cutting *content* becomes a system-prompt section; cross-cutting *destinations* become hub-routable scenarios (fires between turns only) |
+| Global-node routing | Step globals exist through `settings.global`, with previous/redirect/manual continuation. Keep conduct rules in `settings.systemPrompt`; distinguish router selection from audio barge-in. |
 | globalPrompt per pathway | ONE `settings.systemPrompt` for the whole agent — scope sections explicitly when different flows need different rules |
 | Custom Code nodes with snippet pins | `customCode` steps — same pins, but inputs are ONLY the step's `variables` map (author the full read-set explicitly) |
 | Library tools by id (TL-…) fetched at runtime | Tools embedded in the step's `tools[]` definition (TL- id optional); response pathways route deterministically on tool output |
 | Route nodes everywhere | Route steps still exist, but many v1 routes were compensating for no-hub — in v2, distinct intents are often hub entries instead |
-| "Transfer Pathway" between pathways | Scenario exits + hub re-entry (one-way, always lands at the target flow's START) |
+| "Transfer Pathway" between pathways | Map the source transition to the actual target construct; scenario-wrapper entry follows its Start edge. Root sibling routes need not detour through the hub. A telephone transfer is a separate operation. |
 
 ## What a scenario represents (the core design decision)
 
-A scenario is a **self-contained job with a one-way entry**: the hub hands the caller in at the flow's START, the flow owns the conversation until it exits, and exits return to the hub carrying an intent label. You can never enter mid-flow.
+A scenario is a **self-contained job with a deliberate entry**: ordinary entry
+through its wrapper resolves the Start pill's outgoing edge, not array order.
+Keep tightly interleaved phases together. Do not assume arbitrary mid-flow entry
+or force every exit through the hub; globals and explicit routes require their
+own mapping and trace verification.
 
 Boundary rule: **draw scenario boundaries only at one-way seams.**
 - Separate departments/tasks that never loop into each other mid-conversation → one scenario each (an insurance triage agent: Sales, Customer Service, Claims).
-- Phases that interleave (collect ↔ resolve ↔ schedule with "actually, different vehicle" jumps) → ONE scenario containing all of them; slicing a loop across scenarios means every cross hop restarts the target flow from its first step.
+- Phases that interleave (collect ↔ resolve ↔ schedule with "actually, different
+  vehicle" jumps) → ONE scenario containing all of them. Ordinary wrapper entry
+  follows the configured Start edge; splitting a loop across scenarios does not
+  preserve an arbitrary mid-flow resume point.
 - Scenario count is not a quality metric. A single-scenario agent with a thin hub is correct when the call is one continuous task. The hub still buys you: root end-call semantics, entry re-pointing for pre-speech bootstraps, and additive growth (new lanes later = new scenarios, no surgery).
 
-Entries are routing contracts: the hub reads every scenario's `entry.description` after each caller turn. Write them as concrete, mutually-distinguishing criteria (enumerate the caller needs that belong here), not marketing copy. One intent per exit edge on the way out.
+Entries are routing contracts for eligible generated routes from the hub and
+root siblings. Write concrete, mutually-distinguishing criteria, not marketing
+copy. Explicit incoming routes change auto-entry eligibility. Preserve one
+intent per exit edge on the way out.
 
 ## Standard skeleton for a new agent
 
 1. **Bootstrap** (only if per-call config must load before anyone speaks): a `customCode` first step in the entry scenario + re-point the `inbound` edge at that scenario. The hub never speaks first in this pattern.
 2. **Hub**: thin. Greeting/persona live in systemPrompt or the entry flow; hub prompt = routing rules only ("route between turns; the scenarios own all lookups/transfers/closes; never handle content at the hub") + hard rules SCOPED to what they protect.
 3. **Scenarios** per the boundary rule, each: entry description → steps → one exit edge per distinct outcome.
-4. **Root end-calls**: "End call — goodbye" + "End call — silent" (for after a flow already spoke its close). In-flow goodbyes are wrap-up steps; the hang-up happens one turn later by design.
+4. **Root end-calls**: "End call — goodbye" + "End call — silent" (for after a flow already spoke its close). In-flow goodbyes can be wrap-up steps; verify continuation reaches a real termination action instead of assuming a fixed extra turn.
 
 ## The standard conduct-rule set (systemPrompt)
 

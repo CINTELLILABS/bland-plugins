@@ -2,6 +2,11 @@
 
 ## norm 1.5.0 – 2026-09-27
 
+- Add explicit JSON → builder → runtime mapping and interruption references.
+  Correct mandatory hub-hop and “no globals” guidance, document implicit sibling
+  routing and Start-edge entry, and distinguish retired per-node audio fields
+  from active Calls controls. Clarify migration-audit reachability limitations.
+
 - Add task-discoverable API workspace, evaluations, and call-analysis skills with
   a linked, locally packaged product wiki. References cover execution order,
   settings interactions, debugging, state reconciliation, judge/test-case
@@ -13,6 +18,9 @@
 - Align the Codex manifest's skill path and logo with plugin-root conventions
   and add discovery metadata. Host manifest versions remain aligned.
 - Add dependency-free wiki packaging/link/example checks and maintainer guidance.
+- Validate heading anchors and advertise evaluations/call analysis across host
+  listings. Explain structured insufficient-evidence results, simulation set/run
+  identity, and required host configuration for optional direct-chat probes.
 - Correct the lifecycle reference's test-chat selector name to `version_id`;
   use host-provided socket routing rather than a hardcoded deployment address.
 

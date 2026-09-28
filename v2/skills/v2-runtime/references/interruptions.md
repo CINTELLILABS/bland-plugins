@@ -1,0 +1,84 @@
+# Interruptions: audio is not routing
+
+Use “interruption” with a qualifier. Stopping audible speech, changing scenario,
+and selecting a global node are different mechanisms with different evidence.
+
+| Mechanism | What changes | Inspect | Does not imply |
+|---|---|---|---|
+| Audio barge-in | Whether/how caller speech cuts off agent playback | Calls → Conversation feel, effective call settings, audio/playback evidence | A different node or scenario was selected |
+| Scenario/topic change | Which conversation flow handles the caller's next intent | Entry criteria, explicit and generated routes, flow boundary, current variables and selected route | Agent audio was immediately cut off |
+| Global-node interruption | A router-selected global step handles an intent, with its configured continuation | `settings.global`, loop conditions, return mode and trace | Every utterance or every moment can bypass every gate |
+
+## Audio settings: use the current scope
+
+In the current v2 builder, audio controls are call-level settings under Calls →
+Conversation feel. Snapshot fields include `settings.blockInterruptions`,
+`settings.interruptibility`, `settings.interruptionSensitivity`,
+`settings.agentBackchannelLevel`, `settings.agentBackchannelConfig`, and
+`settings.backgroundNoise`. Inspect current schema/defaults and the actual
+resolved call settings before changing an unfamiliar value.
+
+- Blocking interruptions is a distinct setting, not a routing hold.
+- Interruptibility levels configure how readily callers can cut in; they are
+  not durations in milliseconds. A threshold is not a measured latency either.
+- Backchannels are short acknowledgments, not necessarily full agent turns or
+  transitions. Test them separately from barge-in and end-of-turn detection.
+- Older snapshots can retain per-step `settings.advanced.interruptibility`,
+  `blockInterruptions`, `interruptionThreshold`, `agentBackchannelLevel`,
+  `agentBackchannelConfig`, and `backgroundTrack`. The current v2 compiler does
+  not emit those per-node audio overrides. Editing them can change the JSON
+  without changing the call or exposing any matching control in the builder.
+- On an older deployment, verify the actual supported scope. Do not invent an
+  override based solely on a field's presence in historical JSON.
+
+To prove a cutoff, use actual playback instrumentation or aligned recorded audio,
+not a transcript or an empty SDK queue. For runner timing, adaptive callers,
+latency accounting, and recovery cases read [voice evidence](../../v2-testing/references/voice.md).
+
+## Scenario/topic changes
+
+The caller's new intent is a routing question. Inspect the current component,
+its exit/continuation, and the destination's entry criteria. The current mapping
+can route directly between eligible root siblings; do not require a hub hop
+or add one merely to match an older mental model. See
+[builder/runtime mapping](builder-runtime-map.md).
+
+Within a rigid nested flow, ordinary steps follow that flow's routing. A broad
+entry description does not prove every inner step has a cross-scenario escape.
+A self-loop, `loopWhile`, deterministic route, global route, and a component
+exit have different roles. Inspect the decision trace instead of guessing that
+a caller topic change must immediately leave the current step.
+
+## Global-node routing and return
+
+Step-level globals exist. Their label/description supplies router eligibility;
+the builder can show a Global badge without drawing incoming lines everywhere.
+
+| `settings.global.returnMode` | Continuation |
+|---|---|
+| `previous` | Automatic return behavior to the interrupted node |
+| `redirect` with `forwardingNode` | Redirect to the configured target; that target supplies the response |
+| `manual` | Auto-return disabled; authored onward routes stay relevant, with optional labelled return |
+
+On executable steps, `settings.advanced.conditionOverridesGlobalPathway` lets
+an unmet loop/goal hold prevent the usual global-node diversion. It is not the
+audio “block interruptions” switch. Without that hold, a selected global can
+interrupt an unfinished step when the runtime's other eligibility conditions
+permit. After-run actions and verification gates can also affect the result;
+do not present one simplified priority list as every execution branch.
+
+The current compiler retains step-level flow controls such as `skipUserResponse`
+and this loop/global option, but ignores those old advanced flow controls on
+hub/scenario cards. Stored JSON presence does not prove activation at that scope.
+
+## Diagnostic examples
+
+- **“It stopped talking but stayed on the same question.”** Check audio cutoff
+  separately from node/variable progress. Barge-in can work without a route change.
+- **“Help has no incoming arrow but it answered.”** Inspect global matching and
+  return mode before adding ordinary edges.
+- **“I changed a node's interruption threshold and nothing happened.”** Verify
+  whether it is a retired per-node field; edit the active call-level control.
+- **“I asked for another department but it stayed.”** Check loop state, actual
+  available routes, entry criteria, and verification requirements—not audio
+  sensitivity. A text test can investigate routing; voice evidence proves sound.

@@ -7,11 +7,34 @@ import test from 'node:test';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../v2');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const entries = ['api-workspace', 'evaluations', 'call-analysis'];
+function headingAnchors(text) {
+  const anchors = new Set();
+  // Packaged references use ATX headings; ignore fenced examples.
+  const prose = text.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, '');
+  for (const match of prose.matchAll(/^#{1,6}\s+(.+?)\s*#*$/gm)) {
+    const base = match[1].toLowerCase().replace(/<[^>]*>/g, '')
+      .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, '').replace(/\s/g, '-');
+    let slug = base;
+    for (let suffix = 1; anchors.has(slug); suffix++) slug = `${base}-${suffix}`;
+    anchors.add(slug);
+  }
+  return anchors;
+}
 function localLinks(text, from) {
   return [...text.matchAll(/\[[^\]]*\]\(([^\s)]+)\)/g)]
-    .map((match) => match[1].split('#')[0])
-    .filter((path) => path && !/^[a-z]+:/i.test(path))
-    .map((path) => resolve(dirname(from), path));
+    .map((match) => match[1])
+    .filter((href) => !/^[a-z]+:/i.test(href))
+    .map((href) => {
+      const [path, fragment] = href.split('#');
+      const file = path ? resolve(dirname(from), decodeURIComponent(path)) : from;
+      if (fragment) {
+        assert.ok(!relative(root, file).startsWith('..'), `outside archive: ${file}`);
+        assert.ok(existsSync(file), `missing link: ${relative(root, file)}`);
+        assert.ok(headingAnchors(readFileSync(file, 'utf8')).has(decodeURIComponent(fragment)),
+          `missing anchor: ${href}`);
+      }
+      return file;
+    });
 }
 
 function visitReferences(file, seen = new Set()) {
@@ -26,7 +49,21 @@ function visitReferences(file, seen = new Set()) {
 const newPages = () => entries.flatMap((name) => {
   const dir = resolve(root, `skills/${name}/references`);
   return readdirSync(dir).filter((file) => file.endsWith('.md')).map((file) => resolve(dir, file));
-}).concat(resolve(root, 'skills/v2-testing/references/voice.md'));
+}).concat(
+  resolve(root, 'skills/v2-testing/references/voice.md'),
+  resolve(root, 'skills/v2-runtime/references/builder-runtime-map.md'),
+  resolve(root, 'skills/v2-runtime/references/interruptions.md'),
+);
+
+test('runtime entrypoint and wiki index both discover the mapping references', () => {
+  for (const entry of ['skills/v2-runtime/SKILL.md', 'skills/api-workspace/references/index.md']) {
+    const seen = visitReferences(resolve(root, entry));
+    for (const name of ['builder-runtime-map.md', 'interruptions.md']) {
+      assert.ok(seen.has(resolve(root, `skills/v2-runtime/references/${name}`)),
+        `${entry} cannot discover ${name}`);
+    }
+  }
+});
 
 test('Codex discovers the skill root and resolves its packaged logo', () => {
   const manifest = JSON.parse(read('.codex-plugin/plugin.json'));
@@ -58,6 +95,23 @@ test('host release versions remain aligned', () => {
   const versions = ['codex', 'claude', 'cursor', 'grok'].map((host) =>
     JSON.parse(read(`.${host}-plugin/plugin.json`)).version);
   assert.equal(new Set(versions).size, 1);
+});
+
+test('all host descriptions advertise evaluation and call analysis', () => {
+  for (const host of ['codex', 'claude', 'cursor', 'grok']) {
+    const { description } = JSON.parse(read(`.${host}-plugin/plugin.json`));
+    assert.match(description, /evaluations/i, host);
+    assert.match(description, /analyze calls/i, host);
+  }
+});
+
+test('reference validation checks local and cross-file heading anchors', () => {
+  const from = resolve(root, 'skills/v2-runtime/SKILL.md');
+  assert.throws(() => localLinks('[bad](#missing-section)', from), /missing anchor/);
+  assert.throws(() => localLinks('[bad](references/interruptions.md#missing-section)', from), /missing anchor/);
+  assert.equal(localLinks('[good](#variables)', from)[0], from);
+  assert.equal(localLinks('[good](references/interruptions.md#scenariotopic-changes)', from)[0],
+    resolve(root, 'skills/v2-runtime/references/interruptions.md'));
 });
 
 test('reference validation rejects broken and escaped links', () => {

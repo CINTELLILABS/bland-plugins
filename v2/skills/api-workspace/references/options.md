@@ -8,9 +8,9 @@ options. Do not recreate a v1 field on a v2 object because its name sounds right
 |---|---|---|
 | Voice / language / personality | Agent `settings`, global prompt, current step prompt | A text simulation cannot prove audio delivery |
 | Waiting versus immediate continuation | `settings.advanced.skipUserResponse` | Top-level spellings are not equivalent; automatic steps need an exit |
-| Interruption | Agent interruption setting plus per-step advanced overrides | A step blocking interruption can defeat the apparent global intent |
+| Audio interruption | Calls → Conversation feel; agent call-level settings | Old per-step audio fields may be retained but inactive; do not confuse audio blocking with a routing hold |
 | Backchannels | Level plus gated configuration | Disabled/off settings are meaningful; do not treat zero as missing |
-| Background sound | Agent/step setting and supported sentinel values | Inherit, explicit off, and a chosen track differ |
+| Background sound | Active call-level background setting | Old per-step background fields are not active overrides in the current v2 compiler |
 | Privacy / recording | Agent and step privacy settings plus call recording availability | No recording means audio assertions may be untestable |
 | Variables / tools | Extraction declarations, declared code inputs, tool pins, response mapping | Final variables do not show when they changed |
 | Routing | Edge order, route conditions, fallback, loop condition | Ordered first-match behavior is not an unordered set |

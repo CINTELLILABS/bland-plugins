@@ -58,11 +58,21 @@ network calls. Do not preload the entire wiki into its prompt. Ask:
    chat. Explain pagination, incomplete retrieval, and output reconciliation.
 3. Given a transcript and an empty audio queue, can you prove audible interruption?
 4. Does editing local JSON update the saved agent or the user's unsaved page?
+5. A scenario or global step has no visible incoming arrow: is an edge missing?
+   Explain implicit entry/sibling/return routes, actual Start-edge entry, and
+   why an isolated cycle with incoming edges can still be unreachable.
+6. A caller cuts in but stays on the same node; an old step audio setting has no
+   visible effect. Distinguish audio cutoff, topic routing, globals, and active
+   call-level settings. Do not claim all scenario changes require a hub detour.
 
 Before this change, the v2-only reference baseline could not answer the first
 three fully; it knew save and publish differed but lacked page/workspace
 reconciliation guidance. A post-change pass must cite the references, preserve
 uncertainty, and avoid inventing endpoints or claiming unperformed tests.
+
+The mapping follow-up baseline repeated the old mandatory-hub-hop explanation
+and could not resolve audio-setting scope. The updated references must correct
+those answers, not merely add more prose beside the conflicting old statements.
 
 ## Managed workspace rollout is separate
 

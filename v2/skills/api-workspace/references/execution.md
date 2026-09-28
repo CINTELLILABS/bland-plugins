@@ -16,9 +16,10 @@ order, not a second competing implementation specification.
    loop conditions can hold a tool step; attached tool response pathways can
    force a transition; deterministic edges/rules precede model-selected edges.
    Evaluate ordered rules with the actual variable values at that moment.
-5. **Check scenario exit.** Scenario → hub → another scenario is not the same
-   as one direct edge between unrelated nested steps. Exit intent must tell
-   the hub why control returned.
+5. **Check scenario exit and outer continuation.** A component exit, generated
+   sibling route, and hub fallback differ. The current compiler can connect root
+   siblings directly; do not assume an extra hub hop. Read the
+   [builder/runtime mapping](../../v2-runtime/references/builder-runtime-map.md).
 6. **Check side effects and overrides.** A guardrail, transfer, explicit end, or
    automatic step can explain an apparent routing error. Correlate tool results
    and guardrail evidence before rewriting the prompt.

@@ -50,7 +50,7 @@ Create — `POST /v1/agent-testing/scenarios`:
 
 - ~1 scenario per terminal/lane of the agent: each transfer destination, each deflection, each close, plus conduct probes (AI disclosure, human-request).
 - Personas must be COMPLETABLE: give them every fact the flow can demand (account numbers, confirmations), and make probe timing explicit ("ask on your FIRST turn") — a persona that can't finish wedges the flow exactly as a real broken caller would, and that's a harness artifact, not an agent bug.
-- Judges grade outcomes and conduct, worded to ignore hang-up timing (v2 hangs up one turn later by design).
+- Judges grade outcomes and conduct. Test termination timing separately; do not assume a fixed extra turn from the authoring graph.
 - Assertions encode the SOURCE system's actual behavior, not idealized behavior.
 
 ### Grading discipline
@@ -64,7 +64,13 @@ Create — `POST /v1/agent-testing/scenarios`:
 
 ## Test-chat probes (the builder WebSocket)
 
-The real test chat surface (works for voice-style agents; the SMS preview endpoint does not):
+The real test chat surface supports voice-style agents; the SMS preview endpoint
+does not. **Prerequisite:** the host must supply an approved test-chat WebSocket
+URL (base and path), a WebSocket-capable connection mechanism, and permission to
+use the short-lived token on that target. The plugin's packaged HTTP MCP URL is
+not that socket URL and cannot be transformed into one. No socket target is
+bundled. If this host configuration is absent, skip direct probes, use platform
+simulations, and explicitly report the missing direct-chat coverage.
 
 1. Use the authenticated Bland connection for `GET /v1/pathway/session` → `data.token`. Keep the short-lived token out of chat and reports.
 2. Use the host's configured test-chat WebSocket base/path, with URL-encoded query parameters `agent_chat=<agentId>&version_id=<selector>&token=<token>`. `version_id` is the public query field and defaults to `latest`; use the intended explicit selector when testing a specific environment or published version. Do not guess a regional hostname or switch connection targets. If the host does not expose a supported connection mechanism, use the simulation API or report that direct socket testing is unavailable.
