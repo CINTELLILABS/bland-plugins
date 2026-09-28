@@ -6,7 +6,7 @@
 // Re-run this whenever the server engine changes (generator.ts / exporter.ts /
 // parser.ts / manifest.ts). Point ENGINE_DIR at a checkout of the server repo.
 //
-//   node scripts/bundle-engine.mjs <path-to-apps/api/src/lib/blandcode>
+//   node dev/scripts/bundle-engine.mjs <path-to-apps/api/src/lib/blandcode>
 //
 // The two impure imports in exporter.ts (NodeTypeSchema from ../models, bclog
 // from ../framework/logger) are stubbed: NodeTypeSchema is only used for a
@@ -20,7 +20,7 @@ import { createRequire } from "node:module";
 
 const ENGINE_DIR = process.argv[2];
 if (!ENGINE_DIR) {
-	console.error("usage: node scripts/bundle-engine.mjs <path-to-apps/api/src/lib/blandcode>");
+	console.error("usage: node dev/scripts/bundle-engine.mjs <path-to-apps/api/src/lib/blandcode>");
 	process.exit(1);
 }
 const ENGINE_SUBDIR = path.join(ENGINE_DIR, "engine");
