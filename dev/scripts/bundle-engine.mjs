@@ -6,7 +6,7 @@
 // Re-run this whenever the server engine changes (generator.ts / exporter.ts /
 // parser.ts / manifest.ts). Point ENGINE_DIR at a checkout of the server repo.
 //
-//   node scripts/bundle-engine.mjs [path-to-apps/api/src/lib/blandcode]
+//   node scripts/bundle-engine.mjs <path-to-apps/api/src/lib/blandcode>
 //
 // The two impure imports in exporter.ts (NodeTypeSchema from ../models, bclog
 // from ../framework/logger) are stubbed: NodeTypeSchema is only used for a
@@ -18,9 +18,11 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 
-const DEFAULT_ENGINE_DIR =
-	"/Users/blandai/Documents/blandai_src/SERVER/.claude/worktrees/awl-core-impl/apps/api/src/lib/blandcode";
-const ENGINE_DIR = process.argv[2] || DEFAULT_ENGINE_DIR;
+const ENGINE_DIR = process.argv[2];
+if (!ENGINE_DIR) {
+	console.error("usage: node scripts/bundle-engine.mjs <path-to-apps/api/src/lib/blandcode>");
+	process.exit(1);
+}
 const ENGINE_SUBDIR = path.join(ENGINE_DIR, "engine");
 const OUT = path.join(import.meta.dirname, "..", "..", "bin", "engine.bundle.cjs");
 
