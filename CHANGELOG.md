@@ -96,7 +96,7 @@ Review fixes (12 findings triaged, 8 real):
 
 ## norm 1.2.2 – 2026-09-16
 
-Organization-collision hardening (BLA-7919):
+Organization-collision hardening:
 
 - Every `/norm:*` command's `allowed-tools` now permits ONLY the plugin's own namespaced MCP server — the bare `mcp__bland__*` wildcard (which can match a project-scoped server in a different organization) is gone.
 - Cross-host manifests name the server `plugin_norm_bland` so hosts without automatic prefixing cannot collide with a project-defined `bland` server.
@@ -148,7 +148,7 @@ Agents were placing calls that sound robotic. `create_call` rejects every field 
 
 ## 2.1.1 – 2026-09-10
 
-The hosted MCP gained `stop_call` and `list_voices` (SERVER BLA-8082), and a call without a voice now uses Karen.
+The hosted MCP gained `stop_call` and `list_voices`, and a call without a voice now uses Karen.
 
 - **`calls`:** stop a call with `stop_call` instead of the REST passthrough. A new Voice section says to omit `voice` for the default, suggest voices from `list_voices`, and pass the chosen voice's `id`. A voice the user names is used as given.
 - **`persona`:** choose a voice with `list_voices` first. The `GET /v1/voices` jq recipe now keeps only public curated voices whose `service` is `BTTS_V3`, the same set `list_voices` returns.
@@ -157,7 +157,7 @@ The hosted MCP gained `stop_call` and `list_voices` (SERVER BLA-8082), and a cal
 
 ## 2.1.0 — 2026-09-10
 
-Two skills for the jobs the plugin could not do yet: placing calls and texting. They replace the `create-call`, `monitor-call`, `live-listen`, and `send-sms` skills in `CINTELLILABS/bland-skills`, which is being retired (BLA-8064), rewritten for the hosted MCP tools and the REST passthrough instead of that repo's stdio tool names and shell scripts.
+Two skills for the jobs the plugin could not do yet: placing calls and texting. They replace the `create-call`, `monitor-call`, `live-listen`, and `send-sms` skills in `CINTELLILABS/bland-skills`, which is being retired, rewritten for the hosted MCP tools and the REST passthrough instead of that repo's stdio tool names and shell scripts.
 
 - **`calls`:** place a call with `create_call`, or with `POST /v1/calls` for personas, voicemail handling, transcription keywords, and recording; follow it with `wait_for_call` and `get_call_log`; stop it; stream its live transcript or audio from a terminal. Covers the Agent Phone Plan's default caller ID and its call limits.
 - **`messaging`:** send a text with `POST /v1/sms/send` and give the conversation an `objective` so replies pursue that goal instead of the number's generic prompt; read threads; change the number's texting prompt. Covers the plan's text limits and the delay before a new number can text.

@@ -65,7 +65,7 @@ All three questions were answered from the SERVER, bland-cli, and FRONTEND check
 
 ### 1. The device-code endpoint is on SERVER main
 
-Merged 2026-09-08 as PR #10790 (BLA-8011), mounted at `/v1/agent/onboarding` in `apps/api/src/routes/agent_onboarding/`. The approval page is `https://app.bland.ai/agent-setup`, shipped in FRONTEND as `src/pages/AgentSetup.jsx`, also on main.
+Merged 2026-09-08, mounted at `/v1/agent/onboarding`. The approval page is `https://app.bland.ai/agent-setup`, also on main.
 
 | Route | Auth | Behavior |
 |---|---|---|
