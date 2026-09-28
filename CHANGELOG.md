@@ -1,5 +1,19 @@
 # Changelog
 
+## norm 2.0.0 – 2026-09-28
+
+- **Version jump so updaters land here.** The `norm` name belonged to the v1
+  pathway plugin until it was renamed `bland` at its 2.0.0 (2026-09-09); this
+  v2-only plugin then took the name and restarted at 1.0.0. Anyone still on the
+  old `norm` 1.13.x saw `/plugin update norm@bland` as a downgrade (1.4.2 <
+  1.13.x) and stayed on the v1 codec. 2.0.0 supersedes every old `norm` version
+  so a plain update now installs this plugin. No functional change.
+- SessionStart hook: states that this plugin is v2-only, and — when no
+  `bland@*` plugin is installed — that the old `/norm:clone`, `/norm:commit`,
+  `/norm:loop`, `/norm:test`, `/norm:status` commands moved to `bland@bland`
+  as `/bland:*`, so a user who updated from old `norm` learns where their v1
+  workflow went instead of finding it silently gone.
+
 ## norm 1.4.2 – 2026-09-19
 
 - Fix: the plugin's Bland MCP server never registered on install — the config
