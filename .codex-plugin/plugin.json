@@ -24,7 +24,82 @@
   "mcpServers": "./.codex-plugin/mcp.json",
   "extensions": {
     "com.openai": {
-      "onboardingSkill": "./skills/setup/SKILL.md"
+      "onboardingSkill": "./skills/setup/SKILL.md",
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "List pathways",
+              "prompt": "List my Bland pathways.",
+              "tools_triggered": [
+                "list_agents"
+              ],
+              "expected_behavior": "Calls list_agents and returns the pathway names and ids for the connected account."
+            },
+            {
+              "description": "Inspect a call",
+              "prompt": "Show me the transcript and outcome of my most recent call.",
+              "tools_triggered": [
+                "bland_api_get",
+                "get_call_log"
+              ],
+              "expected_behavior": "Finds the latest call, calls get_call_log, and summarizes the transcript, duration, and pathway path taken."
+            },
+            {
+              "description": "Analytics query",
+              "prompt": "How many calls did I make this week and what share completed?",
+              "tools_triggered": [
+                "query_analytics"
+              ],
+              "expected_behavior": "Runs an analytics query for the current week and reports volume and completion rate from the query result only."
+            },
+            {
+              "description": "Docs lookup",
+              "prompt": "How do I add a knowledge base to a pathway in Bland?",
+              "tools_triggered": [
+                "search_bland_docs",
+                "get_bland_doc"
+              ],
+              "expected_behavior": "Searches the Bland docs and answers with the documented steps and a link to the page."
+            },
+            {
+              "description": "Validate a pathway",
+              "prompt": "Validate pathway <PATHWAY_ID> and tell me about any errors.",
+              "tools_triggered": [
+                "get_agent",
+                "validate_pathway"
+              ],
+              "expected_behavior": "Fetches the pathway, runs the compiler via validate_pathway, and lists errors and warnings without changing the pathway."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Unrelated coding task",
+              "prompt": "Write a Python function that reverses a linked list."
+            },
+            {
+              "description": "General knowledge",
+              "prompt": "What is the capital of Australia?"
+            },
+            {
+              "description": "Other vendor",
+              "prompt": "Set up a Twilio phone number for me."
+            }
+          ]
+        },
+        "demo_recording_url": "https://bland.ai/plugin-demo",
+        "commerce": false,
+        "commerce_description": "The plugin does not sell anything. Bland credits and phone plans are purchased in the Bland dashboard, not through the plugin."
+      },
+      "publication": {
+        "countries": [
+          "US",
+          "CA",
+          "GB",
+          "AU"
+        ],
+        "release_notes": "First ChatGPT directory release of the Bland plugin: hosted MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations."
+      }
     }
   },
   "interface": {
@@ -33,9 +108,20 @@
     "longDescription": "Build, test, and run Bland voice agents from Codex. The hosted Bland MCP server reads and writes against your account: pathways, the pathway compiler, call logs, analytics, evals, custom tools, personas, knowledge bases, and automations. Bundled skills teach the agent how to use each surface well, and the setup skill walks through connecting your API key.",
     "developerName": "Bland",
     "category": "Developer Tools",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://bland.ai",
-    "composerIcon": "./assets/logo.png",
+    "supportURL": "https://bland.ai/support",
+    "privacyPolicyURL": "https://bland.ai/privacy",
+    "termsOfServiceURL": "https://bland.ai/terms",
+    "defaultPrompt": [
+      "List my Bland pathways and summarize what each one does.",
+      "Show me yesterday's failed calls and why they failed.",
+      "Validate the pathway I'm working on before I publish it."
+    ],
+    "composerIcon": "./assets/icon.svg",
     "logo": "./assets/logo.png"
   }
 }
