@@ -1,0 +1,20 @@
+{
+  "name": "bland",
+  "interface": {
+    "displayName": "Bland"
+  },
+  "plugins": [
+    {
+      "name": "bland",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

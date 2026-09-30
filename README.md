@@ -51,7 +51,9 @@ export BLAND_API_KEY
 codex
 ```
 
-Codex uses its own MCP config with the production URL and `bearer_token_env_var`; it does not read Cursor plugin variables, Claude plugin config, or the CLI profile. For Codex Desktop, the key must be in the app process's environment when it starts. See the [setup skill](skills/setup/SKILL.md) for verification. Full Codex workflow testing is still pending.
+Codex reads `.codex-plugin/plugin.json` and `.codex-plugin/mcp.json`, which use the production URL and `bearer_token_env_var`; it does not read Cursor plugin variables, Claude plugin config, or the CLI profile. For Codex Desktop, the key must be in the app process's environment when it starts. The marketplace entry for Codex lives at `.agents/plugins/marketplace.json`. See the [setup skill](skills/setup/SKILL.md) for verification.
+
+Codex loads the skills and the MCP server only. The `/bland:*` commands and the Norm agent are Claude Code and Grok Build features and are not available in Codex; ask for the same work in plain language and the skills drive it.
 
 ### Grok Build
 

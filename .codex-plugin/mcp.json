@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "bland": {
+      "type": "http",
+      "url": "https://api.bland.ai/v1/mcp",
+      "bearer_token_env_var": "BLAND_API_KEY"
+    }
+  }
+}
