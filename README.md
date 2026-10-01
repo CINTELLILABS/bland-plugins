@@ -57,7 +57,7 @@ Codex loads the skills and the MCP server only. The `/bland:*` commands and the 
 
 ### ChatGPT plugin directory
 
-Not yet published. The directory needs OAuth on the hosted MCP server, which is in progress. The submission ZIP is built by `dev/scripts/build-chatgpt-zip.sh`; see [dev/CHATGPT-SUBMISSION.md](dev/CHATGPT-SUBMISSION.md) for what it strips and what still needs replacing.
+Not yet published. The directory build connects to the hosted MCP server with OAuth 2.1 instead of an API key. The submission ZIP is built by `dev/scripts/build-chatgpt-zip.sh`; see [dev/CHATGPT-SUBMISSION.md](dev/CHATGPT-SUBMISSION.md) for what it strips and what still needs replacing.
 
 ### Grok Build
 
