@@ -87,8 +87,8 @@
           ]
         },
         "demo_recording_url": "https://bland.ai/plugin-demo",
-        "commerce": true,
-        "commerce_description": "Two tools spend money on the connected Bland organization: buy_credits adds call credits with the organization's saved card, and buy_phone_plan subscribes the organization to the Agent Phone Plan. Each needs its own scope (credits:purchase or plan:purchase), which starts unchecked on Bland's consent screen and which only an owner or admin of the organization can grant. Both tools are marked destructive, so the user confirms each purchase before it runs."
+        "commerce": false,
+        "commerce_description": "The plugin does not sell anything. The hosted Bland MCP server offers no purchase tools to ChatGPT; Bland credits and plans are bought in the Bland dashboard."
       },
       "publication": {
         "countries": [

@@ -30,8 +30,9 @@ The directory rules for the server are covered on `api.bland.ai`:
 2. Protected resource metadata at `https://api.bland.ai/.well-known/oauth-protected-resource/v1/mcp`, naming the authorization server, whose metadata advertises `code_challenge_methods_supported: ["S256"]`.
 3. Client ID metadata documents, which ChatGPT uses. Dynamic client registration is not offered at launch.
 4. `https://api.bland.ai/.well-known/openai-apps-challenge` serving the domain-verification token as plain text. Give the token from the platform to the Bland server team; it is configured on the server, not in this repo.
-5. Explicit `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` on every tool. The two purchase tools are marked destructive.
-6. A UserInfo endpoint that returns `email` and reports `email_verified: false`: Bland does not verify ownership of an account's email, so workspace domain restrictions that require a verified email are not supported.
+5. Explicit `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` on every tool.
+6. No purchase tools over OAuth. The directory guidelines prohibit selling digital credits or subscriptions, so the server does not list or run its purchase tools for an OAuth connection such as ChatGPT. Clients that connect with an API key keep them.
+7. A UserInfo endpoint that returns `email` and reports `email_verified: false`: Bland does not verify ownership of an account's email, so workspace domain restrictions that require a verified email are not supported.
 
 Before you upload, check that discovery answers: `curl -s https://api.bland.ai/.well-known/oauth-protected-resource/v1/mcp` returns JSON, not a 404.
 
@@ -41,7 +42,7 @@ Before you upload, check that discovery answers: `curl -s https://api.bland.ai/.
 - Owns a Bland organization and has created an org API key in it. Tools that call the Bland API act through that key and fail without one.
 - Has the pathway and the call named in the test cases.
 
-On connect, ChatGPT asks for read and write access to the workspace. The purchase scopes (`credits:purchase`, `plan:purchase`) start unchecked. A purchase tool asks for its scope when it runs, and the reviewer checks it on the consent screen.
+On connect, ChatGPT asks for read and write access to the workspace.
 
 ## Submission steps
 
