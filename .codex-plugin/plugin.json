@@ -111,7 +111,7 @@
       "How many Bland calls completed last week?",
       "Help me review a Bland call's transcript and outcome."
     ],
-    "composerIcon": "./assets/logo.png",
+    "composerIcon": "./assets/icon.svg",
     "logo": "./assets/logo.png"
   }
 }

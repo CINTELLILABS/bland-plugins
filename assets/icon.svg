@@ -1,7 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round">
-  <g transform="scale(2.4)">
-  <path d="M6.2 2.7h2.3l1.2 3.1-1.7 1.3a9.6 9.6 0 0 0 4.9 4.9l1.3-1.7 3.1 1.2v2.3a1.5 1.5 0 0 1-1.6 1.5A13.6 13.6 0 0 1 4.7 4.3a1.5 1.5 0 0 1 1.5-1.6z"/>
-  <path d="M12.5 3.5a5 5 0 0 1 4 4"/>
-  <path d="M12 6.3a2.3 2.3 0 0 1 1.7 1.7"/>
-  </g>
+<?xml version="1.0" standalone="no"?>
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="400" height="400" viewBox="0 0 400.000000 400.000000"
+ preserveAspectRatio="xMidYMid meet">
+
+<g transform="translate(0.000000,400.000000) scale(0.100000,-0.100000)"
+fill="#000000" stroke="none">
+<path d="M0 2000 l0 -2000 2000 0 2000 0 0 2000 0 2000 -2000 0 -2000 0 0
+-2000z m1688 1083 l2 -163 443 0 c359 0 454 -3 506 -15 179 -43 337 -188 397
+-365 14 -42 19 -85 19 -180 l0 -125 -1025 0 -1025 0 -3 495 c-1 272 0 501 3
+508 3 10 77 12 342 10 l338 -3 3 -162z m1370 -1643 c3 -126 -7 -181 -55 -280
+-66 -137 -220 -259 -365 -289 -36 -8 -304 -10 -843 -9 l-790 3 -3 330 c-2 302
+-1 331 15 343 13 9 230 12 1027 10 l1011 -3 3 -105z"/>
+</g>
 </svg>
