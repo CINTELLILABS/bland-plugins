@@ -1,54 +1,75 @@
 # Submitting to the ChatGPT plugin directory
 
-The Codex-local install (`.codex-plugin/`, `.agents/plugins/marketplace.json`) works today with an API key in the environment. The public ChatGPT directory has stricter rules, and most of them land on the hosted MCP server, not this repo.
+This PR prepares the package. Upload is still blocked on real review fixtures, final listing assets, and verification of the deployed OAuth server. A successful ZIP build does not verify those requirements.
 
-## What the directory build changes
+## Package contents
 
-`dev/scripts/build-chatgpt-zip.sh` assembles the submission ZIP from a subset of the repo:
+Run `dev/scripts/build-chatgpt-zip.sh` to create `.tmp-chatgpt-build/bland-plugin-2.2.0.zip` (the version comes from the manifest). A custom output directory is supported; other files in it are preserved. Each build creates a fresh archive, so removed skills cannot remain in an old ZIP.
 
-| Included | Left out | Why |
-|---|---|---|
-| `.codex-plugin/plugin.json` | `hooks/`, `bin/` | Plugins with lifecycle hooks cannot be submitted. |
-| `dev/chatgpt/mcp.json` as `.codex-plugin/mcp.json` | `.codex-plugin/mcp.json` | ChatGPT cannot present an API key; the server must use OAuth 2.1. |
-| `skills/`, `assets/`, `README.md`, `LICENSE` | `commands/`, `agents/`, `dev/`, other host manifests | Codex and ChatGPT read skills and the MCP server only. |
+| Source | Path inside `bland/` in the ZIP |
+|---|---|
+| `.codex-plugin/plugin.json` | `.codex-plugin/plugin.json` |
+| `dev/chatgpt/mcp.json` | `.codex-plugin/mcp.json` |
+| `dev/chatgpt/skills/` | `skills/` |
+| `dev/chatgpt/README.md` | `README.md` |
+| `assets/`, `LICENSE` | `assets/`, `LICENSE` |
 
-## Placeholders to replace before upload
+The compatibility `.codex-plugin/` layout is supported. Local host skills, commands, agents, hooks, scripts, API-key MCP configuration, and development files are excluded. The root `skills/` and other hosts' installations continue to use their existing workflows.
 
-These values in `.codex-plugin/plugin.json` are fillers:
+The ChatGPT skills use the existing named MCP tools. They cover v2 agents, calls, aggregate analytics, supplied pathway graph validation, existing evaluation judges/runs, and docs. Legacy pathway discovery/editing, local simulations, dashboard/schema creation, automations, custom tools, and knowledge-base creation are not promised by this package. Those need suitable named server operations before adding executable workflows here. Documentation lookup can still explain those product features.
 
-- `interface.supportURL`, `privacyPolicyURL`, `termsOfServiceURL`: must resolve over HTTPS. Marketing owns the final pages.
-- `extensions.com.openai.review.demo_recording_url`: a walkthrough video of the five positive test cases.
-- `extensions.com.openai.review.test_cases`: the `<PATHWAY_ID>` in the validate case and the `<CALL_ID>` in the call case need a real pathway and a real call in the reviewer's organization.
-- `assets/icon.svg`: placeholder composer icon. It follows the required shape (monochrome, `currentColor`, 20px viewport, 1.33px stroke) but should be replaced with the brand mark from the OpenAI Figma icon template.
-- `publication.countries`: confirm the launch list.
+## 1. Spencer / hosted server: verify before submission
 
-## What the hosted MCP server provides
+These are release gates, not claims that the stack is deployed. After the stack merges, record the deployed revision and test results. Plugin instructions cannot restrict the server's actual tool list or authorization.
 
-The directory rules for the server are covered on `api.bland.ai`:
+- [ ] **OAuth in ChatGPT:** verify resource metadata, authorization-server discovery, authorization code + S256 PKCE, ChatGPT client ID metadata documents, exact resource/audience binding, organization selection, token refresh, and reconnect after expiry/revocation. Test denial of cross-organization reads and writes. Dynamic client registration is not required if the chosen ChatGPT client-registration flow works.
+- [ ] **Organization access:** test an eligible non-staff owner/admin with an active organization API key. Verify both first connection and a real named API-backed tool call; a successful login alone is insufficient.
+- [ ] **Purchasing change:** verify OAuth `tools/list` omits credit/subscription purchase tools and direct `tools/call` rejects them. Check tool errors, widgets, and server instructions for purchase or wallet prompts. API-key clients can retain their separate behavior. Keep `commerce: false` only when the deployed ChatGPT surface matches it.
+- [ ] **Generic executors:** ensure the public OAuth surface does not expose `bland_api_get` or `call_bland_api` as unrestricted routes into unreviewed operations. Register supported operations as individual tools; prevent purchase access through alternate dispatch paths too. Simply excluding the API skill from the ZIP is insufficient.
+- [ ] **Secrets:** ensure tool results, snapshots, logs, and errors redact literal credentials, authorization headers, and secret values. Review config reads/writes as well as dedicated secret tools. Skill instructions cannot prevent sensitive values from entering model context when the server returns them.
+- [ ] **Tool review:** verify accurate descriptions, bounded schemas, permissions, and `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` for every exposed tool. Remove fallback descriptions that tell ChatGPT to use excluded executors or purchases.
+- [ ] **Domain verification:** serve the platform-issued token as plain text at `https://api.bland.ai/.well-known/openai-apps-challenge` and complete the platform check. Configure this on the server.
+- [ ] **Identity claims:** verify UserInfo claims match what Bland actually verifies. Do not promise verified-email workspace restrictions if `email_verified` is false.
 
-1. OAuth 2.1 authorization-code flow with PKCE (S256). Tokens are bound to `https://api.bland.ai/v1/mcp` and act in one Bland organization, chosen by an owner or admin on Bland's consent screen.
-2. Protected resource metadata at `https://api.bland.ai/.well-known/oauth-protected-resource/v1/mcp`, naming the authorization server, whose metadata advertises `code_challenge_methods_supported: ["S256"]`.
-3. Client ID metadata documents, which ChatGPT uses. Dynamic client registration is not offered at launch.
-4. `https://api.bland.ai/.well-known/openai-apps-challenge` serving the domain-verification token as plain text. Give the token from the platform to the Bland server team; it is configured on the server, not in this repo.
-5. Explicit `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` on every tool.
-6. No purchase tools over OAuth. The directory guidelines prohibit selling digital credits or subscriptions, so the server does not list or run its purchase tools for an OAuth connection such as ChatGPT. Clients that connect with an API key keep them.
-7. A UserInfo endpoint that returns `email` and reports `email_verified: false`: Bland does not verify ownership of an account's email, so workspace domain restrictions that require a verified email are not supported.
+Start discovery checks with:
 
-Before you upload, check that discovery answers: `curl -s https://api.bland.ai/.well-known/oauth-protected-resource/v1/mcp` returns JSON, not a 404.
+```sh
+curl --fail --silent --show-error https://api.bland.ai/.well-known/oauth-protected-resource/v1/mcp
+```
 
-## Reviewer account
+Then follow the advertised authorization-server metadata and exercise the full flow in ChatGPT. A JSON discovery response alone is not a passing OAuth test.
 
-- Signs in with Google, with no 2FA. Phone codes and SSO cannot be used by a reviewer.
-- Owns a Bland organization and has created an org API key in it. Tools that call the Bland API act through that key and fail without one.
-- Has the pathway and the call named in the test cases.
+## 2. Plugin / submission owner: finish before upload
 
-On connect, ChatGPT asks for read and write access to the workspace.
+### Final listing and reviewer fixtures
 
-## Submission steps
+- [ ] **Listing pages:** replace or verify the current `interface.supportURL`, `privacyPolicyURL`, and `termsOfServiceURL` with the final publicly accessible HTTPS pages. Marketing/legal owns the content; submission owner verifies the exact links.
+- [ ] **Brand assets:** get brand approval for `assets/icon.svg` and `assets/logo.png`. The current phone icon is a placeholder with explicit 48 × 48 dimensions; the logo is 256 × 256. Replace with approved artwork if needed and recheck dimensions/file limits.
+- [ ] **Review organization:** provision a dedicated account and organization with stable, non-sensitive fixtures and the required permissions/entitlements. Provide a login method the reviewer can complete without MFA, phone codes, magic links, or private-network access. Verify it from a fresh session; do not assume a normal employee Google login will work for a reviewer. If the current sign-in flow cannot do this, coordinate with Spencer.
+- [ ] **Five positive cases:** replace `<CALL_ID>` with a fixture call containing a transcript, `<AGENT_ID>` with a v2 agent that has a saved default-branch version, and `<SINCE_ISO8601>` / `<UNTIL_ISO8601>` with a fixed period containing known fixture calls. Keep five positive and three negative cases. `list_agents` lists v2 agents; `get_agent` does not fetch legacy pathway graphs.
+- [ ] **Expected results:** record fixture names, expected call totals/completion counts, the saved configuration, and relevant call facts in the private reviewer instructions. Check every expected tool and outcome against the connected deployment. Do not seed these tests with customer data.
+- [ ] **Demo:** replace `extensions.com.openai.review.demo_recording_url` (`https://bland.ai/plugin-demo` is a placeholder) with a reviewer-accessible recording demonstrating connection and the five positive cases. Avoid exposing credentials or private data.
+- [ ] **Launch metadata:** confirm author/contact details, release notes, and the intended `publication.countries` list (currently US, CA, GB, AU).
+- [ ] **Credentials:** provide reviewer credentials through the platform's private Review details fields, never through Git, the ZIP, or chat.
 
-1. Org owner or Apps Management Write role at platform.openai.com/plugins, with identity verification done.
-2. `dev/scripts/build-chatgpt-zip.sh` and upload the ZIP. The MCP server must be in the first upload; it cannot be added to a skills-only plugin later.
-3. Resolve automated findings under Metadata & Skills. Connect the MCP under MCPs, pass domain verification and the tool scan.
-4. Under Review details: the reviewer account's credentials (see Reviewer account). Test cases, video, and release notes are prefilled from the manifest.
-5. Submit for review. One review at a time; feedback comes by email.
-6. After approval, publish. The MCP URL is frozen after publish; changing it means contacting OpenAI support.
+### Validate and submit
+
+1. Run `python3 dev/scripts/test-chatgpt-package.py` and `dev/scripts/build-chatgpt-zip.sh`. The local test checks packaging and references; it intentionally allows the tracked review placeholders above and does not certify submission readiness.
+2. In ChatGPT, test connect/disconnect/reconnect, the five positive cases, the three negative cases, and ambiguous/missing IDs. Confirm prompts never request API keys or invoke absent local scripts. Use dedicated fixtures for any call, evaluation, or deployment tests; these can have costs or external effects.
+3. Have an organization owner or a user with Apps Management Write access complete identity verification and open [the submission platform](https://platform.openai.com/plugins).
+4. Upload the final ZIP with its MCP configuration in the initial submission. Resolve Metadata & Skills findings, connect the MCP under MCPs, complete domain verification, and pass the tool scan. Inspect the actual tools exposed under OAuth, including those unused by the skills.
+5. Fill private Review details, verify the prefilled cases/video/release notes, then submit. After approval, publish explicitly. Treat the production MCP URL as a stable release contract; check current platform rules before changing it.
+
+## Maintenance and sources
+
+The curated skills were checked against `CINTELLILABS/SERVER` main at `475c8ddbe2798963d17f8f1998153dcedeb9da61`, specifically the actions under `apps/api/src/lib/blandcode/actions/`. Recheck live schemas after deployment and whenever named tool contracts change. Keep ChatGPT skill updates in `dev/chatgpt/skills/`; changes to local skills are not automatically included.
+
+OpenAI docs checked October 1, 2026:
+
+- [Extensions](https://developers.openai.com/plugins/build/extensions)
+- [Authentication](https://developers.openai.com/plugins/build/auth)
+- [Build skills](https://developers.openai.com/plugins/build/skills)
+- [Package plugins](https://developers.openai.com/plugins/build/plugins)
+- [Plugin guidelines](https://developers.openai.com/plugins/plugin-guidelines)
+- [Submission](https://developers.openai.com/plugins/deploy/submission)
+- [Submission errors](https://developers.openai.com/plugins/deploy/submission-errors)

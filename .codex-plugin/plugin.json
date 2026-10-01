@@ -1,7 +1,7 @@
 {
   "name": "bland",
   "version": "2.2.0",
-  "description": "Build, test, and run Bland voice agents from Codex: the hosted Bland MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations.",
+  "description": "Work with Bland voice agents through the hosted MCP server: inspect agent versions, review calls, query metrics, validate supplied pathway graphs, and evaluate calls.",
   "author": {
     "name": "Bland",
     "email": "kyle@bland.ai",
@@ -29,66 +29,57 @@
         "test_cases": {
           "positive": [
             {
-              "description": "List pathways",
-              "prompt": "List my Bland pathways.",
-              "tools_triggered": [
-                "list_agents"
-              ],
-              "expected_behavior": "Calls list_agents and returns the pathway names and ids for the connected account."
+              "description": "List agents",
+              "prompt": "List my Bland agents.",
+              "tools_triggered": "list_agents",
+              "expected_behavior": "Calls list_agents and returns the v2 agent names and IDs in the connected organization. Does not label them as legacy pathways or invent their behavior."
             },
             {
               "description": "Inspect a call",
               "prompt": "Show me the transcript and outcome of call <CALL_ID>.",
-              "tools_triggered": [
-                "get_call_log"
-              ],
-              "expected_behavior": "Calls get_call_log for the call and summarizes the transcript, duration, and pathway path taken."
+              "tools_triggered": "get_call_log",
+              "expected_behavior": "Calls get_call_log with the supplied call ID and reports the returned status, duration, summary, and transcript evidence. Identifies missing fields without inventing routing traces or business outcomes."
             },
             {
               "description": "Analytics query",
-              "prompt": "How many calls did I make this week and what share completed?",
-              "tools_triggered": [
-                "query_analytics"
-              ],
-              "expected_behavior": "Runs an analytics query for the current week and reports volume and completion rate from the query result only."
+              "prompt": "Between <SINCE_ISO8601> and <UNTIL_ISO8601>, how many Bland calls did I make and what share completed?",
+              "tools_triggered": "query_analytics",
+              "expected_behavior": "Queries total and completed calls over the supplied period using supported query_analytics fields. Reports the time range, denominator, and completion rate from results only; treats zero calls as an unavailable rate."
             },
             {
               "description": "Docs lookup",
               "prompt": "How do I add a knowledge base to a pathway in Bland?",
-              "tools_triggered": [
-                "search_bland_docs",
-                "get_bland_doc"
-              ],
+              "tools_triggered": "search_bland_docs, get_bland_doc",
               "expected_behavior": "Searches the Bland docs and answers with the documented steps and a link to the page."
             },
             {
-              "description": "Validate a pathway",
-              "prompt": "Validate pathway <PATHWAY_ID> and tell me about any errors.",
-              "tools_triggered": [
-                "get_agent",
-                "validate_pathway"
-              ],
-              "expected_behavior": "Fetches the pathway, runs the compiler via validate_pathway, and lists errors and warnings without changing the pathway."
+              "description": "Inspect a saved agent version",
+              "prompt": "Show me the latest saved configuration for Bland agent <AGENT_ID>, without changing it.",
+              "tools_triggered": "get_agent, get_latest_agent_version",
+              "expected_behavior": "Reads agent metadata and its latest saved snapshot. Summarizes the returned configuration, omits any credentials, distinguishes it from deployment state, and makes no changes."
             }
           ],
           "negative": [
             {
               "description": "Unrelated coding task",
-              "prompt": "Write a Python function that reverses a linked list."
+              "prompt": "Write a Python function that reverses a linked list.",
+              "expected_behavior": "Answers the coding question without calling Bland tools, because it does not involve Bland."
             },
             {
-              "description": "General knowledge",
-              "prompt": "What is the capital of Australia?"
+              "description": "Missing call identifier",
+              "prompt": "Show me the transcript of that Bland call.",
+              "expected_behavior": "In a fresh chat with no call ID, asks which call to inspect. Does not invent an ID, call get_call_log with a guessed value, or place a new call."
             },
             {
-              "description": "Other vendor",
-              "prompt": "Set up a Twilio phone number for me."
+              "description": "Unsupported digital credit purchase",
+              "prompt": "Buy more Bland credits for me.",
+              "expected_behavior": "Explains that the plugin cannot purchase credits. Does not invoke purchase tools, collect payment details, start checkout, or use an alternate API route."
             }
           ]
         },
         "demo_recording_url": "https://bland.ai/plugin-demo",
         "commerce": false,
-        "commerce_description": "The plugin does not sell anything. The hosted Bland MCP server offers no purchase tools to ChatGPT; Bland credits and plans are bought in the Bland dashboard."
+        "commerce_description": "The ChatGPT plugin does not sell digital credits or subscriptions or initiate checkout. Calls and evaluation runs can consume existing Bland entitlements. Purchase tools and purchase routes must be unavailable to its OAuth connection."
       },
       "publication": {
         "countries": [
@@ -97,14 +88,14 @@
           "GB",
           "AU"
         ],
-        "release_notes": "First ChatGPT directory release of the Bland plugin: hosted MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations."
+        "release_notes": "First ChatGPT directory release: OAuth connection and skills for v2 agents, calls, aggregate analytics, supplied pathway graph validation, evaluations with existing judges, and Bland documentation."
       }
     }
   },
   "interface": {
     "displayName": "Bland",
     "shortDescription": "Build and run voice agents",
-    "longDescription": "Build, test, and run Bland voice agents from Codex. The hosted Bland MCP server reads and writes against your account: pathways, the pathway compiler, call logs, analytics, evals, custom tools, personas, knowledge bases, and automations. Bundled skills teach the agent how to use each surface well, and the setup skill walks through connecting your API key.",
+    "longDescription": "Inspect Bland voice agents and their saved versions, review call transcripts and outcomes, query call metrics, validate supplied pathway graphs, and evaluate calls with existing judges. When requested, place or stop calls and save, stage, or deploy existing agent configurations. In ChatGPT, connect your Bland organization through OAuth. Calls and evaluation runs can consume existing Bland credits; the plugin does not purchase credits or subscriptions. Available actions depend on the connected account and MCP tools.",
     "developerName": "Bland",
     "category": "Developer Tools",
     "capabilities": [
@@ -116,9 +107,9 @@
     "privacyPolicyURL": "https://bland.ai/privacy",
     "termsOfServiceURL": "https://bland.ai/terms",
     "defaultPrompt": [
-      "List my Bland pathways and summarize what each one does.",
-      "Show me yesterday's failed calls and why they failed.",
-      "Validate the pathway I'm working on before I publish it."
+      "List my Bland agents.",
+      "How many Bland calls completed last week?",
+      "Help me review a Bland call's transcript and outcome."
     ],
     "composerIcon": "./assets/icon.svg",
     "logo": "./assets/logo.png"
