@@ -157,5 +157,5 @@ dev/              benchmarks, smoke scripts, release checklist, migration plan
 ## Support
 
 - Docs: https://docs.bland.ai
-- Support: support@bland.ai
+- Support: hello@bland.ai
 - Issues with this plugin: https://github.com/CINTELLILABS/bland-plugins/issues

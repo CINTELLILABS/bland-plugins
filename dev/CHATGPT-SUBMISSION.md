@@ -1,6 +1,6 @@
 # Submitting to the ChatGPT plugin directory
 
-This PR prepares the package. Upload is still blocked on real review fixtures, final listing assets, and verification of the deployed OAuth server. A successful ZIP build does not verify those requirements.
+This PR prepares the package. Upload is still blocked on real review fixtures and verification of the deployed OAuth server. Listing copy, links, contact, countries, and the existing brand artwork are configured below. A successful ZIP build does not verify the live requirements.
 
 ## Package contents
 
@@ -43,13 +43,13 @@ Then follow the advertised authorization-server metadata and exercise the full f
 
 ### Final listing and reviewer fixtures
 
-- [ ] **Listing pages:** replace or verify the current `interface.supportURL`, `privacyPolicyURL`, and `termsOfServiceURL` with the final publicly accessible HTTPS pages. Marketing/legal owns the content; submission owner verifies the exact links.
-- [ ] **Brand assets:** get brand approval for `assets/icon.svg` and `assets/logo.png`. The current phone icon is a placeholder with explicit 48 × 48 dimensions; the logo is 256 × 256. Replace with approved artwork if needed and recheck dimensions/file limits.
+- [x] **Listing pages:** verified public HTTPS pages on October 1, 2026: [website](https://www.bland.ai), [help center with Contact Support](https://docs.bland.ai/welcome-to-bland), [privacy](https://www.bland.ai/legal/privacy), and [terms](https://www.bland.ai/legal/terms). The previous `/support` URL returned 404; `/contact` redirects to a sales demo. The manifest now uses the help center and direct legal URLs. Marketing/legal continues to own those pages' content.
+- [x] **Listing artwork:** use the existing red-and-cream Bland mark at `assets/logo.png` (256 × 256) for both `composerIcon` and `logo`. The generic phone SVG is no longer referenced by the listing. Confirm the appearance in the platform preview before submission.
 - [ ] **Review organization:** provision a dedicated account and organization with stable, non-sensitive fixtures and the required permissions/entitlements. Provide a login method the reviewer can complete without MFA, phone codes, magic links, or private-network access. Verify it from a fresh session; do not assume a normal employee Google login will work for a reviewer. If the current sign-in flow cannot do this, coordinate with Spencer.
 - [ ] **Five positive cases:** replace `<CALL_ID>` with a fixture call containing a transcript, `<AGENT_ID>` with a v2 agent that has a saved default-branch version, and `<SINCE_ISO8601>` / `<UNTIL_ISO8601>` with a fixed period containing known fixture calls. Keep five positive and three negative cases. `list_agents` lists v2 agents; `get_agent` does not fetch legacy pathway graphs.
 - [ ] **Expected results:** record fixture names, expected call totals/completion counts, the saved configuration, and relevant call facts in the private reviewer instructions. Check every expected tool and outcome against the connected deployment. Do not seed these tests with customer data.
 - [ ] **Demo:** replace `extensions.com.openai.review.demo_recording_url` (`https://bland.ai/plugin-demo` is a placeholder) with a reviewer-accessible recording demonstrating connection and the five positive cases. Avoid exposing credentials or private data.
-- [ ] **Launch metadata:** confirm author/contact details, release notes, and the intended `publication.countries` list (currently US, CA, GB, AU).
+- [x] **Launch metadata:** use the name Bland, subtitle "Manage voice agents and calls", and Developer Tools category. The owner confirmed `hello@bland.ai` as the contact and US, CA, GB, AU as the launch countries. The description and release notes cover the packaged workflows.
 - [ ] **Credentials:** provide reviewer credentials through the platform's private Review details fields, never through Git, the ZIP, or chat.
 
 ### Validate and submit

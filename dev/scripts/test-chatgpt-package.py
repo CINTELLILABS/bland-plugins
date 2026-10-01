@@ -4,6 +4,7 @@
 import json
 import posixpath
 import re
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -58,7 +59,7 @@ class ChatGPTPackageTest(unittest.TestCase):
                                       "bland_api_get", "call_bland_api", "buy_credits"]:
                         self.assertNotIn(forbidden, content, name)
                     for target in re.findall(r"\]\(([^)]+)\)", content):
-                        if "://" not in target and not target.startswith("#"):
+                        if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target) and not target.startswith("#"):
                             resolved = posixpath.normpath(posixpath.join(posixpath.dirname(name), target.split("#")[0]))
                             self.assertIn(resolved, files, f"Broken link in {name}: {target}")
                 self.assertEqual(len(extension["review"]["test_cases"]["positive"]), 5)
@@ -75,10 +76,20 @@ class ChatGPTPackageTest(unittest.TestCase):
                 self.assertLessEqual(len(prompts), 3)
                 self.assertEqual(len(prompts), len(set(prompts)))
                 self.assertTrue(all(len(prompt) <= 128 for prompt in prompts))
-                icon = ET.fromstring(archive.read("bland/assets/icon.svg"))
-                self.assertEqual(icon.attrib["width"], icon.attrib["height"])
-                self.assertGreaterEqual(int(icon.attrib["width"]), 48)
-                self.assertEqual(icon.attrib["viewBox"], "0 0 48 48")
+                for field in ["composerIcon", "logo"]:
+                    path = posixpath.normpath("bland/" + interface[field])
+                    data = archive.read(path)
+                    self.assertLessEqual(len(data), 5 * 1024 * 1024)
+                    if path.endswith(".svg"):
+                        icon = ET.fromstring(data)
+                        width, height = int(icon.attrib["width"]), int(icon.attrib["height"])
+                    else:
+                        self.assertTrue(path.endswith(".png"))
+                        self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n")
+                        width, height = struct.unpack(">II", data[16:24])
+                        self.assertLessEqual(width, 4096)
+                    self.assertEqual(width, height)
+                    self.assertGreaterEqual(width, 48)
         self.assertEqual((ROOT / ".codex-plugin/mcp.json").read_bytes(), local_mcp)
 
     def test_rebuild_preserves_other_files_and_removes_stale_archive_entries(self):

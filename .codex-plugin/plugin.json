@@ -4,7 +4,7 @@
   "description": "Work with Bland voice agents through the hosted MCP server: inspect agent versions, review calls, query metrics, validate supplied pathway graphs, and evaluate calls.",
   "author": {
     "name": "Bland",
-    "email": "kyle@bland.ai",
+    "email": "hello@bland.ai",
     "url": "https://bland.ai"
   },
   "homepage": "https://bland.ai",
@@ -94,24 +94,24 @@
   },
   "interface": {
     "displayName": "Bland",
-    "shortDescription": "Build and run voice agents",
-    "longDescription": "Inspect Bland voice agents and their saved versions, review call transcripts and outcomes, query call metrics, validate supplied pathway graphs, and evaluate calls with existing judges. When requested, place or stop calls and save, stage, or deploy existing agent configurations. In ChatGPT, connect your Bland organization through OAuth. Calls and evaluation runs can consume existing Bland credits; the plugin does not purchase credits or subscriptions. Available actions depend on the connected account and MCP tools.",
+    "shortDescription": "Manage voice agents and calls",
+    "longDescription": "Manage your Bland voice agents from ChatGPT. Review call transcripts and outcomes, check call volume and completion rates, and inspect saved agent configurations.\n\nAsk Bland to place or stop a call, save an agent change, or deploy a selected version. You can also validate a supplied pathway graph, score calls with existing evaluation judges, and find answers in Bland's documentation.\n\nRequires a Bland account and access to the connected organization. Sign in through Bland to connect. Calls and evaluation runs may consume your existing Bland credits. Pathway validation requires the graph's nodes and edges. Available actions depend on your account permissions and connected tools.",
     "developerName": "Bland",
     "category": "Developer Tools",
     "capabilities": [
       "Read",
       "Write"
     ],
-    "websiteURL": "https://bland.ai",
-    "supportURL": "https://bland.ai/support",
-    "privacyPolicyURL": "https://bland.ai/privacy",
-    "termsOfServiceURL": "https://bland.ai/terms",
+    "websiteURL": "https://www.bland.ai",
+    "supportURL": "https://docs.bland.ai/welcome-to-bland",
+    "privacyPolicyURL": "https://www.bland.ai/legal/privacy",
+    "termsOfServiceURL": "https://www.bland.ai/legal/terms",
     "defaultPrompt": [
       "List my Bland agents.",
       "How many Bland calls completed last week?",
       "Help me review a Bland call's transcript and outcome."
     ],
-    "composerIcon": "./assets/icon.svg",
+    "composerIcon": "./assets/logo.png",
     "logo": "./assets/logo.png"
   }
 }

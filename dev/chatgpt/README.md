@@ -28,4 +28,4 @@ The live MCP tools define the supported inputs. A v2 agent ID is different from 
 
 Calls and evaluation runs can consume existing Bland credits. This plugin does not purchase credits or subscriptions. Confirmations presented by ChatGPT still apply to actions that change data or contact people.
 
-Support: [Bland documentation](https://docs.bland.ai) or [plugin issues](https://github.com/CINTELLILABS/bland-plugins/issues). Do not include credentials or private call content in public issues.
+Support: [Bland help center](https://docs.bland.ai/welcome-to-bland), [hello@bland.ai](mailto:hello@bland.ai), or [plugin issues](https://github.com/CINTELLILABS/bland-plugins/issues). Do not include credentials or private call content in public issues.
