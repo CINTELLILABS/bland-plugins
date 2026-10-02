@@ -1,6 +1,6 @@
 # Bland for ChatGPT
 
-Connect your Bland organization to inspect voice agents, review calls, query call metrics, validate supplied pathway graphs, and evaluate calls with existing judges. You can also place and stop calls and save or deploy existing agent configurations when you ask for those actions.
+Connect your Bland organization to inspect voice agents, review calls, query call metrics, validate supplied pathway graphs, and evaluate calls with existing judges. You can also place and stop calls, prepare agent changes, and deploy selected saved versions when you ask for those actions.
 
 ## Connect
 
@@ -17,7 +17,7 @@ An eligible organization owner or admin must complete consent. If Bland reports 
 ## Included skills
 
 - [Setup](skills/setup/SKILL.md): OAuth connection and connection errors.
-- [Agents](skills/agents/SKILL.md): inspect v2 agent versions; save, stage, and promote requested changes.
+- [Agents](skills/agents/SKILL.md): inspect v2 agent versions, prepare changes, and stage or promote selected saved versions. Saving requires a named tool that atomically rejects changes based on an outdated version; otherwise the skill presents the proposed changes for you to apply in Bland's editor.
 - [Calls](skills/calls/SKILL.md): review a known call, place a call, wait, or stop it.
 - [Analytics](skills/analytics/SKILL.md): aggregate call metrics with an explicit date range.
 - [Pathways](skills/pathways/SKILL.md): inspect and validate a supplied native graph.

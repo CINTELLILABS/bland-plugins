@@ -95,7 +95,7 @@
   "interface": {
     "displayName": "Bland",
     "shortDescription": "Manage voice agents and calls",
-    "longDescription": "Manage your Bland voice agents from ChatGPT. Review call transcripts and outcomes, check call volume and completion rates, and inspect saved agent configurations.\n\nAsk Bland to place or stop a call, save an agent change, or deploy a selected version. You can also validate a supplied pathway graph, score calls with existing evaluation judges, and find answers in Bland's documentation.\n\nRequires a Bland account and access to the connected organization. Sign in through Bland to connect. Calls and evaluation runs may consume your existing Bland credits. Pathway validation requires the graph's nodes and edges. Available actions depend on your account permissions and connected tools.",
+    "longDescription": "Manage your Bland voice agents from ChatGPT. Review call transcripts and outcomes, check call volume and completion rates, and inspect saved agent configurations.\n\nAsk Bland to place or stop a call, prepare an agent change, or deploy a selected saved version. You can also validate a supplied pathway graph, score calls with existing evaluation judges, and find answers in Bland's documentation.\n\nRequires a Bland account and access to the connected organization. Sign in through Bland to connect. Calls and evaluation runs may consume your existing Bland credits. Pathway validation requires the graph's nodes and edges. Available actions depend on your account permissions and connected tools.",
     "developerName": "Bland",
     "category": "Developer Tools",
     "capabilities": [

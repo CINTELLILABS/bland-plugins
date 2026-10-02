@@ -1,6 +1,6 @@
 ---
 name: agents
-description: List or inspect Bland v2 voice agents and their saved versions, or save, stage, and promote changes to an existing agent through named MCP tools.
+description: List or inspect Bland v2 voice agents, prepare configuration changes, and stage or promote saved versions. Save changes only through a named tool that supports an atomic version check.
 ---
 
 # Bland agents
@@ -16,11 +16,13 @@ Use the live schemas of the named tools below. Agent IDs refer to v2 agents, not
 
 ## Change an existing configuration
 
-1. Establish the requested agent, branch, and precise change. Read the full existing snapshot. Preserve unrelated fields in its native `behavior`, `settings`, and `contact` structure; do not rebuild a partial snapshot from a summary.
+1. Establish the requested agent, branch, and precise change. Read the full existing snapshot and retain its version ID and any revision token returned. Preserve unrelated fields in its native `behavior`, `settings`, and `contact` structure; do not rebuild a partial snapshot from a summary.
 2. For a native pathway graph, check relevant shapes with `get_pathway_schema`, inspect behavior with `get_pathway_context`, and call `validate_pathway` before saving. These tools take native nodes and edges. Do not assume every v2 snapshot is a legacy pathway graph or invent a conversion. If the required schema or validation is unavailable, explain what is needed before editing that surface.
 3. Explain the concrete change before writing. An explicit request for that change is authorization; otherwise ask. Honor ChatGPT's confirmations. Saving, staging, and deploying are separate actions.
-4. Re-read the latest version before saving. If it changed, reconcile against that version and show any changed proposal. This reduces stale edits but is not an atomic concurrency guarantee.
-5. Call `save_agent_version` with the full snapshot and the selected branch. Read back with `get_latest_agent_version` and verify the changed fields. Do not report a successful save solely because a request was sent.
+4. Before calling `save_agent_version`, check its live schema and documented behavior for an atomic version check: it must accept the version ID or revision read earlier and reject the write if that branch has changed. Re-reading immediately before a write does not protect against concurrent edits. Do not invent precondition fields or assume the tool enforces them.
+5. If the named tool lacks that check, or the read tools do not provide the required version or revision, do not call it. Present a summary of the proposed changes, explain that this connection cannot save them safely, and direct the user to apply them in Bland's editor. Do not use an arbitrary REST fallback or bypass this requirement after a confirmation.
+6. When supported, send the full snapshot, selected branch, and the exact supported precondition fields populated from the snapshot read in step 1. On a stale-version conflict, fetch the current snapshot and its version or revision, reconcile the user's requested changes, repeat validation, and explain any changed proposal before retrying with the new precondition. Never retry the old full snapshot against a newer version or remove the precondition to force a save.
+7. Read back with `get_latest_agent_version` and verify the returned version ID and changed fields. If another version has since become latest, report that concurrent change rather than claiming your version is still current. Do not report a successful save solely because a request was sent.
 
 ## Stage or deploy
 

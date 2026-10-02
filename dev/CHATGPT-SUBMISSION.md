@@ -18,6 +18,8 @@ The compatibility `.codex-plugin/` layout is supported. Local host skills, comma
 
 The ChatGPT skills use the existing named MCP tools. They cover v2 agents, calls, aggregate analytics, supplied pathway graph validation, existing evaluation judges/runs, and docs. Legacy pathway discovery/editing, local simulations, dashboard/schema creation, automations, custom tools, and knowledge-base creation are not promised by this package. Those need suitable named server operations before adding executable workflows here. Documentation lookup can still explain those product features.
 
+Agent changes can be prepared for the user to apply in Bland's editor. Saving through MCP is allowed only when the named tool accepts a version precondition and atomically rejects a stale write; the required version or revision must also be available from the read tools. Until that contract is available and verified, the skill must not save agent changes through MCP.
+
 ## 1. Hosted server: verify before submission
 
 These are release gates, not claims that the server is deployed. Keep deployment revisions and operational test evidence in private release tracking. Plugin instructions cannot restrict the server's actual tool list or authorization.
