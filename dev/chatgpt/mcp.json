@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "bland": {
+      "type": "http",
+      "url": "https://api.bland.ai/v1/mcp",
+      "oauth_resource": "https://api.bland.ai/v1/mcp"
+    }
+  }
+}

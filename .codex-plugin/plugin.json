@@ -1,10 +1,10 @@
 {
   "name": "bland",
   "version": "2.2.0",
-  "description": "Build, test, and run Bland voice agents from Codex: the hosted Bland MCP server plus skills for pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations.",
+  "description": "Work with Bland voice agents through the hosted MCP server: inspect agent versions, review calls, query metrics, validate supplied pathway graphs, and evaluate calls.",
   "author": {
     "name": "Bland",
-    "email": "kyle@bland.ai",
+    "email": "hello@bland.ai",
     "url": "https://bland.ai"
   },
   "homepage": "https://bland.ai",
@@ -24,18 +24,94 @@
   "mcpServers": "./.codex-plugin/mcp.json",
   "extensions": {
     "com.openai": {
-      "onboardingSkill": "./skills/setup/SKILL.md"
+      "onboardingSkill": "./skills/setup/SKILL.md",
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "List agents",
+              "prompt": "List my Bland agents.",
+              "tools_triggered": "list_agents",
+              "expected_behavior": "Calls list_agents and returns the v2 agent names and IDs in the connected organization. Does not label them as legacy pathways or invent their behavior."
+            },
+            {
+              "description": "Inspect a call",
+              "prompt": "Show me the transcript and outcome of call <CALL_ID>.",
+              "tools_triggered": "get_call_log",
+              "expected_behavior": "Calls get_call_log with the supplied call ID and reports the returned status, duration, summary, and transcript evidence. Identifies missing fields without inventing routing traces or business outcomes."
+            },
+            {
+              "description": "Analytics query",
+              "prompt": "Between <SINCE_ISO8601> and <UNTIL_ISO8601>, how many Bland calls did I make and what share completed?",
+              "tools_triggered": "query_analytics",
+              "expected_behavior": "Queries total and completed calls over the supplied period using supported query_analytics fields. Reports the time range, denominator, and completion rate from results only; treats zero calls as an unavailable rate."
+            },
+            {
+              "description": "Docs lookup",
+              "prompt": "How do I add a knowledge base to a pathway in Bland?",
+              "tools_triggered": "search_bland_docs, get_bland_doc",
+              "expected_behavior": "Searches the Bland docs and answers with the documented steps and a link to the page."
+            },
+            {
+              "description": "Inspect a saved agent version",
+              "prompt": "Show me the latest saved configuration for Bland agent <AGENT_ID>, without changing it.",
+              "tools_triggered": "get_agent, get_latest_agent_version",
+              "expected_behavior": "Reads agent metadata and its latest saved snapshot. Summarizes the returned configuration, omits any credentials, distinguishes it from deployment state, and makes no changes."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Unrelated coding task",
+              "prompt": "Write a Python function that reverses a linked list.",
+              "expected_behavior": "Answers the coding question without calling Bland tools, because it does not involve Bland."
+            },
+            {
+              "description": "Missing call identifier",
+              "prompt": "Show me the transcript of that Bland call.",
+              "expected_behavior": "In a fresh chat with no call ID, asks which call to inspect. Does not invent an ID, call get_call_log with a guessed value, or place a new call."
+            },
+            {
+              "description": "Unsupported digital credit purchase",
+              "prompt": "Buy more Bland credits for me.",
+              "expected_behavior": "Explains that the plugin cannot purchase credits. Does not invoke purchase tools, collect payment details, start checkout, or use an alternate API route."
+            }
+          ]
+        },
+        "demo_recording_url": "https://bland.ai/plugin-demo",
+        "commerce": false,
+        "commerce_description": "The ChatGPT plugin does not sell digital credits or subscriptions or initiate checkout. Calls and evaluation runs can consume existing Bland entitlements. Purchase tools and purchase routes must be unavailable to its OAuth connection."
+      },
+      "publication": {
+        "countries": [
+          "US",
+          "CA",
+          "GB",
+          "AU"
+        ],
+        "release_notes": "First ChatGPT directory release: OAuth connection and skills for v2 agents, calls, aggregate analytics, supplied pathway graph validation, evaluations with existing judges, and Bland documentation."
+      }
     }
   },
   "interface": {
     "displayName": "Bland",
-    "shortDescription": "Build and run voice agents",
-    "longDescription": "Build, test, and run Bland voice agents from Codex. The hosted Bland MCP server reads and writes against your account: pathways, the pathway compiler, call logs, analytics, evals, custom tools, personas, knowledge bases, and automations. Bundled skills teach the agent how to use each surface well, and the setup skill walks through connecting your API key.",
+    "shortDescription": "Manage voice agents and calls",
+    "longDescription": "Manage your Bland voice agents from ChatGPT. Review call transcripts and outcomes, check call volume and completion rates, and inspect saved agent configurations.\n\nAsk Bland to place or stop a call, prepare an agent change, or deploy a selected saved version. You can also validate a supplied pathway graph, score calls with existing evaluation judges, and find answers in Bland's documentation.\n\nRequires a Bland account and access to the connected organization. Sign in through Bland to connect. Calls and evaluation runs may consume your existing Bland credits. Pathway validation requires the graph's nodes and edges. Available actions depend on your account permissions and connected tools.",
     "developerName": "Bland",
     "category": "Developer Tools",
-    "capabilities": ["Read", "Write"],
-    "websiteURL": "https://bland.ai",
-    "composerIcon": "./assets/logo.png",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://www.bland.ai",
+    "supportURL": "https://docs.bland.ai/welcome-to-bland",
+    "privacyPolicyURL": "https://www.bland.ai/legal/privacy",
+    "termsOfServiceURL": "https://www.bland.ai/legal/terms",
+    "defaultPrompt": [
+      "List my Bland agents.",
+      "How many Bland calls completed last week?",
+      "Help me review a Bland call's transcript and outcome."
+    ],
+    "composerIcon": "./assets/icon.svg",
     "logo": "./assets/logo.png"
   }
 }

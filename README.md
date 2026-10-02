@@ -55,6 +55,10 @@ Codex reads `.codex-plugin/plugin.json` and `.codex-plugin/mcp.json`, which use 
 
 Codex loads the skills and the MCP server only. The `/bland:*` commands and the Norm agent are Claude Code and Grok Build features and are not available in Codex; ask for the same work in plain language and the skills drive it.
 
+### ChatGPT plugin directory
+
+Not yet published. The directory build uses OAuth and a separate set of self-contained [ChatGPT skills](dev/chatgpt/README.md). It includes named MCP workflows for agents, calls, aggregate analytics, supplied graph validation, evals, and docs. Build it with `dev/scripts/build-chatgpt-zip.sh`; see [dev/CHATGPT-SUBMISSION.md](dev/CHATGPT-SUBMISSION.md) for the remaining submission work. The local host workflows below use the root `skills/` directory.
+
 ### Grok Build
 
 Install from the xAI plugin marketplace, then set `BLAND_API_KEY` in the environment that launches Grok Build (the same `read -rs` pattern as Codex above works):
@@ -153,5 +157,5 @@ dev/              benchmarks, smoke scripts, release checklist, migration plan
 ## Support
 
 - Docs: https://docs.bland.ai
-- Support: support@bland.ai
+- Support: hello@bland.ai
 - Issues with this plugin: https://github.com/CINTELLILABS/bland-plugins/issues

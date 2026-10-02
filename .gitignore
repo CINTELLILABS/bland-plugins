@@ -4,3 +4,4 @@ node_modules/
 .norm/
 .tmp-smoke-data/
 dev/benchmarks/pathway-creation/runs/
+.tmp-chatgpt-build/
