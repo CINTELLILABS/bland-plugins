@@ -36,13 +36,13 @@
             },
             {
               "description": "Inspect a call",
-              "prompt": "Show me the transcript and outcome of call <CALL_ID>.",
+              "prompt": "Show me the transcript and outcome of call 4930dbaf-f260-428f-bc3a-cc1876fa4e95.",
               "tools_triggered": "get_call_log",
               "expected_behavior": "Calls get_call_log with the supplied call ID and reports the returned status, duration, summary, and transcript evidence. Identifies missing fields without inventing routing traces or business outcomes."
             },
             {
               "description": "Analytics query",
-              "prompt": "Between <SINCE_ISO8601> and <UNTIL_ISO8601>, how many Bland calls did I make and what share completed?",
+              "prompt": "Between 2026-10-02T16:17:00Z and 2026-10-02T16:20:00Z, how many Bland calls did I make and what share completed?",
               "tools_triggered": "query_analytics",
               "expected_behavior": "Queries total and completed calls over the supplied period using supported query_analytics fields. Reports the time range, denominator, and completion rate from results only; treats zero calls as an unavailable rate."
             },
@@ -54,7 +54,7 @@
             },
             {
               "description": "Inspect a saved agent version",
-              "prompt": "Show me the latest saved configuration for Bland agent <AGENT_ID>, without changing it.",
+              "prompt": "Show me the latest saved configuration for Bland agent d2edf31d-9608-4abf-9676-04a8457205ce, without changing it.",
               "tools_triggered": "get_agent, get_latest_agent_version",
               "expected_behavior": "Reads agent metadata and its latest saved snapshot. Summarizes the returned configuration, omits any credentials, distinguishes it from deployment state, and makes no changes."
             }
