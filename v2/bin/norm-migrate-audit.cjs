@@ -120,6 +120,7 @@ function main() {
 	const orCollapse = [];
 	const unreachable = [];
 	const mergedLabels = [];
+	let reachableNestedEndCall = false;
 	for (const s of scenarios) {
 		const d = s.data || {};
 		const fn = ((d.flow || {}).nodes || []);
@@ -174,13 +175,37 @@ function main() {
 		for (let i = 1; i < fn.length - 1; i += 1) {
 			if (!inboundTargets.has(fn[i].id) && i !== 1) unreachable.push(`${d.name}/${(fn[i].data || {}).name || fn[i].id}`);
 		}
+		// S6 counts an in-flow end-call only when the flow can get to it: walk
+		// from the Start pill over edges, route targets and response pathways.
+		const next = new Map();
+		const link = (from, to) => {
+			if (to) next.set(from, [...(next.get(from) || []), to]);
+		};
+		for (const e of fe) link(e.source, e.target);
+		for (const n of fn) {
+			const nd = n.data || {};
+			for (const r of nd.rules || []) link(n.id, r.targetNodeId);
+			link(n.id, nd.fallbackNodeId);
+			for (const t of nd.tools || []) for (const rp of t.responsePathways || []) link(n.id, rp.targetId || rp.targetNodeId);
+			for (const rp of nd.responsePathways || []) link(n.id, rp.targetNodeId || rp.targetId);
+		}
+		const startPill = fn.find((n) => n.type === "start");
+		const seen = new Set();
+		const queue = startPill ? [startPill.id] : [];
+		while (queue.length) {
+			const id = queue.pop();
+			if (seen.has(id)) continue;
+			seen.add(id);
+			queue.push(...(next.get(id) || []));
+		}
+		if (fn.some((n) => n.type === "end-call" && seen.has(n.id))) reachableNestedEndCall = true;
 	}
 	check("S5", "all targets resolve", targetIssues.length === 0, targetIssues.slice(0, 5).join("; "));
 	// A v1 End Call carries as an end-call step inside its flow, so the
 	// hang-up can live there instead of at the root (as the platform's own
-	// parity audit accepts).
-	const nestedEndCall = scenarios.some((s) => (((s.data || {}).flow || {}).nodes || []).some((n) => n.type === "end-call"));
-	check("S6", "an end-call exists (root or inside a flow)", nodes.some((n) => n.type === "end-call") || nestedEndCall, "");
+	// parity audit accepts). An in-flow end-call nothing leads to does not
+	// count.
+	check("S6", "an end-call exists (root, or inside a flow and reachable from its Start)", nodes.some((n) => n.type === "end-call") || reachableNestedEndCall, "");
 	check("S7", "contact.inboundNumbers is an array", Array.isArray((snap.contact || {}).inboundNumbers), "the platform validator rejects a snapshot without it");
 	{
 		const badHeaders = [];
@@ -206,7 +231,11 @@ function main() {
 	// (id, version) PAIRS wherever they appear, webhook-step URLs, transfer-step
 	// numbers, customCode-step pin pairs. A swapped version between two
 	// snippets, or a URL that only appears in prose, cannot pass.
-	const snapCaptureAs = new Set();
+	// "key=target" -> how many steps carry it. Counted per step, so a setting
+	// dropped from one of two steps that share a variable still fails P9.
+	const snapCaptureAs = new Map();
+	const srcCaptureAs = new Map();
+	const bump = (m, k) => m.set(k, (m.get(k) || 0) + 1);
 	const snapPinPairs = new Set();
 	const snapCodeStepPairs = new Set();
 	const snapWebhookUrls = new Set();
@@ -219,7 +248,7 @@ function main() {
 			snapPinPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
 			snapCodeStepPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
 		}
-		if (typeof o.captureAs === "string" && typeof o.key === "string") snapCaptureAs.add(`${o.key}=${o.captureAs}`);
+		if (typeof o.captureAs === "string" && typeof o.key === "string") bump(snapCaptureAs, `${o.key}=${o.captureAs}`);
 		if (o.type === "webhook" && o.data && typeof o.data.url === "string") snapWebhookUrls.add(o.data.url);
 		if (o.type === "transfer" && o.data && typeof o.data.transferNumber === "string") snapTransferNumbers.add(o.data.transferNumber);
 		Object.values(o).forEach(collect);
@@ -264,7 +293,7 @@ function main() {
 			// v1 capture settings ({variable: target}) carry as the variable
 			// row's captureAs.
 			for (const [key, target] of Object.entries(nd.captureKinds || {})) {
-				if (typeof target === "string" && target && !snapCaptureAs.has(`${key}=${target}`)) missingCapture.push(`${nd.name || n.id}/${key}=${target}`);
+				if (typeof target === "string" && target) bump(srcCaptureAs, `${key}=${target}`);
 			}
 			const gp = (n && n.globalConfig && n.globalConfig.globalPrompt) || "";
 			if (gp && !(snap.settings.systemPrompt || "").includes(gp)) {
@@ -293,6 +322,10 @@ function main() {
 		check("P4", "every webhook URL present on a webhook step", missingUrls.length === 0, missingUrls.join("; "));
 		check("P5", "code-type attached tools re-represented as code steps", codeToolsAsTools.length === 0, codeToolsAsTools.join("; "));
 		check("P7", "global/persona prompt carried verbatim", promptContained, promptDetail);
+		for (const [pair, want] of srcCaptureAs) {
+			const got = snapCaptureAs.get(pair) || 0;
+			if (got < want) missingCapture.push(`${pair} on ${got} of ${want} steps`);
+		}
 		check("P9", "every v1 capture setting carried as captureAs", missingCapture.length === 0, missingCapture.slice(0, 5).join(", "));
 	}
 

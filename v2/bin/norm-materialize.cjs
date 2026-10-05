@@ -190,6 +190,10 @@ for (const node of [...mergedNodes]) {
 	for (const m of cfg.response_data || []) if (m && m.name) inputKeys.add(m.name);
 	const codeId = `${node.id}__codetool`;
 	const routeId = `${node.id}__codetool_route`;
+	// An End Call hangs up after its line, so nothing placed after it runs.
+	// Its code tool becomes a code step BEFORE it: everything that routed to
+	// the End Call now routes to the code step, which always continues to it.
+	const beforeHangUp = node.type === "End Call";
 	mergedNodes.push({
 		id: codeId,
 		type: "Custom Code",
@@ -202,7 +206,13 @@ for (const node of [...mergedNodes]) {
 			snippet_variables: Object.fromEntries([...inputKeys].map((k) => [k, `{{${k}}}`])),
 		},
 	});
-	if (rps.length > 0) {
+	if (beforeHangUp) {
+		for (const e of mergedEdges) {
+			if (e.target === node.id) e.target = codeId;
+		}
+		mergedEdges.push({ source: codeId, target: node.id, data: { label: `${tool.name} computed`, alwaysPick: true } });
+		if (rps.length > 0) warn(`code tool ${tool.name} on End Call ${d.name}: its ${rps.length} response pathway(s) are not carried — the call ends at this node`);
+	} else if (rps.length > 0) {
 		mergedNodes.push({
 			id: routeId,
 			type: "Route",
@@ -298,6 +308,9 @@ function toStep(node) {
 					ignorePreviousExtractions: false,
 					useAudioExtraction: false,
 					settings,
+					// Attached tools stay on the End Call, as on a prompt step, so
+					// they can still run during its turn before the hang-up.
+					...(Array.isArray(d.tools) && d.tools.length > 0 ? { tools: invertAttachedTools(d.tools) } : {}),
 				},
 			};
 		}
@@ -508,9 +521,12 @@ for (const sc of plan.scenarios || []) {
 	const members = [];
 	for (const m of sc.members) {
 		const id = resolveMember(m);
+		// An End Call's code step runs before it (see the surgery above).
+		const codeFirst = nodeById.get(id).type === "End Call" && nodeById.has(`${id}__codetool`);
+		if (codeFirst) members.push(`${id}__codetool`);
 		members.push(id);
 		for (const suffix of ["__codetool", "__codetool_route"]) {
-			if (nodeById.has(id + suffix)) members.push(id + suffix);
+			if (!codeFirst && nodeById.has(id + suffix)) members.push(id + suffix);
 		}
 	}
 	for (const id of members) {

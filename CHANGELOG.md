@@ -6,9 +6,11 @@
   by the v1 edges into it, as the platform's parity import builds it. The call
   hangs up after the goodbye with no hub turn in between; one with nothing to
   say speaks a static ".". Root end-calls are now only for hang-ups the hub
-  decides. Audit S6 accepts the in-flow end-call.
+  decides. Audit S6 accepts the in-flow end-call when its flow's Start can
+  reach it. An End Call's attached tools stay on it; its code tool becomes a
+  code step that runs before it.
 - Migration: v1 `captureKinds` carry as `captureAs` on the extraction rows.
-  New audit check P9 fails a snapshot that drops one. The skill says capture
+  New audit check P9 fails a snapshot that drops one, counted per step. The skill says capture
   does the readback for those values, so no prompt rule should.
 - Snapshot and runtime references document `end-call` inside a flow and the
   `captureAs` row field. New trap: a captured value's check keeps its exact
