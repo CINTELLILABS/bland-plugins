@@ -37,7 +37,7 @@ checks apply only when migrating; intentional requested edits are allowed.
 3. Every `complex-scenario` has the required entry/name/flow fields for the supported schema. Each flow's Start edge targets its intended entry. Start-first/End-last array ordering is an authoring convention, not executable entry selection.
 4. Every node, flow node, edge, rule, condition, and variable row has a unique `id`. No duplicate ids anywhere in the document.
 5. Every flow edge's `source`/`target` exist in that flow; every route `targetNodeId`/`fallbackNodeId` exists in that flow.
-6. For migration doctrine, require an `end-call`: at the root, or as a step inside a flow that its Start can reach (a v1 End Call migrates to the in-flow form). An in-flow `end-call` covers only its own flow: if any flow hands the call back to the hub, require a root `end-call` too. Otherwise verify the intended termination action/continuation; a missing root end-call is not a failure.
+6. For migration doctrine, require an `end-call`: at the root, or as a step inside a flow that its Start can reach (a v1 End Call migrates to the in-flow form). A flow that returns to the hub so it can route onward needs no hang-up of its own. The exception is a v1 End Call with a code tool, which migrates as a wrap-up step that returns to the hub: it needs a root `end-call` (audit P10). Otherwise verify the intended termination action/continuation; a missing root end-call is not a failure.
 
 ## Routing-crash checks
 

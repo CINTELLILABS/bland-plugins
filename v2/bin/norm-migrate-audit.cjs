@@ -121,10 +121,6 @@ function main() {
 	const unreachable = [];
 	const mergedLabels = [];
 	let reachableNestedEndCall = false;
-	// Flows with a reachable step that hands the call back to the hub: an edge
-	// into the End pill, or a step nothing leads on from. The hub can only end
-	// such a call from a root end-call.
-	const returnsToHub = [];
 	for (const s of scenarios) {
 		const d = s.data || {};
 		const fn = ((d.flow || {}).nodes || []);
@@ -203,27 +199,20 @@ function main() {
 			queue.push(...(next.get(id) || []));
 		}
 		if (fn.some((n) => n.type === "end-call" && seen.has(n.id))) reachableNestedEndCall = true;
-		const handsBack = fn.some((n) => {
-			if (!seen.has(n.id) || ["start", "end", "end-call"].includes(n.type)) return false;
-			const out = next.get(n.id) || [];
-			return out.length === 0 || out.includes(endPill);
-		});
-		if (handsBack) returnsToHub.push(String(d.name || s.id));
 	}
 	check("S5", "all targets resolve", targetIssues.length === 0, targetIssues.slice(0, 5).join("; "));
 	// A v1 End Call carries as an end-call step inside its flow, so the
 	// hang-up can live there instead of at the root (as the platform's own
 	// parity audit accepts). An in-flow end-call nothing leads to does not
-	// count, and it only covers its own flow: if ANY flow hands the call back
-	// to the hub, the hub needs a root end-call to end it, whatever other
-	// flows contain.
+	// count.
+	//
+	// S6 deliberately does NOT require a root end-call just because some flow
+	// returns to the hub: handing back so the hub can route onward is a valid
+	// design and is not a hang-up. The one hand-back that IS a v1 hang-up, an
+	// End Call with a code tool (built as a wrap-up step), is checked exactly,
+	// against the source, by P10 below.
 	const rootEndCall = nodes.some((n) => n.type === "end-call");
-	check(
-		"S6",
-		"the call can end: a root end-call, or every flow ends in its own reachable end-call",
-		rootEndCall || (reachableNestedEndCall && returnsToHub.length === 0),
-		rootEndCall ? "" : returnsToHub.length ? `no root end-call, and these flows hand back to the hub: ${returnsToHub.slice(0, 5).join(", ")}` : "no end-call",
-	);
+	check("S6", "an end-call exists (root, or inside a flow and reachable from its Start)", rootEndCall || reachableNestedEndCall, "");
 	check("S7", "contact.inboundNumbers is an array", Array.isArray((snap.contact || {}).inboundNumbers), "the platform validator rejects a snapshot without it");
 	{
 		const badHeaders = [];
@@ -277,6 +266,7 @@ function main() {
 	const missingNumbers = [];
 	const missingUrls = [];
 	const codeToolsAsTools = [];
+	const wrapUpEndCalls = [];
 	const missingCapture = [];
 	let promptContained = true;
 	let promptDetail = "";
@@ -302,6 +292,7 @@ function main() {
 			if (nd.transferNumber && !snapTransferNumbers.has(String(nd.transferNumber))) missingNumbers.push(String(nd.transferNumber));
 			if (nd.url && !snapWebhookUrls.has(String(nd.url))) missingUrls.push(String(nd.url).slice(0, 60));
 			for (const t of nd.tools || []) {
+				if (t.type === "code" && t.config && t.config.snippet_id && n.type === "End Call") wrapUpEndCalls.push(String(nd.name || n.id));
 				if (t.type === "code" && t.config && t.config.snippet_id) {
 					// must exist as a customCode STEP with the same id+version pair
 					const pair = `${t.config.snippet_id}@${t.config.snippet_version ?? ""}`;
@@ -340,6 +331,16 @@ function main() {
 		check("P4", "every webhook URL present on a webhook step", missingUrls.length === 0, missingUrls.join("; "));
 		check("P5", "code-type attached tools re-represented as code steps", codeToolsAsTools.length === 0, codeToolsAsTools.join("; "));
 		check("P7", "global/persona prompt carried verbatim", promptContained, promptDetail);
+		// A v1 End Call with a code tool migrates as a wrap-up step that
+		// returns to the hub (an end-call step cannot run a snippet), so that
+		// call can only end from a root end-call. An in-flow end-call in some
+		// other flow does not cover it.
+		check(
+			"P10",
+			"a v1 End Call with a code tool has a root end-call to hang up after it",
+			wrapUpEndCalls.length === 0 || rootEndCall,
+			wrapUpEndCalls.slice(0, 5).join(", "),
+		);
 		for (const [pair, want] of srcCaptureAs) {
 			const got = snapCaptureAs.get(pair) || 0;
 			if (got < want) missingCapture.push(`${pair} on ${got} of ${want} steps`);

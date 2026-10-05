@@ -185,6 +185,7 @@ test('an End Call with a code tool keeps the wrap-up mapping so the snippet runs
   assert.equal(flow.nodes.some((node) => node.type === 'end-call'), false);
   // No hang-up anywhere yet: the audit says so until the plan adds a root end-call.
   assert.equal(checks.S6.passed, false);
+  assert.equal(checks.P10.passed, false);
   assert.equal(checks.P5.passed, true);
 });
 
@@ -196,10 +197,10 @@ test('the audit does not count an End Call nothing leads to', () => {
   assert.equal(runAudit(snapshot, { nodes: [], edges: [] }).S6.passed, false);
 });
 
-test('an in-flow End Call does not cover another flow that hands back to the hub', () => {
+test('a flow that returns to the hub needs no root End Call', () => {
   const { snapshot } = buildDictation({ prompt: 'Bye.' });
   const scenario = snapshot.behavior.nodes.find((node) => node.type === 'complex-scenario');
-  // A second flow whose only step leads nowhere, so the call returns to the hub.
+  // A second flow whose only step hands back to the hub to route onward.
   const other = JSON.parse(JSON.stringify(scenario));
   other.id = 'other-scenario';
   other.data.name = 'Other';
@@ -207,11 +208,20 @@ test('an in-flow End Call does not cover another flow that hands back to the hub
   other.data.flow.nodes = other.data.flow.nodes.filter((node) => node.id !== endCallId);
   other.data.flow.edges = other.data.flow.edges.filter((edge) => edge.target !== endCallId);
   snapshot.behavior.nodes.push(other);
-  const s6 = runAudit(snapshot, { nodes: [], edges: [] }).S6;
-  assert.equal(s6.passed, false);
-  assert.match(s6.detail, /Other/);
-  snapshot.behavior.nodes.push({ id: 'root-end', type: 'end-call', data: { name: 'End call' } });
   assert.equal(runAudit(snapshot, { nodes: [], edges: [] }).S6.passed, true);
+});
+
+test('a v1 End Call with a code tool needs a root End Call, whatever other flows contain', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const source = {
+    nodes: [{ id: 'x', type: 'End Call', data: { name: 'Save and end', tools: [{ name: 'Save', type: 'code', config: { snippet_id: 'snip-1' } }] } }],
+    edges: [],
+  };
+  const p10 = runAudit(snapshot, source).P10;
+  assert.equal(p10.passed, false);
+  assert.match(p10.detail, /Save and end/);
+  snapshot.behavior.nodes.push({ id: 'root-end', type: 'end-call', data: { name: 'End call' } });
+  assert.equal(runAudit(snapshot, source).P10.passed, true);
 });
 
 test('the audit fails when one of two steps sharing a variable loses its capture setting', () => {
