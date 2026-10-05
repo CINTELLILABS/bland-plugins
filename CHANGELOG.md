@@ -7,8 +7,9 @@
   hangs up after the goodbye with no hub turn in between; one with nothing to
   say speaks a static ".". Root end-calls are now only for hang-ups the hub
   decides. Audit S6 accepts the in-flow end-call when its flow's Start can
-  reach it. An End Call's attached tools stay on it; its code tool becomes a
-  code step that runs before it.
+  reach it. An End Call's attached tools stay on it. An End Call with a
+  code tool keeps the wrap-up mapping, since an end-call step cannot run a
+  snippet.
 - Migration: v1 `captureKinds` carry as `captureAs` on the extraction rows.
   New audit check P9 fails a snapshot that drops one, counted per step. The skill says capture
   does the readback for those values, so no prompt rule should.

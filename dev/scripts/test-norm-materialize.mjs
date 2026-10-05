@@ -167,22 +167,24 @@ test('an attached tool stays on the End Call step', () => {
   assert.equal(endCall.data.tools[0].toolId, 'TL-11111111-2222');
 });
 
-test("an End Call's code tool becomes a code step that runs before the hang-up", () => {
+test('an End Call with a code tool keeps the wrap-up mapping so the snippet runs', () => {
   const { snapshot, checks } = buildDictation({
     prompt: 'Bye.',
+    extractVars: [['outcome', 'string', 'How the call ended']],
     tools: [{ name: 'Save result', type: 'code', config: { snippet_id: 'snip-1', snippet_version: 3 } }],
   });
   const flow = flowOf(snapshot);
-  const endCall = flow.nodes.find((node) => node.type === 'end-call');
+  const wrapUp = flow.nodes.find((node) => node.data && node.data.name === 'End call');
   const code = flow.nodes.find((node) => node.type === 'customCode');
   const start = flow.nodes.find((node) => node.data && node.data.name === 'Start');
-  assert.equal(code.data.snippetId, 'snip-1');
-  // Start -> code step -> End Call; nothing leaves the End Call.
-  assert.ok(flow.edges.some((edge) => edge.source === start.id && edge.target === code.id));
-  assert.equal(flow.edges.some((edge) => edge.source === start.id && edge.target === endCall.id), false);
-  assert.ok(flow.edges.some((edge) => edge.source === code.id && edge.target === endCall.id));
-  assert.equal(flow.edges.some((edge) => edge.source === endCall.id), false);
-  assert.equal(checks.S6.passed, true);
+  // A prompt step, reached by the v1 edge, extracts first and then runs the snippet.
+  assert.equal(wrapUp.type, 'prompt');
+  assert.ok(flow.edges.some((edge) => edge.source === start.id && edge.target === wrapUp.id));
+  assert.ok(flow.edges.some((edge) => edge.source === wrapUp.id && edge.target === code.id));
+  assert.deepEqual(code.data.variables.map((row) => row.key), ['outcome']);
+  assert.equal(flow.nodes.some((node) => node.type === 'end-call'), false);
+  // No hang-up anywhere yet: the audit says so until the plan adds a root end-call.
+  assert.equal(checks.S6.passed, false);
   assert.equal(checks.P5.passed, true);
 });
 

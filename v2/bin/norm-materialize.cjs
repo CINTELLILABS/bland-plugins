@@ -171,6 +171,12 @@ function mapRouteOperator(op) {
 }
 
 // ── automatic code-tool surgery (type:"code" node tools) ────────────────────
+// End Calls that carry a code tool. An end-call step hangs up after its line
+// and has no code-tool form, so these keep the wrap-up mapping: a prompt step,
+// then the code step, then the flow's exit to the hub, which ends the call
+// from a root end-call. Every route into the node and its own extraction work
+// as on any prompt step, so the snippet still runs, and runs after extraction.
+const wrapUpEndCalls = new Set();
 for (const node of [...mergedNodes]) {
 	const d = node.data || {};
 	const tools = d.tools;
@@ -190,10 +196,10 @@ for (const node of [...mergedNodes]) {
 	for (const m of cfg.response_data || []) if (m && m.name) inputKeys.add(m.name);
 	const codeId = `${node.id}__codetool`;
 	const routeId = `${node.id}__codetool_route`;
-	// An End Call hangs up after its line, so nothing placed after it runs.
-	// Its code tool becomes a code step BEFORE it: everything that routed to
-	// the End Call now routes to the code step, which always continues to it.
-	const beforeHangUp = node.type === "End Call";
+	if (node.type === "End Call") {
+		wrapUpEndCalls.add(node.id);
+		warn(`End Call "${d.name}" has code tool "${tool.name}": kept as a wrap-up step that returns to the hub so the snippet runs — the hub needs a root end-call to hang up after it`);
+	}
 	mergedNodes.push({
 		id: codeId,
 		type: "Custom Code",
@@ -206,13 +212,7 @@ for (const node of [...mergedNodes]) {
 			snippet_variables: Object.fromEntries([...inputKeys].map((k) => [k, `{{${k}}}`])),
 		},
 	});
-	if (beforeHangUp) {
-		for (const e of mergedEdges) {
-			if (e.target === node.id) e.target = codeId;
-		}
-		mergedEdges.push({ source: codeId, target: node.id, data: { label: `${tool.name} computed`, alwaysPick: true } });
-		if (rps.length > 0) warn(`code tool ${tool.name} on End Call ${d.name}: its ${rps.length} response pathway(s) are not carried — the call ends at this node`);
-	} else if (rps.length > 0) {
+	if (rps.length > 0) {
 		mergedNodes.push({
 			id: routeId,
 			type: "Route",
@@ -289,6 +289,22 @@ function toStep(node) {
 	const base = { id: randomUUID(), position: node.position || { x: 0, y: 0 } };
 	switch (node.type) {
 		case "End Call": {
+			if (wrapUpEndCalls.has(node.id)) {
+				return {
+					...base,
+					type: "prompt",
+					data: {
+						name: str(d.name),
+						...promptOrText(d),
+						loopWhile: str(d.condition),
+						variables: varRows(d.extractVars, d.captureKinds),
+						ignorePreviousExtractions: false,
+						useAudioExtraction: false,
+						settings: stepSettings(d),
+						...(Array.isArray(d.tools) && d.tools.length > 0 ? { tools: invertAttachedTools(d.tools) } : {}),
+					},
+				};
+			}
 			// An End call step in the same flow, as the parity import builds it:
 			// it says its line and hangs up (barge-in ignored), with no hub
 			// turn. Edges into it carry over as the flow's routes. One with
@@ -521,12 +537,9 @@ for (const sc of plan.scenarios || []) {
 	const members = [];
 	for (const m of sc.members) {
 		const id = resolveMember(m);
-		// An End Call's code step runs before it (see the surgery above).
-		const codeFirst = nodeById.get(id).type === "End Call" && nodeById.has(`${id}__codetool`);
-		if (codeFirst) members.push(`${id}__codetool`);
 		members.push(id);
 		for (const suffix of ["__codetool", "__codetool_route"]) {
-			if (!codeFirst && nodeById.has(id + suffix)) members.push(id + suffix);
+			if (nodeById.has(id + suffix)) members.push(id + suffix);
 		}
 	}
 	for (const id of members) {
@@ -591,7 +604,7 @@ for (const sc of plan.scenarios || []) {
 	}
 	for (const id of members) {
 		const t = nodeById.get(id).type;
-		if (t === "Transfer Call" && !exits.has(id) && !mergedEdges.some((e) => e.source === id && memberSet.has(e.target))) {
+		if ((t === "Transfer Call" || wrapUpEndCalls.has(id)) && !exits.has(id) && !mergedEdges.some((e) => e.source === id && memberSet.has(e.target))) {
 			exits.set(id, [{ label: "done", description: "" }]);
 		}
 	}

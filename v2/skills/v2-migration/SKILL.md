@@ -29,7 +29,7 @@ Hand-architected conversion beats automatic converters: a human-quality architec
 | Custom Code node | `customCode` step: same `snippet_id`/`snippet_version` pin + `snippet_variables` |
 | Attached tool `type:"code"` | NOT expressible as a tool — code step (same pin, explicit input map) + route step carrying the tool's responsePathways. See traps. |
 | Webhook node | webhook step (carry url/method/headers/body/responsePathways/response mappings verbatim) |
-| End Call | an `end-call` step in the same flow, with v1's edges into it as the flow's routes. It says its line and hangs up; there is no hub turn in between. A root `end-call` is only for a hang-up the hub decides (the caller asks to end the call). |
+| End Call | an `end-call` step in the same flow, with v1's edges into it as the flow's routes. It says its line and hangs up; there is no hub turn in between. A root `end-call` is only for a hang-up the hub decides (the caller asks to end the call). Exception: an End Call with a code tool stays a wrap-up prompt step + code step + exit, because an `end-call` step cannot run a snippet; give the hub a root `end-call` to hang up after it. |
 | Variables with `captureKinds` | `captureAs` on each extraction row, verbatim. Capture reads those values back and confirms them at run time. |
 | Global nodes | hub-routable scenario or system-prompt rule (auto-return globals); documented delta |
 | Node-scoped KB | knowledge step with node-scoped kbIds. Lift to agent-level knowledge ONLY if v1 semantics were call-wide — a wrong lift bleeds KB content into scripted steps |
