@@ -176,7 +176,11 @@ function main() {
 		}
 	}
 	check("S5", "all targets resolve", targetIssues.length === 0, targetIssues.slice(0, 5).join("; "));
-	check("S6", "root end-call exists", nodes.some((n) => n.type === "end-call"), "");
+	// A v1 End Call carries as an end-call step inside its flow, so the
+	// hang-up can live there instead of at the root (as the platform's own
+	// parity audit accepts).
+	const nestedEndCall = scenarios.some((s) => (((s.data || {}).flow || {}).nodes || []).some((n) => n.type === "end-call"));
+	check("S6", "an end-call exists (root or inside a flow)", nodes.some((n) => n.type === "end-call") || nestedEndCall, "");
 	check("S7", "contact.inboundNumbers is an array", Array.isArray((snap.contact || {}).inboundNumbers), "the platform validator rejects a snapshot without it");
 	{
 		const badHeaders = [];
@@ -202,6 +206,7 @@ function main() {
 	// (id, version) PAIRS wherever they appear, webhook-step URLs, transfer-step
 	// numbers, customCode-step pin pairs. A swapped version between two
 	// snippets, or a URL that only appears in prose, cannot pass.
+	const snapCaptureAs = new Set();
 	const snapPinPairs = new Set();
 	const snapCodeStepPairs = new Set();
 	const snapWebhookUrls = new Set();
@@ -214,6 +219,7 @@ function main() {
 			snapPinPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
 			snapCodeStepPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
 		}
+		if (typeof o.captureAs === "string" && typeof o.key === "string") snapCaptureAs.add(`${o.key}=${o.captureAs}`);
 		if (o.type === "webhook" && o.data && typeof o.data.url === "string") snapWebhookUrls.add(o.data.url);
 		if (o.type === "transfer" && o.data && typeof o.data.transferNumber === "string") snapTransferNumbers.add(o.data.transferNumber);
 		Object.values(o).forEach(collect);
@@ -224,6 +230,7 @@ function main() {
 	const missingNumbers = [];
 	const missingUrls = [];
 	const codeToolsAsTools = [];
+	const missingCapture = [];
 	let promptContained = true;
 	let promptDetail = "";
 	for (const sp of sourcePaths) {
@@ -254,6 +261,11 @@ function main() {
 					if (!snapCodeStepPairs.has(pair)) codeToolsAsTools.push(`${nd.name || n.id}: ${t.name} not re-represented as code step (pair ${pair.slice(0, 12)}…)`);
 				}
 			}
+			// v1 capture settings ({variable: target}) carry as the variable
+			// row's captureAs.
+			for (const [key, target] of Object.entries(nd.captureKinds || {})) {
+				if (typeof target === "string" && target && !snapCaptureAs.has(`${key}=${target}`)) missingCapture.push(`${nd.name || n.id}/${key}=${target}`);
+			}
 			const gp = (n && n.globalConfig && n.globalConfig.globalPrompt) || "";
 			if (gp && !(snap.settings.systemPrompt || "").includes(gp)) {
 				promptContained = false;
@@ -281,6 +293,7 @@ function main() {
 		check("P4", "every webhook URL present on a webhook step", missingUrls.length === 0, missingUrls.join("; "));
 		check("P5", "code-type attached tools re-represented as code steps", codeToolsAsTools.length === 0, codeToolsAsTools.join("; "));
 		check("P7", "global/persona prompt carried verbatim", promptContained, promptDetail);
+		check("P9", "every v1 capture setting carried as captureAs", missingCapture.length === 0, missingCapture.slice(0, 5).join(", "));
 	}
 
 	const passed = checks.every((c) => c.passed);

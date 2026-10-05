@@ -25,7 +25,9 @@
  *   "entryScenario": "<scenario name>",           // optional inbound re-point
  *   "scenarios": [{"name","entry":{"label","description"},"rule","members":[ids or unique id prefixes],
  *                  "entryMember": "<id — the step calls START at; defaults to members[0]>"}],
- *   "endCalls": [{"name","entry":{"label","description"},"prompt"}],
+ *   "endCalls": [{"name","entry":{"label","description"},"prompt"}],  // optional: hub-level
+ *                  hang-ups only (e.g. the caller asks to end the call). A v1 End Call becomes an
+ *                  end-call step inside its scenario's flow, so most migrations need none.
  *
  *   // Evidence-based hardening hooks (ship EMPTY on the first build; add only
  *   // when a sim failure's engine trace proves the need — see the migration
@@ -124,13 +126,18 @@ function varType(raw) {
 	if (t === "json" || t === "object" || t === "array") return "json";
 	return "string";
 }
-function varRows(extractVars) {
-	// tuples [name, type, description] or objects {name, type?, description}
-	return (extractVars || []).map((r) =>
-		Array.isArray(r)
+function varRows(extractVars, captureKinds) {
+	// tuples [name, type, description] or objects {name, type?, description}.
+	// A v1 node's captureKinds ({variable: target}) carry as each row's
+	// captureAs: capture reads those values back and confirms them at run time.
+	const kinds = captureKinds && typeof captureKinds === "object" ? captureKinds : {};
+	return (extractVars || []).map((r) => {
+		const row = Array.isArray(r)
 			? { id: randomUUID(), key: str(r[0]), value: str(r[2]), type: varType(r[1]), accurateSpelling: false }
-			: { id: randomUUID(), key: str((r || {}).name), value: str((r || {}).description), type: varType((r || {}).type), accurateSpelling: false },
-	);
+			: { id: randomUUID(), key: str((r || {}).name), value: str((r || {}).description), type: varType((r || {}).type), accurateSpelling: false };
+		const target = str(kinds[row.key]);
+		return target ? { ...row, captureAs: target } : row;
+	});
 }
 function dictRows(obj) {
 	return Object.entries(obj || {}).map(([key, value]) => ({ id: randomUUID(), key, value: String(value) }));
@@ -271,8 +278,30 @@ function toStep(node) {
 	const d = node.data || {};
 	const base = { id: randomUUID(), position: node.position || { x: 0, y: 0 } };
 	switch (node.type) {
+		case "End Call": {
+			// An End call step in the same flow, as the parity import builds it:
+			// it says its line and hangs up (barge-in ignored), with no hub
+			// turn. Edges into it carry over as the flow's routes. One with
+			// nothing to say speaks a static "." so the call still ends.
+			const speech = promptOrText(d);
+			const settings = stepSettings(d);
+			if (settings.global.isGlobal && settings.global.returnMode === "previous") settings.global.returnMode = "manual";
+			return {
+				...base,
+				type: "end-call",
+				data: {
+					name: str(d.name),
+					...(speech.prompt.trim() ? speech : { prompt: ".", useStaticText: true }),
+					entry: { mode: "llm", label: "", description: "", alwaysPick: false, conditions: [] },
+					loopWhile: str(d.condition),
+					variables: varRows(d.extractVars, d.captureKinds),
+					ignorePreviousExtractions: false,
+					useAudioExtraction: false,
+					settings,
+				},
+			};
+		}
 		case "Default":
-		case "End Call":
 			return {
 				...base,
 				type: "prompt",
@@ -280,7 +309,7 @@ function toStep(node) {
 					name: str(d.name),
 					...promptOrText(d),
 					loopWhile: str(d.condition),
-					variables: varRows(d.extractVars),
+					variables: varRows(d.extractVars, d.captureKinds),
 					ignorePreviousExtractions: false,
 					useAudioExtraction: false,
 					settings: stepSettings(d),
@@ -367,7 +396,7 @@ function toStep(node) {
 						...(typeof wt.allowMergeControl === "boolean" ? { allowMergeControl: wt.allowMergeControl } : {}),
 						...(wt.retry ? { retry: wt.retry } : {}),
 					},
-					variables: varRows(d.extractVars),
+					variables: varRows(d.extractVars, d.captureKinds),
 					settings: stepSettings(d),
 				},
 			};
@@ -546,7 +575,7 @@ for (const sc of plan.scenarios || []) {
 	}
 	for (const id of members) {
 		const t = nodeById.get(id).type;
-		if ((t === "End Call" || t === "Transfer Call") && !exits.has(id) && !mergedEdges.some((e) => e.source === id && memberSet.has(e.target))) {
+		if (t === "Transfer Call" && !exits.has(id) && !mergedEdges.some((e) => e.source === id && memberSet.has(e.target))) {
 			exits.set(id, [{ label: "done", description: "" }]);
 		}
 	}

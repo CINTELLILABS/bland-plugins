@@ -1,5 +1,19 @@
 # Changelog
 
+## norm 1.6.0 – 2026-10-05
+
+- Migration: a v1 End Call becomes an `end-call` step inside its flow, reached
+  by the v1 edges into it, as the platform's parity import builds it. The call
+  hangs up after the goodbye with no hub turn in between; one with nothing to
+  say speaks a static ".". Root end-calls are now only for hang-ups the hub
+  decides. Audit S6 accepts the in-flow end-call.
+- Migration: v1 `captureKinds` carry as `captureAs` on the extraction rows.
+  New audit check P9 fails a snapshot that drops one. The skill says capture
+  does the readback for those values, so no prompt rule should.
+- Snapshot and runtime references document `end-call` inside a flow and the
+  `captureAs` row field. New trap: a captured value's check keeps its exact
+  expected value instead of loosening to v1's miss.
+
 ## norm 1.5.0 – 2026-09-27
 
 - Expand the v2 surface map with complete node-family navigation, verification

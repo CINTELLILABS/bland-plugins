@@ -40,7 +40,7 @@ the common shapes below. Consult it before assuming a node family is unsupported
 | `inbound` | call entry marker | `number` |
 | `agent` | THE HUB — greets, triages, routes between scenarios | `prompt` (hub routing prompt), `variables` (extraction rows), `loopWhile` |
 | `complex-scenario` | one self-contained flow (a department, a task) | `name`, `entry`, `rule`, `target: {"kind":"dialogue","label":"Nested flow"}`, `flow: {nodes, edges}` |
-| `end-call` | a root hang-up node | `name`, `entry`, `prompt`, `settings`, `variables`, `useStaticText`, `loopWhile`, `ignorePreviousExtractions`, `useAudioExtraction` |
+| `end-call` | a hang-up node, at the root or as a step inside a flow (it says its line and ends the call; inside a flow, the edges into it route to it and its `entry` is unused) | `name`, `entry`, `prompt`, `settings`, `variables`, `useStaticText`, `loopWhile`, `ignorePreviousExtractions`, `useAudioExtraction` |
 
 `behavior.edges` normally contains one edge: `{"id":"e-inbound-agent","type":"straight","source":"inbound","target":"agent","animated":true,"deletable":false,"selectable":false}`. **The call enters whatever the inbound edge targets.** To make a specific scenario the call entry (e.g. a silent bootstrap that must run code before anyone speaks), re-point `source:"inbound"`'s `target` at that scenario's node id — do NOT try to make the hub "stay silent first" via prompt; the hub is generative and waits for the caller.
 
@@ -80,7 +80,12 @@ condition, and variable row carries a unique `id` (UUID). Positions are layout.
 ```
 
 On `prompt` steps, rows are extraction: `value` describes what to extract;
-`type` and `accurateSpelling` belong to this row contract. On `customCode` steps,
+`type` and `accurateSpelling` belong to this row contract, and so does an
+optional `captureAs`: the capture target (`name`, `name.first`, `name.middle`,
+`name.last`, `phone`, `email`, `email.before_at`, `email.domain`, `address`,
+`address.street`, `address.unit`, `address.city`, `address.state`,
+`address.postal_code`, `id`) whose value capture reads back and confirms. A v1
+node's `captureKinds` carries here row by row. On `customCode` steps,
 rows are the snippet's INPUT map (`id`, `key`, `value`), not extraction rows.
 Only these mapped values reach the snippet. Map its full read-set explicitly,
 e.g. `{"id":"<uuid>","key":"said_name","value":"{{said_name}}"}`.

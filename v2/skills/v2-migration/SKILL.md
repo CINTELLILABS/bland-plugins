@@ -29,15 +29,16 @@ Hand-architected conversion beats automatic converters: a human-quality architec
 | Custom Code node | `customCode` step: same `snippet_id`/`snippet_version` pin + `snippet_variables` |
 | Attached tool `type:"code"` | NOT expressible as a tool — code step (same pin, explicit input map) + route step carrying the tool's responsePathways. See traps. |
 | Webhook node | webhook step (carry url/method/headers/body/responsePathways/response mappings verbatim) |
-| In-flow End Call | wrap-up prompt step + exit; 2–3 root `end-call` nodes total ("goodbye" + "silent") |
+| End Call | an `end-call` step in the same flow, with v1's edges into it as the flow's routes. It says its line and hangs up; there is no hub turn in between. A root `end-call` is only for a hang-up the hub decides (the caller asks to end the call). |
+| Variables with `captureKinds` | `captureAs` on each extraction row, verbatim. Capture reads those values back and confirms them at run time. |
 | Global nodes | hub-routable scenario or system-prompt rule (auto-return globals); documented delta |
 | Node-scoped KB | knowledge step with node-scoped kbIds. Lift to agent-level knowledge ONLY if v1 semantics were call-wide — a wrong lift bleeds KB content into scripted steps |
 
 ## The procedure (one-shot bar)
 
 1. **Discover.** Census the export (node types, orphans, dangling ids). Produce two artifacts: a functional region map (every node in exactly one region, with entries/exits/route conditions) and an integration catalog (webhooks + auth, snippets + pinned versions, transfers, SMS, KBs, terminals, secrets). Derive the request-data contract: every variable consumed but never produced.
-2. **Architect.** Regions → scenarios; hub prompt (spliced verbatim from the v1 triage content, or persona prompt); entry descriptions verbatim from source conditions; end-call roots; every legacy node gets exactly one disposition (carried / synthesized / folded / dropped-with-reason).
-3. **Author.** Build the snapshot per the `v2-snapshot` skill. Carriage is programmatic — scripts copy content from source JSON into the snapshot; never retype prose. Namespace node ids if merging multiple source graphs (shared raw ids are common).
+2. **Architect.** Regions → scenarios; hub prompt (spliced verbatim from the v1 triage content, or persona prompt); entry descriptions verbatim from source conditions; each End Call in the flow of the node that routes to it; every legacy node gets exactly one disposition (carried / synthesized / folded / dropped-with-reason).
+3. **Author.** Build the snapshot per the `v2-snapshot` skill. Carriage is programmatic — scripts copy content from source JSON into the snapshot; never retype prose. Namespace node ids if merging multiple source graphs (shared raw ids are common). Values with `captureAs` get their readback and confirmation from capture: add no prompt rule that reads back, spells back or confirms them. In "Migrate and upgrade", a capture step after the loop also sets `captureAs` on values the pathway didn't mark.
 4. **Audit.** Run `/norm:validate` — every check must pass. Non-negotiables: no OR-collapse, no null fallbacks the source didn't have, one exit edge per intent, every snippet/tool pin present in the final JSON (grep for each id), no unauthorized KB lift, hub rules scoped.
 5. **Push.** `POST /v2/agents/:id/versions` into the OWNING org (org-scoping!). Server-side validation failures are authoring bugs.
 6. **Verify.** `/norm:simulate` — a sim suite of roughly one scenario per terminal/lane, judged on outcomes, graded on ENGINE TRACES not judge prose; 3 reps on any flapper; harness artifacts (broken tester personas, unresolved clock vars, expectations contradicting v1's own topology) get fixed in the harness, never in the agent. Then targeted test-chat probes for mechanics.
