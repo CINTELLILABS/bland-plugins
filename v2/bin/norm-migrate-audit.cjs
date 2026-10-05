@@ -335,6 +335,18 @@ function main() {
 		// returns to the hub (an end-call step cannot run a snippet), so that
 		// call can only end from a root end-call. An in-flow end-call in some
 		// other flow does not cover it.
+		//
+		// P10 is a structural minimum and is meant to be: it proves a root
+		// end-call EXISTS, not that the hub picks it after the wrap-up. That
+		// choice is the hub model reading entry descriptions at run time. No
+		// static check in this file can decide it, and this audit never
+		// judges entry wording anywhere (S1 to S8 are all structural). The
+		// hang-up at that point is proven where every other behavior is: the
+		// simulation lane for that terminal in /norm:simulate (migrate step
+		// 6, graded on engine traces). This is also not a new gap: main builds
+		// this exact wrap-up for EVERY End Call and checks it the same way
+		// (old S6: "root end-call exists"). This PR removes that reliance for
+		// every End Call except the one kind an end-call step cannot express.
 		check(
 			"P10",
 			"a v1 End Call with a code tool has a root end-call to hang up after it",
