@@ -196,6 +196,24 @@ test('the audit does not count an End Call nothing leads to', () => {
   assert.equal(runAudit(snapshot, { nodes: [], edges: [] }).S6.passed, false);
 });
 
+test('an in-flow End Call does not cover another flow that hands back to the hub', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const scenario = snapshot.behavior.nodes.find((node) => node.type === 'complex-scenario');
+  // A second flow whose only step leads nowhere, so the call returns to the hub.
+  const other = JSON.parse(JSON.stringify(scenario));
+  other.id = 'other-scenario';
+  other.data.name = 'Other';
+  const endCallId = other.data.flow.nodes.find((node) => node.type === 'end-call').id;
+  other.data.flow.nodes = other.data.flow.nodes.filter((node) => node.id !== endCallId);
+  other.data.flow.edges = other.data.flow.edges.filter((edge) => edge.target !== endCallId);
+  snapshot.behavior.nodes.push(other);
+  const s6 = runAudit(snapshot, { nodes: [], edges: [] }).S6;
+  assert.equal(s6.passed, false);
+  assert.match(s6.detail, /Other/);
+  snapshot.behavior.nodes.push({ id: 'root-end', type: 'end-call', data: { name: 'End call' } });
+  assert.equal(runAudit(snapshot, { nodes: [], edges: [] }).S6.passed, true);
+});
+
 test('the audit fails when one of two steps sharing a variable loses its capture setting', () => {
   const { snapshot } = buildDictation({
     prompt: 'Bye.',

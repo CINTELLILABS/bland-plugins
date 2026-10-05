@@ -121,6 +121,10 @@ function main() {
 	const unreachable = [];
 	const mergedLabels = [];
 	let reachableNestedEndCall = false;
+	// Flows with a reachable step that hands the call back to the hub: an edge
+	// into the End pill, or a step nothing leads on from. The hub can only end
+	// such a call from a root end-call.
+	const returnsToHub = [];
 	for (const s of scenarios) {
 		const d = s.data || {};
 		const fn = ((d.flow || {}).nodes || []);
@@ -199,13 +203,27 @@ function main() {
 			queue.push(...(next.get(id) || []));
 		}
 		if (fn.some((n) => n.type === "end-call" && seen.has(n.id))) reachableNestedEndCall = true;
+		const handsBack = fn.some((n) => {
+			if (!seen.has(n.id) || ["start", "end", "end-call"].includes(n.type)) return false;
+			const out = next.get(n.id) || [];
+			return out.length === 0 || out.includes(endPill);
+		});
+		if (handsBack) returnsToHub.push(String(d.name || s.id));
 	}
 	check("S5", "all targets resolve", targetIssues.length === 0, targetIssues.slice(0, 5).join("; "));
 	// A v1 End Call carries as an end-call step inside its flow, so the
 	// hang-up can live there instead of at the root (as the platform's own
 	// parity audit accepts). An in-flow end-call nothing leads to does not
-	// count.
-	check("S6", "an end-call exists (root, or inside a flow and reachable from its Start)", nodes.some((n) => n.type === "end-call") || reachableNestedEndCall, "");
+	// count, and it only covers its own flow: if ANY flow hands the call back
+	// to the hub, the hub needs a root end-call to end it, whatever other
+	// flows contain.
+	const rootEndCall = nodes.some((n) => n.type === "end-call");
+	check(
+		"S6",
+		"the call can end: a root end-call, or every flow ends in its own reachable end-call",
+		rootEndCall || (reachableNestedEndCall && returnsToHub.length === 0),
+		rootEndCall ? "" : returnsToHub.length ? `no root end-call, and these flows hand back to the hub: ${returnsToHub.slice(0, 5).join(", ")}` : "no end-call",
+	);
 	check("S7", "contact.inboundNumbers is an array", Array.isArray((snap.contact || {}).inboundNumbers), "the platform validator rejects a snapshot without it");
 	{
 		const badHeaders = [];
