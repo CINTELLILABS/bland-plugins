@@ -15,7 +15,7 @@ for generated routes and [execution](../../v2-runtime/references/execution-order
 | `scenario` | Simple scenario card; do not assume every scenario has a nested flow. |
 | `complex-scenario` | Nested flow with entry, Start edge, executable steps and exits. |
 | `start`, `end` | Nested-flow boundaries. Array order is layout convention; Start's edge selects entry. End is not a phone hang-up. |
-| `end-call` | Root conversation termination with wrap-up behavior and entry criteria. Verify the actual termination, not just an End pill. |
+| `end-call` | Conversation termination: says its line, then hangs up. At the root it is entered by its entry criteria; as a step inside a flow it is entered by the flow's edges. Verify the actual termination, not just an End pill. |
 | `auth`, `complex-auth` | Verification cards, including legacy inline verification flows; preserve their gates when editing. |
 | `auth-zone` | Protected region; child membership uses `parentId`. Simple/complex modes describe verification configuration, not permission to enter unverified. |
 
@@ -73,6 +73,8 @@ Extraction rows on conversational steps include type and spelling mode:
 
 `type` is `string`, `number`, `boolean`, or `json`. `accurateSpelling` requests
 precision when appropriate; it is not evidence the extracted value is correct.
+An optional `captureAs` (`name.first`, `phone`, `address.street`, …) turns on
+capture for the value: it is read back and confirmed with the caller.
 Code-input rows are key/value mappings, not extraction instructions:
 
 ```json

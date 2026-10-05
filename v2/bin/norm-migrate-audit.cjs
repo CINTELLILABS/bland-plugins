@@ -120,6 +120,7 @@ function main() {
 	const orCollapse = [];
 	const unreachable = [];
 	const mergedLabels = [];
+	let reachableNestedEndCall = false;
 	for (const s of scenarios) {
 		const d = s.data || {};
 		const fn = ((d.flow || {}).nodes || []);
@@ -174,9 +175,44 @@ function main() {
 		for (let i = 1; i < fn.length - 1; i += 1) {
 			if (!inboundTargets.has(fn[i].id) && i !== 1) unreachable.push(`${d.name}/${(fn[i].data || {}).name || fn[i].id}`);
 		}
+		// S6 counts an in-flow end-call only when the flow can get to it: walk
+		// from the Start pill over edges, route targets and response pathways.
+		const next = new Map();
+		const link = (from, to) => {
+			if (to) next.set(from, [...(next.get(from) || []), to]);
+		};
+		for (const e of fe) link(e.source, e.target);
+		for (const n of fn) {
+			const nd = n.data || {};
+			for (const r of nd.rules || []) link(n.id, r.targetNodeId);
+			link(n.id, nd.fallbackNodeId);
+			for (const t of nd.tools || []) for (const rp of t.responsePathways || []) link(n.id, rp.targetId || rp.targetNodeId);
+			for (const rp of nd.responsePathways || []) link(n.id, rp.targetNodeId || rp.targetId);
+		}
+		const startPill = fn.find((n) => n.type === "start");
+		const seen = new Set();
+		const queue = startPill ? [startPill.id] : [];
+		while (queue.length) {
+			const id = queue.pop();
+			if (seen.has(id)) continue;
+			seen.add(id);
+			queue.push(...(next.get(id) || []));
+		}
+		if (fn.some((n) => n.type === "end-call" && seen.has(n.id))) reachableNestedEndCall = true;
 	}
 	check("S5", "all targets resolve", targetIssues.length === 0, targetIssues.slice(0, 5).join("; "));
-	check("S6", "root end-call exists", nodes.some((n) => n.type === "end-call"), "");
+	// A v1 End Call carries as an end-call step inside its flow, so the
+	// hang-up can live there instead of at the root (as the platform's own
+	// parity audit accepts). An in-flow end-call nothing leads to does not
+	// count.
+	//
+	// S6 deliberately does NOT require a root end-call just because some flow
+	// returns to the hub: handing back so the hub can route onward is a valid
+	// design and is not a hang-up. The one hand-back that IS a v1 hang-up, an
+	// End Call with a code tool (built as a wrap-up step), is checked exactly,
+	// against the source, by P10 below.
+	const rootEndCall = nodes.some((n) => n.type === "end-call");
+	check("S6", "an end-call exists (root, or inside a flow and reachable from its Start)", rootEndCall || reachableNestedEndCall, "");
 	check("S7", "contact.inboundNumbers is an array", Array.isArray((snap.contact || {}).inboundNumbers), "the platform validator rejects a snapshot without it");
 	{
 		const badHeaders = [];
@@ -202,6 +238,11 @@ function main() {
 	// (id, version) PAIRS wherever they appear, webhook-step URLs, transfer-step
 	// numbers, customCode-step pin pairs. A swapped version between two
 	// snippets, or a URL that only appears in prose, cannot pass.
+	// "key=target" -> how many steps carry it. Counted per step, so a setting
+	// dropped from one of two steps that share a variable still fails P9.
+	const snapCaptureAs = new Map();
+	const srcCaptureAs = new Map();
+	const bump = (m, k) => m.set(k, (m.get(k) || 0) + 1);
 	const snapPinPairs = new Set();
 	const snapCodeStepPairs = new Set();
 	const snapWebhookUrls = new Set();
@@ -214,6 +255,7 @@ function main() {
 			snapPinPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
 			snapCodeStepPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
 		}
+		if (typeof o.captureAs === "string" && typeof o.key === "string") bump(snapCaptureAs, `${o.key}=${o.captureAs}`);
 		if (o.type === "webhook" && o.data && typeof o.data.url === "string") snapWebhookUrls.add(o.data.url);
 		if (o.type === "transfer" && o.data && typeof o.data.transferNumber === "string") snapTransferNumbers.add(o.data.transferNumber);
 		Object.values(o).forEach(collect);
@@ -224,6 +266,8 @@ function main() {
 	const missingNumbers = [];
 	const missingUrls = [];
 	const codeToolsAsTools = [];
+	const wrapUpEndCalls = [];
+	const missingCapture = [];
 	let promptContained = true;
 	let promptDetail = "";
 	for (const sp of sourcePaths) {
@@ -248,11 +292,17 @@ function main() {
 			if (nd.transferNumber && !snapTransferNumbers.has(String(nd.transferNumber))) missingNumbers.push(String(nd.transferNumber));
 			if (nd.url && !snapWebhookUrls.has(String(nd.url))) missingUrls.push(String(nd.url).slice(0, 60));
 			for (const t of nd.tools || []) {
+				if (t.type === "code" && t.config && t.config.snippet_id && n.type === "End Call") wrapUpEndCalls.push(String(nd.name || n.id));
 				if (t.type === "code" && t.config && t.config.snippet_id) {
 					// must exist as a customCode STEP with the same id+version pair
 					const pair = `${t.config.snippet_id}@${t.config.snippet_version ?? ""}`;
 					if (!snapCodeStepPairs.has(pair)) codeToolsAsTools.push(`${nd.name || n.id}: ${t.name} not re-represented as code step (pair ${pair.slice(0, 12)}…)`);
 				}
+			}
+			// v1 capture settings ({variable: target}) carry as the variable
+			// row's captureAs.
+			for (const [key, target] of Object.entries(nd.captureKinds || {})) {
+				if (typeof target === "string" && target) bump(srcCaptureAs, `${key}=${target}`);
 			}
 			const gp = (n && n.globalConfig && n.globalConfig.globalPrompt) || "";
 			if (gp && !(snap.settings.systemPrompt || "").includes(gp)) {
@@ -281,6 +331,33 @@ function main() {
 		check("P4", "every webhook URL present on a webhook step", missingUrls.length === 0, missingUrls.join("; "));
 		check("P5", "code-type attached tools re-represented as code steps", codeToolsAsTools.length === 0, codeToolsAsTools.join("; "));
 		check("P7", "global/persona prompt carried verbatim", promptContained, promptDetail);
+		// A v1 End Call with a code tool migrates as a wrap-up step that
+		// returns to the hub (an end-call step cannot run a snippet), so that
+		// call can only end from a root end-call. An in-flow end-call in some
+		// other flow does not cover it.
+		//
+		// P10 is a structural minimum and is meant to be: it proves a root
+		// end-call EXISTS, not that the hub picks it after the wrap-up. That
+		// choice is the hub model reading entry descriptions at run time. No
+		// static check in this file can decide it, and this audit never
+		// judges entry wording anywhere (S1 to S8 are all structural). The
+		// hang-up at that point is proven where every other behavior is: the
+		// simulation lane for that terminal in /norm:simulate (migrate step
+		// 6, graded on engine traces). This is also not a new gap: main builds
+		// this exact wrap-up for EVERY End Call and checks it the same way
+		// (old S6: "root end-call exists"). This PR removes that reliance for
+		// every End Call except the one kind an end-call step cannot express.
+		check(
+			"P10",
+			"a v1 End Call with a code tool has a root end-call to hang up after it",
+			wrapUpEndCalls.length === 0 || rootEndCall,
+			wrapUpEndCalls.slice(0, 5).join(", "),
+		);
+		for (const [pair, want] of srcCaptureAs) {
+			const got = snapCaptureAs.get(pair) || 0;
+			if (got < want) missingCapture.push(`${pair} on ${got} of ${want} steps`);
+		}
+		check("P9", "every v1 capture setting carried as captureAs", missingCapture.length === 0, missingCapture.slice(0, 5).join(", "));
 	}
 
 	const passed = checks.every((c) => c.passed);

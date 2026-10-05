@@ -74,8 +74,10 @@ Before debugging behavior, confirm the bytes: outbound calls and inbound voice r
 
 Document these per agent instead of discovering them in production:
 
-- **A flow exit is not a hang-up**: an in-flow end-call construct can be a
-  wrap-up step; verify that continuation reaches an actual termination action.
+- **A flow exit is not a hang-up**: an `end-call` step inside a flow hangs up
+  after its line; a wrap-up prompt step followed by the End pill does not, and
+  hands the turn back to the hub. Verify that continuation reaches an actual
+  termination action.
   A root end-call can be a generated sibling destination. Do not require a hub
   visit or promise a fixed extra caller-turn count from the canvas alone.
 - **Fire-from-anywhere defaults don't exist at the hub** — it routes between turns only. HOWEVER, step-level globals DO exist: `settings.global.isGlobal` compiles a step into a runtime global node with auto-return (`returnMode: previous`), redirect, or manual modes (see the knob dictionary). Migrations have preferred systemPrompt folds for carried v1 globals; a deliberate new design may use step globals directly.
