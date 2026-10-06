@@ -66,6 +66,15 @@ checks apply only when migrating; intentional requested edits are allowed.
 16. Every attached tool has `toolType` `custom_tool` or `track`, and responsePathways rows use the field skew correctly (`label`=trigger, `variable`=operator, `condition`=value) with resolvable `targetId`s (empty target = continue, must be intentional).
 17. No unknown/extra keys on tool objects.
 
+## v2 architecture (migration doctrine — FAIL, not warn)
+
+20. **Start holds start things only.** The scenario the inbound edge targets (if not the hub) contains at most the bootstrap code, greeting, and identity/language steps, and has an exit edge before any intent-level branch. If it holds more than a third of all steps in the snapshot, or has no exit, FAIL: the whole call is captive in one flow and the hub is switched off.
+21. **Intents are hub children.** Each caller-chosen outcome (qualify / callback / transfer / not interested / opt out, or the source's equivalents) is a sibling scenario or root `end-call` with its own entry. A flow whose internal edges carry caller CHOICES (not sequence) is a v1 pathway in a v2 costume — FAIL and re-architect.
+22. **Every root end-call is reachable**: trace one path from the inbound edge, through the entry scenario's exit, to the hub, to each root `end-call`. Unreachable root end-calls FAIL.
+23. **Universal escapes on every hold.** Every `loopWhile` / hold condition lists, in addition to its own completion: opt-out / do-not-call, wrong person, not interested, callback requested, transfer requested, voicemail, IVR. A hold missing any of these traps the call on that step (the hold is evaluated before all routing). FAIL.
+24. **No parking lots.** No scenario whose name or entry says "legacy", "unreachable", "do not enter", "never enter". Dead v1 nodes are `dropped` in the report with reachability evidence. FAIL.
+25. **Tags carried.** Every v1 node `tag` appears as the corresponding step's `settings.tag` or is listed in the report's dropped-metadata section. Missing without a report line → FAIL.
+
 ## Hygiene
 
 18. No plaintext credential printed into your report output (check headers/URLs before quoting them — redact).
