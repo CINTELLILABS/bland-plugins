@@ -425,14 +425,15 @@ function main() {
 			Object.values(o).forEach(indexSteps);
 		})(snap);
 		// The start code node is carried as `initialization.step` (a bare step
-		// data object, no {type,data} wrapper) — index it as a customCode step
-		// so A0-carried start code is never counted as a missing node.
-		const initStep = (snap.initialization || {}).step;
-		if (initStep && typeof initStep.name === "string") {
-			const list = stepsByName.get(norm(initStep.name)) || [];
-			list.push({ type: "customCode", data: initStep });
-			stepsByName.set(norm(initStep.name), list);
-		}
+		// data object). It vouches for exactly ONE source node: the one with the
+		// same snippet pin, or byte-identical code — never for a same-named code
+		// node from another merged source.
+		const initStep = (snap.initialization || {}).step || null;
+		const initCarries = (d) => {
+			if (!initStep) return false;
+			if (initStep.snippetId && d.snippet_id) return initStep.snippetId === d.snippet_id && (initStep.snippetVersion === undefined || d.snippet_version === undefined || initStep.snippetVersion === d.snippet_version);
+			return typeof initStep.code === "string" && typeof d.code === "string" && norm(initStep.code) === norm(d.code);
+		};
 		const stepsFor = (d) => stepsByName.get(norm(d.name)) || [];
 		const isSilenced = (st) => (st.data || {}).useStaticText === true && String((st.data || {}).prompt || "").trim() === ".";
 		const missPrompt = [];
@@ -453,6 +454,10 @@ function main() {
 			for (const n of nodes) {
 				const d = n.data;
 				const steps = stepsFor(d);
+				if (steps.length === 0 && n.type === "Custom Code" && initCarries(d)) {
+					carriedNode.set(n.id, true);
+					continue;
+				}
 				const speech = typeof d.prompt === "string" && d.prompt.trim() ? d.prompt : typeof d.text === "string" && !d.text.trim().startsWith("<|") ? d.text : "";
 				const duplicateName = (nameCount.get(norm(d.name)) || 0) > 1;
 				const absent = steps.length === 0 || (duplicateName && speech && !carried(speech) && !steps.some(isSilenced));
