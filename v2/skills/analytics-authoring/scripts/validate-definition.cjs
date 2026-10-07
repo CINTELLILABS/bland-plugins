@@ -64,7 +64,7 @@ function validateDefinition(definition, members) {
       if (EXCLUDED.has(member)) { violate('excluded_member', member, `${member} is never stored in a definition`); continue; }
       if (SYNTHETIC.has(member)) { violate('synthetic_member', member, `${member} is placed automatically and cannot be grouped`); continue; }
       if (!known.has(member)) { violate('unknown_member', member, `${member} is not in the compiled waypoint list`); continue; }
-      if (seenMembers.has(member)) { violate('duplicate_member', member, `${member} appears in more than one group`); continue; }
+      if (seenMembers.has(member)) { violate('duplicate_member', member, `${member} appears more than once; a member belongs to exactly one group`); continue; }
       seenMembers.add(member);
       real = true;
     }

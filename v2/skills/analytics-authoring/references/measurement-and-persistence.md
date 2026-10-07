@@ -34,9 +34,11 @@ available in the connected deployment.
 The supported mutation is the customer waypoint-definition API described in
 [the contract](contract.md): save a pending draft, preview it, publish it.
 Every write names the structure it was written for through `expected_fingerprint`.
-Record the returned `definition_id`, confirm with a chart read that
-`waypoints.customer.lifecycle` is `published` and `waypoints.served` is true,
-and report generated, validated, saved, and served as separate facts. Never
+Record the returned `definition_id`, confirm with a chart read on the page's
+`window` that `waypoints.customer.lifecycle` is `published`, and report
+generated, validated, saved, and served as separate facts: `served` can be
+false after a successful publish (under 5 conversations on the structure, or
+the organisation's serve mode), and that is not a failed save. Never
 retry an ambiguous write before re-reading; never touch the agent's versions,
 deployments, or the inferred definition rows to change a chart.
 

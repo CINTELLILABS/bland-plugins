@@ -65,9 +65,9 @@ Report the superseded id and that the fingerprint is unchanged.
 
 ## "Preview it first"
 
-PUT pending, then read `…/pathway?view=simple&layout=stages&definition=<pending id>`
-and describe the stage table and unclassified share. Publish only after the
-user confirms.
+PUT pending, then read `…/pathway?view=simple&layout=stages&window=<n>&definition=<pending id>`
+on the page's window and describe the stage table and unclassified share.
+Stop there; publish only after the user confirms, in a later turn.
 
 ## Anti-patterns these examples guard against
 

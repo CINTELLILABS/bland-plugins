@@ -40,6 +40,7 @@ test('reports omitted members as unclassified without failing', () => {
 for (const [rule, mutate] of [
   ['unknown_member', d => d.definition.groups[0].members.push('Greeting')],
   ['duplicate_member', d => d.definition.groups[1].members.push('n-greet')],
+  ['duplicate_member', d => d.definition.groups[1].members.push('n-gate')],
   ['excluded_member', d => d.definition.groups[0].members.push('__entry__')],
   ['synthetic_member', d => d.definition.groups[0].members.push('__start')],
   ['empty_group', d => { d.definition.groups[2].members = []; }],
