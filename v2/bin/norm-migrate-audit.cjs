@@ -424,6 +424,15 @@ function main() {
 			}
 			Object.values(o).forEach(indexSteps);
 		})(snap);
+		// The start code node is carried as `initialization.step` (a bare step
+		// data object, no {type,data} wrapper) — index it as a customCode step
+		// so A0-carried start code is never counted as a missing node.
+		const initStep = (snap.initialization || {}).step;
+		if (initStep && typeof initStep.name === "string") {
+			const list = stepsByName.get(norm(initStep.name)) || [];
+			list.push({ type: "customCode", data: initStep });
+			stepsByName.set(norm(initStep.name), list);
+		}
 		const stepsFor = (d) => stepsByName.get(norm(d.name)) || [];
 		const isSilenced = (st) => (st.data || {}).useStaticText === true && String((st.data || {}).prompt || "").trim() === ".";
 		const missPrompt = [];
