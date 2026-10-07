@@ -460,13 +460,17 @@ function main() {
 				}
 				const speech = typeof d.prompt === "string" && d.prompt.trim() ? d.prompt : typeof d.text === "string" && !d.text.trim().startsWith("<|") ? d.text : "";
 				const duplicateName = (nameCount.get(norm(d.name)) || 0) > 1;
-				const absent = steps.length === 0 || (duplicateName && speech && !carried(speech) && !steps.some(isSilenced));
+				// A node whose speech is carried VERBATIM somewhere (e.g. a greeting
+				// folded into the hub prompt, per doctrine) is carried even without a
+				// same-named step; a node with no speech (route/code) needs a step.
+				const absent = (steps.length === 0 && !(speech && carried(speech))) || (duplicateName && speech && !carried(speech) && !steps.some(isSilenced));
 				if (absent) {
 					carriedNode.set(n.id, false);
 					if (!isDeclaredDrop(n)) missPrompt.push(`${d.name || n.id} — node not carried and not declared dropped (--dropped-tags {"node":"${String(n.id).slice(0, 8)}…"})`);
 					continue;
 				}
 				carriedNode.set(n.id, true);
+				if (steps.length === 0) continue; // carried into the hub prompt verbatim; no step to inspect further
 				if (speech && !steps.some(isSilenced) && !carried(speech)) missPrompt.push(`${d.name || n.id}`);
 				if (d.condition && !carried(d.condition)) missCondition.push(`${d.name || n.id}`);
 				// Extraction variables must live on the SAME step, not merely
