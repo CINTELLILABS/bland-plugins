@@ -360,6 +360,119 @@ function main() {
 		check("P9", "every v1 capture setting carried as captureAs", missingCapture.length === 0, missingCapture.slice(0, 5).join(", "));
 	}
 
+
+	// ── v2 architecture (migration doctrine — deterministic, FAIL not warn) ──
+	// A v1 pathway poured into one flow hanging off Start is still a v1 pathway:
+	// the hub is switched off for the whole call, root end-calls become dead
+	// code, and the first hold condition traps the caller. These checks are the
+	// machine half of /norm:validate 20–25; the Stop hook blocks on them.
+	{
+		const STEP_TYPES = new Set(["prompt", "knowledge", "tool", "webhook", "customCode", "sms", "transfer", "smsOtp", "identityQuestions", "pressButton", "waitForResponse", "transferPathway", "playAudio", "route", "channel", "ivr", "scheduling", "twilioFlowRedirect", "amazonConnect", "resetSttLanguage", "end-call"]);
+		const SPEAKING = new Set(["prompt", "knowledge", "waitForResponse", "end-call"]);
+		const PRE_SPEECH = new Set(["customCode", "route", "webhook", "tool"]);
+		const flowSteps = (n) => {
+			if (n.type === "scenario") return [n];
+			const f = (n.data || {}).flow;
+			return f && Array.isArray(f.nodes) ? f.nodes.filter((x) => STEP_TYPES.has(x.type)) : [];
+		};
+		const rootFlows = nodes.filter((n) => n.type === "scenario" || n.type === "complex-scenario");
+		const totalSteps = rootFlows.reduce((acc, n) => acc + flowSteps(n).length, 0);
+		const byId = new Map(nodes.map((n) => [n.id, n]));
+		const entryTarget = inboundEdge ? byId.get(inboundEdge.target) : undefined;
+		const name = (n) => String(((n || {}).data || {}).name || (n || {}).id || "?");
+
+		// A1 — Start (the inbound-targeted scenario, when it is not the hub)
+		// holds only pre-first-sentence work: at most one speaking step (the
+		// greeting), no end-call steps, ≤ 1/5 of all steps, and an exit pill.
+		if (entryTarget && entryTarget.type !== "agent") {
+			const st = flowSteps(entryTarget);
+			const speaking = st.filter((x) => SPEAKING.has(x.type));
+			const endCalls = st.filter((x) => x.type === "end-call");
+			const share = totalSteps ? st.length / totalSteps : 0;
+			const hasExit = entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
+			const problems = [];
+			if (speaking.length > 1) problems.push(`${speaking.length} speaking steps (${speaking.map(name).slice(0, 4).join(", ")}) — only a greeting may speak before the hub takes over`);
+			if (endCalls.length) problems.push(`${endCalls.length} end-call step(s) inside Start — caller outcomes belong to hub children`);
+			if (share > 0.2) problems.push(`${st.length}/${totalSteps} steps (${Math.round(share * 100)}%) in Start — budget is 20%`);
+			if (!hasExit) problems.push("no exit pill — the call can never reach the hub");
+			check("A1", "Start holds only pre-first-sentence work (≤1 speaking step, no end-calls, ≤20% of steps, exits to hub)", problems.length === 0, `"${name(entryTarget)}": ${problems.join("; ")}`);
+		} else {
+			check("A1", "Start holds only pre-first-sentence work", true, "inbound edge targets the hub");
+		}
+
+		// A2 — intents are hub children: besides the Start scenario there must
+		// be at least two hub-enterable siblings (scenarios or root end-calls),
+		// and no single flow may hold more than 60% of all steps.
+		const siblings = nodes.filter((n) => (n.type === "scenario" || n.type === "complex-scenario" || n.type === "end-call") && (!entryTarget || n.id !== entryTarget.id));
+		const fat = rootFlows.filter((n) => totalSteps && flowSteps(n).length / totalSteps > 0.6 && (!entryTarget || n.id !== entryTarget.id));
+		check("A2", "intents are hub children (≥2 siblings beside Start; no flow holds >60% of steps)", siblings.length >= 2 && fat.length === 0, `${siblings.length} sibling(s)${fat.length ? `; oversized: ${fat.map(name).join(", ")}` : ""}`);
+
+		// A3 — every root end-call is enterable: it carries an entry
+		// description for the hub, and the hub is reachable at all (Start
+		// exits — covered by A1's exit test, repeated here so the message names
+		// the dead end-calls).
+		const rootEnds = nodes.filter((n) => n.type === "end-call");
+		const startExits = !entryTarget || entryTarget.type === "agent" || entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
+		const deadEnds = rootEnds.filter((n) => !startExits || !String(((n.data || {}).entry || {}).description || "").trim());
+		check("A3", "every root end-call is reachable (hub reachable + entry description present)", deadEnds.length === 0, deadEnds.map(name).join(", "));
+
+		// A4 — universal escapes on every hold. The hold is evaluated before all
+		// routing, so a hold that lacks one of these traps the call on the step.
+		const ESCAPES = [
+			["opt-out", /opt[- ]?out|do not call|stop calling|no longer (be |want to be )?(called|contacted)|remove .* list/i],
+			["wrong person", /wrong (person|number)|not the (right|intended) person|isn'?t .* (who|the person)/i],
+			["not interested", /not interested|no longer (interested|looking|in the market)|declin/i],
+			["callback", /call ?back|call (me|them|you) (back|later)|better time/i],
+			["transfer", /transfer|speak (to|with) (a|an|someone|a live|a human)|representative|live agent|human/i],
+			["voicemail", /voicemail|voice ?mail|leave (a|your) message|the tone/i],
+			["IVR", /\bivr\b|screen(er|ing)|automated (system|menu|assistant)|press \d|menu options/i],
+		];
+		// Required set = the escapes the v1 source itself handles anywhere (an
+		// inbound agent with no voicemail lane is not asked to escape to one);
+		// without a source, the caller-universal five.
+		const UNIVERSAL = new Set(["opt-out", "wrong person", "not interested", "callback", "transfer"]);
+		let required = ESCAPES.filter(([k]) => UNIVERSAL.has(k));
+		if (sourcePaths.length) {
+			const srcAll = sourcePaths.map((sp) => JSON.stringify(loadJson(sp))).join("\n");
+			required = ESCAPES.filter(([, re]) => re.test(srcAll));
+		}
+		const holdIssues = [];
+		for (const sc of rootFlows) {
+			for (const st of flowSteps(sc)) {
+				const lw = String(((st.data || {}).loopWhile) || "").trim();
+				if (!lw) continue;
+				const missing = required.filter(([, re]) => !re.test(lw)).map(([k]) => k);
+				if (missing.length) holdIssues.push(`${name(sc)}/${name(st)} lacks ${missing.join(", ")}`);
+			}
+		}
+		check("A4", `every hold condition carries the escapes the source handles (${required.map(([k]) => k).join(", ")})`, holdIssues.length === 0, holdIssues.slice(0, 4).join("; "));
+
+		// A5 — no parking lots.
+		const PARK = /legacy|archived|unreachable|never enter|do not enter|don'?t enter|parking|dead code|retired|unused/i;
+		const lots = rootFlows.filter((n) => PARK.test(name(n)) || PARK.test(String(((n.data || {}).entry || {}).description || "")));
+		check("A5", "no parking-lot scenarios (dead v1 nodes are dropped in the report, never warehoused)", lots.length === 0, lots.map(name).join(", "));
+
+		// A6 — every v1 node tag is carried as a settings.tag somewhere.
+		if (sourcePaths.length) {
+			const srcTags = new Set();
+			for (const sp of sourcePaths) {
+				for (const n of loadJson(sp).nodes || []) {
+					const t = ((n && n.data) || {}).tag;
+					if (t && typeof t.name === "string" && t.name.trim()) srcTags.add(t.name.trim());
+				}
+			}
+			const snapTags = new Set();
+			(function collectTags(o) {
+				if (Array.isArray(o)) return o.forEach(collectTags);
+				if (!o || typeof o !== "object") return;
+				if (o.settings && o.settings.tag && typeof o.settings.tag.name === "string") snapTags.add(o.settings.tag.name.trim());
+				Object.values(o).forEach(collectTags);
+			})(snap);
+			const missingTags = [...srcTags].filter((t) => !snapTags.has(t));
+			check("A6", "every v1 node tag carried as settings.tag", missingTags.length === 0, missingTags.join(", "));
+		}
+	}
+
 	const passed = checks.every((c) => c.passed);
 	process.stdout.write(`${JSON.stringify({ passed, checks }, null, 2)}\n`);
 }

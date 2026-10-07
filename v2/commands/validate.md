@@ -68,6 +68,8 @@ checks apply only when migrating; intentional requested edits are allowed.
 
 ## v2 architecture (migration doctrine — FAIL, not warn)
 
+These six have a deterministic twin in `bin/norm-migrate-audit.cjs` (checks A1–A6: Start budget/speaking/end-calls/exit, hub siblings, root end-call reachability, hold escapes, parking lots, tags). The migration Stop hook runs that audit on every stop attempt, so a snapshot that fails them cannot be released — read the audit's detail line and re-architect, do not argue with it.
+
 20. **Start holds only pre-first-sentence work.** The scenario the inbound edge targets (if not the hub) contains only initialization code, input collection/shaping, and deterministic routing into the first scenario — nothing conversational beyond at most the greeting line — and exits to the hub. If it holds more than a fifth of all steps, speaks beyond a greeting, or has no exit, FAIL: the call body is captive in one flow and the hub is switched off.
 21. **Intents are hub children.** Each caller-chosen outcome (qualify / callback / transfer / not interested / opt out, or the source's equivalents) is a sibling scenario or root `end-call` with its own entry. A flow whose internal edges carry caller CHOICES (not sequence) is a v1 pathway in a v2 costume — FAIL and re-architect.
 22. **Every root end-call is reachable**: trace one path from the inbound edge, through the entry scenario's exit, to the hub, to each root `end-call`. Unreachable root end-calls FAIL.
