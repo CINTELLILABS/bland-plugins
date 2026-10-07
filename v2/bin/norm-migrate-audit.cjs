@@ -449,6 +449,7 @@ function main() {
 			// Several v1 nodes often share a name ("End Call"); for those, the
 			// node is carried when its OWN speech is present somewhere, and a
 			// missing prompt is a drop rather than a rewrite.
+			const initCarriedIds = new Set();
 			const nameCount = new Map();
 			for (const n of nodes) nameCount.set(norm(n.data.name), (nameCount.get(norm(n.data.name)) || 0) + 1);
 			for (const n of nodes) {
@@ -456,6 +457,7 @@ function main() {
 				const steps = stepsFor(d);
 				if (steps.length === 0 && n.type === "Custom Code" && initCarries(d)) {
 					carriedNode.set(n.id, true);
+					initCarriedIds.add(n.id);
 					continue;
 				}
 				const speech = typeof d.prompt === "string" && d.prompt.trim() ? d.prompt : typeof d.text === "string" && !d.text.trim().startsWith("<|") ? d.text : "";
@@ -492,6 +494,9 @@ function main() {
 			for (const e of src.edges || []) {
 				if (!e || !e.data) continue;
 				if (carriedNode.get(e.source) !== true || carriedNode.get(e.target) !== true) continue;
+				// Edges out of the start code node are replaced by the implicit
+				// initialization → hub hand-off; their routing text has no v2 home.
+				if (initCarriedIds.has(e.source)) continue;
 				// Deterministic edges route on their conditions; the builder carries
 				// the conditions and writes an empty description on purpose.
 				if (Array.isArray(e.data.condition) && e.data.condition.length > 0) continue;
