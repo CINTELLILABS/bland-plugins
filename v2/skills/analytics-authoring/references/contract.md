@@ -98,6 +98,7 @@ group id, or `#definition` for whole-definition rules.
 
 | Rule | Fix |
 | -- | -- |
+| `unknown_key` (offline checker only) | A key other than `id`, `label`, `members`, `stage` on a group, or other than `groups` on the definition. The API answers 400, not 422; drop the key. |
 | `unknown_member` | The id is not in `members`. Use an id from the read; never a label. |
 | `duplicate_member` | The id appears twice. Keep it in one group. |
 | `excluded_member` | `__entry__` or `global-prompt`. Remove it. |

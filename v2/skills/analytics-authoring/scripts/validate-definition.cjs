@@ -11,6 +11,7 @@
 const {readFileSync} = require('node:fs');
 
 const MAX_GROUPS = 7;
+const GROUP_KEYS = new Set(['id', 'label', 'members', 'stage']);
 const MAX_ID_LENGTH = 128;
 const MAX_LABEL_LENGTH = 512;
 const EXCLUDED = new Set(['__entry__', 'global-prompt']);
@@ -41,6 +42,8 @@ function validateDefinition(definition, members) {
     violate('no_groups', DEFINITION_REF, 'the definition has no groups');
     return {valid: false, violations, unclassified: [...known]};
   }
+  const inner = object(definition) && object(definition.definition) ? definition.definition : definition;
+  for (const key of Object.keys(inner)) if (key !== 'groups') violate('unknown_key', DEFINITION_REF, `${key} is not a definition field; the API refuses unknown keys with 400`);
   if (groups.length > MAX_GROUPS) violate('too_many_groups', DEFINITION_REF, `the definition has ${groups.length} groups; at most ${MAX_GROUPS} are allowed`);
   const seenGroups = new Set();
   const seenMembers = new Set();
@@ -48,6 +51,7 @@ function validateDefinition(definition, members) {
   let real = false;
   groups.forEach((group, index) => {
     const ref = object(group) && text(group.id) ? group.id.trim() : `#${index}`;
+    if (object(group)) for (const key of Object.keys(group)) if (!GROUP_KEYS.has(key)) violate('unknown_key', ref, `${key} is not a group field; the API refuses unknown keys with 400`);
     if (!object(group) || !text(group.id)) violate('missing_group_id', ref, 'a group id is empty');
     else if (group.id.length > MAX_ID_LENGTH) violate('missing_group_id', ref, `a group id must be at most ${MAX_ID_LENGTH} characters`);
     else if (group.id === RESERVED_GROUP_ID) violate('reserved_group_id', ref, `${RESERVED_GROUP_ID} is derived at read time and cannot be a group id`);

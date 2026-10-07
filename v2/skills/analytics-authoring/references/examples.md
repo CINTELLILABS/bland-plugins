@@ -26,7 +26,8 @@ counts and the unchanged unclassified share. One read, one PUT, one POST.
 
 Detailed means granular, but the cap is 7 groups. Do not try 12 and learn from
 a 422; say the cap up front, pack all members into 7 flow-ordered groups, and
-offer the Detailed tab for node-level traffic. Report that unclassified
+offer a `view=full` API read for node-level traffic (the Detailed tab draws
+the same groups as Simplified, just unmerged). Report that unclassified
 dropped if it did.
 
 ## "This is too chronological; gate access, payments and self-service are parallel"

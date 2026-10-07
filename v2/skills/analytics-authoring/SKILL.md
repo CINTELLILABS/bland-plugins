@@ -61,8 +61,8 @@ save is a write even though it does not serve.
 9. **Confirm** with one more chart read on the same `window`. Publication is
    confirmed by the 201 and by `waypoints.customer.lifecycle` being `published`.
    Report `waypoints.served` as it is: it is false when the structure has fewer
-   than 5 conversations in the window or the organisation's serve mode holds
-   it back, and the chart then keeps the inferred layout. Report
+   than 5 conversations since its first deployment (the page's window does not
+   matter) or the organisation's serve mode holds it back, and the chart then keeps the inferred layout. Report
    `unclassified_share` with it.
 
 Use the two API tools directly for every call. Do not write fetch scripts, do
