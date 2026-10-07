@@ -321,15 +321,20 @@ test('the Stop hook ignores a dropped-tags file older than the migration it gate
     writeFileSync(stale, JSON.stringify(['vip']));
     const old = new Date(Date.now() - 60_000);
     utimesSync(stale, old, old);
+    // One migration, created once; the hook compares the declaration's mtime
+    // against this fixed created_at, so the test never races the clock.
+    const createdAt = Date.now();
+    const state = { active: true, created_at: createdAt, snapshot: join(dir, 'snapshot.json'), sources: [join(dir, 'source.json')], iter: 0, max_iter: 12, push: { head: '', at: 0 }, sims: { head: '', passed: false, failing: [], at: 0 }, uncovered: [] };
+    writeFileSync(join(dir, '.norm', 'migration.json'), JSON.stringify(state));
     const run = () => {
-      const state = { active: true, created_at: Date.now(), snapshot: join(dir, 'snapshot.json'), sources: [join(dir, 'source.json')], iter: 0, max_iter: 12, push: { head: '', at: 0 }, sims: { head: '', passed: false, failing: [], at: 0 }, uncovered: [] };
-      writeFileSync(join(dir, '.norm', 'migration.json'), JSON.stringify(state));
       const r = spawnSync(process.execPath, [hookBin], { input: JSON.stringify({ hook_event_name: 'Stop', cwd: dir }), env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf8' });
       return r.stdout + r.stderr;
     };
     assert.match(run(), /AUDIT A6 .*vip/);
-    // The same declaration written for this migration is honoured.
+    // The same declaration written for this migration (mtime after created_at) is honoured.
     writeFileSync(stale, JSON.stringify(['vip']));
+    const fresh = new Date(createdAt + 5_000);
+    utimesSync(stale, fresh, fresh);
     assert.doesNotMatch(run(), /AUDIT A6/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

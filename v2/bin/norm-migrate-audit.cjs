@@ -474,7 +474,9 @@ function main() {
 		for (const sc of rootFlows) {
 			for (const st of flowSteps(sc)) {
 				const g = (((st.data || {}).settings || {}).global) || {};
-				if (g.isGlobal === true) globalText.push([g.label, g.description, (st.data || {}).name, (st.data || {}).prompt].map((x) => String(x || "")).join("\n"));
+				// Only the global's trigger fields decide when it fires; its name and spoken
+				// prompt do not, so they must not count as escape coverage.
+				if (g.isGlobal === true) globalText.push([g.label, g.description].map((x) => String(x || "")).join("\n"));
 			}
 		}
 		const globalCovers = (re) => globalText.some((t) => re.test(t));
