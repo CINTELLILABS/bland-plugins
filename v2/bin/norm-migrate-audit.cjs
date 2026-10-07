@@ -11,7 +11,7 @@
  * Usage:
  *   norm-migrate-audit.cjs --snapshot snap.json [--source v1.json]... \
  *     [--persona persona.json] [--allow-missing-fallback <routeName>]... \
- *     [--dropped-tags .norm/dropped-tags.json] [--json]
+ *     [--dropped-tags .norm/dropped-tags.json]   (rows: "tag" | {tag} | {node: id|name, reason}) [--json]
  */
 
 const fs = require("node:fs");
@@ -48,6 +48,24 @@ function main() {
 	}
 	const snap = loadJson(snapshotPath);
 	const snapText = JSON.stringify(snap);
+	// Declared drops (--dropped-tags <json>): plain strings are tags; objects
+	// may carry {tag} and/or {node: "<v1 node id or name>", reason}. Only a
+	// DECLARED node drop excuses a missing node (P11); only a declared tag drop
+	// excuses a missing tag (A6). Undeclared losses fail.
+	const normDrop = (t) => String(t || "").replace(/\s+/g, " ").trim();
+	const declaredDropTags = new Set();
+	const declaredDropNodes = new Set();
+	if (droppedTagsPath && fs.existsSync(droppedTagsPath)) {
+		for (const row of loadJson(droppedTagsPath) || []) {
+			if (typeof row === "string") declaredDropTags.add(row.trim());
+			else if (row && typeof row === "object") {
+				if (typeof row.tag === "string") declaredDropTags.add(row.tag.trim());
+				if (typeof row.node === "string") declaredDropNodes.add(normDrop(row.node));
+				if (typeof row.id === "string") declaredDropNodes.add(normDrop(row.id));
+				if (typeof row.name === "string") declaredDropNodes.add(normDrop(row.name));
+			}
+		}
+	}
 	const behavior = snap.behavior || {};
 	const nodes = Array.isArray(behavior.nodes) ? behavior.nodes : [];
 	const edges = Array.isArray(behavior.edges) ? behavior.edges : [];
@@ -389,6 +407,7 @@ function main() {
 			const n = norm(t);
 			return n.length < 8 || snapNorm.includes(n);
 		};
+		const isDeclaredDrop = (n) => declaredDropNodes.has(normDrop(n.id)) || declaredDropNodes.has(normDrop((n.data || {}).name));
 		// Index the snapshot's steps by name: a v1 node is "carried" when a step
 		// of the same name exists. A node with no such step is a documented drop
 		// (dispositions live in the report), and its prompt/edges are not
@@ -427,8 +446,10 @@ function main() {
 				const steps = stepsFor(d);
 				const speech = typeof d.prompt === "string" && d.prompt.trim() ? d.prompt : typeof d.text === "string" && !d.text.trim().startsWith("<|") ? d.text : "";
 				const duplicateName = (nameCount.get(norm(d.name)) || 0) > 1;
-				if (steps.length === 0 || (duplicateName && speech && !carried(speech) && !steps.some(isSilenced))) {
+				const absent = steps.length === 0 || (duplicateName && speech && !carried(speech) && !steps.some(isSilenced));
+				if (absent) {
 					carriedNode.set(n.id, false);
+					if (!isDeclaredDrop(n)) missPrompt.push(`${d.name || n.id} — node not carried and not declared dropped (--dropped-tags {"node":"${String(n.id).slice(0, 8)}…"})`);
 					continue;
 				}
 				carriedNode.set(n.id, true);
@@ -460,7 +481,7 @@ function main() {
 				if (desc && !carried(desc)) missEdge.push(`${String(e.source).slice(0, 8)}→${String(e.target).slice(0, 8)} "${String(e.data.label || "").slice(0, 30)}"`);
 			}
 		}
-		check("P11", "every carried v1 node's prompt/text verbatim (dropped nodes and silenced pills excluded)", missPrompt.length === 0, missPrompt.slice(0, 6).join(", "));
+		check("P11", "every v1 node carried verbatim or explicitly declared dropped (silenced pills excluded)", missPrompt.length === 0, missPrompt.slice(0, 6).join(", "));
 		check("P12", "every v1 hold condition carried verbatim (escapes may be appended)", missCondition.length === 0, missCondition.slice(0, 6).join(", "));
 		check("P13", "every LLM-routed v1 edge description carried verbatim (deterministic edges route on conditions)", missEdge.length === 0, missEdge.slice(0, 5).join("; "));
 		check("P14", "every v1 extraction variable carried on the same step", missVar.length === 0, missVar.slice(0, 6).join(", "));
@@ -622,14 +643,7 @@ function main() {
 			// Tags on nodes the report DROPS (with reachability evidence) are
 			// declared in --dropped-tags <json: [{"tag","reason"}] or ["tag"]>;
 			// the hook passes .norm/dropped-tags.json when present.
-			const declaredDrops = new Set();
-			if (droppedTagsPath && fs.existsSync(droppedTagsPath)) {
-				for (const row of loadJson(droppedTagsPath) || []) {
-					const t = typeof row === "string" ? row : row && row.tag;
-					if (typeof t === "string" && t.trim()) declaredDrops.add(t.trim());
-				}
-			}
-			const missingTags = [...srcTags].filter((t) => !snapTags.has(t) && !declaredDrops.has(t));
+			const missingTags = [...srcTags].filter((t) => !snapTags.has(t) && !declaredDropTags.has(t));
 			check("A6", "every v1 node tag carried as settings.tag (or declared dropped in --dropped-tags)", missingTags.length === 0, missingTags.join(", "));
 		}
 	}
