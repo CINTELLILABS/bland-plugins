@@ -1,6 +1,6 @@
 # Changelog
 
-## norm 1.6.0 – 2026-10-06
+## norm 1.7.0 – 2026-10-07
 
 - Add the analytics-authoring skill for an agent's analytics Sankey: waypoint
   concepts (fingerprint, inferred vs customer definitions, stages and parallel
@@ -11,6 +11,23 @@
   worked prompts, and an offline validator that applies the API's rules.
 - Add the `/norm:analytics` command entry point and an analytics authoring
   regression rubric under `dev/benchmarks`.
+
+## norm 1.6.0 – 2026-10-05
+
+- Migration: a v1 End Call becomes an `end-call` step inside its flow, reached
+  by the v1 edges into it, as the platform's parity import builds it. The call
+  hangs up after the goodbye with no hub turn in between; one with nothing to
+  say speaks a static ".". Root end-calls are now only for hang-ups the hub
+  decides. Audit S6 accepts the in-flow end-call when its flow's Start can
+  reach it. An End Call's attached tools stay on it. An End Call with a
+  code tool keeps the wrap-up mapping, since an end-call step cannot run a
+  snippet.
+- Migration: v1 `captureKinds` carry as `captureAs` on the extraction rows.
+  New audit check P9 fails a snapshot that drops one, counted per step. The skill says capture
+  does the readback for those values, so no prompt rule should.
+- Snapshot and runtime references document `end-call` inside a flow and the
+  `captureAs` row field. New trap: a captured value's check keeps its exact
+  expected value instead of loosening to v1's miss.
 
 ## norm 1.5.0 – 2026-09-27
 
@@ -108,7 +125,7 @@ Review fixes (12 findings triaged, 8 real):
 
 ## norm 1.2.2 – 2026-09-16
 
-Organization-collision hardening (BLA-7919):
+Organization-collision hardening:
 
 - Every `/norm:*` command's `allowed-tools` now permits ONLY the plugin's own namespaced MCP server — the bare `mcp__bland__*` wildcard (which can match a project-scoped server in a different organization) is gone.
 - Cross-host manifests name the server `plugin_norm_bland` so hosts without automatic prefixing cannot collide with a project-defined `bland` server.
@@ -160,7 +177,7 @@ Agents were placing calls that sound robotic. `create_call` rejects every field 
 
 ## 2.1.1 – 2026-09-10
 
-The hosted MCP gained `stop_call` and `list_voices` (SERVER BLA-8082), and a call without a voice now uses Karen.
+The hosted MCP gained `stop_call` and `list_voices`, and a call without a voice now uses Karen.
 
 - **`calls`:** stop a call with `stop_call` instead of the REST passthrough. A new Voice section says to omit `voice` for the default, suggest voices from `list_voices`, and pass the chosen voice's `id`. A voice the user names is used as given.
 - **`persona`:** choose a voice with `list_voices` first. The `GET /v1/voices` jq recipe now keeps only public curated voices whose `service` is `BTTS_V3`, the same set `list_voices` returns.
@@ -169,7 +186,7 @@ The hosted MCP gained `stop_call` and `list_voices` (SERVER BLA-8082), and a cal
 
 ## 2.1.0 — 2026-09-10
 
-Two skills for the jobs the plugin could not do yet: placing calls and texting. They replace the `create-call`, `monitor-call`, `live-listen`, and `send-sms` skills in `CINTELLILABS/bland-skills`, which is being retired (BLA-8064), rewritten for the hosted MCP tools and the REST passthrough instead of that repo's stdio tool names and shell scripts.
+Two skills for the jobs the plugin could not do yet: placing calls and texting. They replace the `create-call`, `monitor-call`, `live-listen`, and `send-sms` skills in `CINTELLILABS/bland-skills`, which is being retired, rewritten for the hosted MCP tools and the REST passthrough instead of that repo's stdio tool names and shell scripts.
 
 - **`calls`:** place a call with `create_call`, or with `POST /v1/calls` for personas, voicemail handling, transcription keywords, and recording; follow it with `wait_for_call` and `get_call_log`; stop it; stream its live transcript or audio from a terminal. Covers the Agent Phone Plan's default caller ID and its call limits.
 - **`messaging`:** send a text with `POST /v1/sms/send` and give the conversation an `objective` so replies pursue that goal instead of the number's generic prompt; read threads; change the number's texting prompt. Covers the plan's text limits and the delay before a new number can text.

@@ -25,7 +25,7 @@ checks are not passes. This checklist is not a substitute for schema validation
 or behavioral tests.
 
 For maintenance, preserve the existing design. Migration conventions such as
-an explicit root end-call and array-first Start/array-last End are not universal
+array-first Start/array-last End are not universal
 schema requirements. Do not rebuild a valid agent merely to satisfy them. Check
 the actual Start edge and intended termination behavior instead. Source-carriage
 checks apply only when migrating; intentional requested edits are allowed.
@@ -37,7 +37,7 @@ checks apply only when migrating; intentional requested edits are allowed.
 3. Every `complex-scenario` has the required entry/name/flow fields for the supported schema. Each flow's Start edge targets its intended entry. Start-first/End-last array ordering is an authoring convention, not executable entry selection.
 4. Every node, flow node, edge, rule, condition, and variable row has a unique `id`. No duplicate ids anywhere in the document.
 5. Every flow edge's `source`/`target` exist in that flow; every route `targetNodeId`/`fallbackNodeId` exists in that flow.
-6. For migration doctrine, require a root `end-call`. Otherwise verify the intended termination action/continuation; missing a root end-call alone is not proof that an existing snapshot is invalid.
+6. For migration doctrine, require an `end-call`: at the root, or as a step inside a flow that its Start can reach (a v1 End Call migrates to the in-flow form). A flow that returns to the hub so it can route onward needs no hang-up of its own. The exception is a v1 End Call with a code tool, which migrates as a wrap-up step that returns to the hub: it needs a root `end-call` (audit P10). Otherwise verify the intended termination action/continuation; a missing root end-call is not a failure.
 
 ## Routing-crash checks
 

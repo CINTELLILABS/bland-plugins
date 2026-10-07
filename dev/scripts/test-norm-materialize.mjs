@@ -57,6 +57,194 @@ test('materializer writes native warm-transfer fields and preserves explicit off
   assert.equal(transfer(materialize({ ...input, optimizeForIVR: false })).data.warmTransfer.optimizeForIVR, false);
 });
 
+const audit = resolve(dirname(fileURLToPath(import.meta.url)), '../../v2/bin/norm-migrate-audit.cjs');
+// A two-node v1 pathway: Start collects a captured name, then routes to an
+// End Call. Returns the built snapshot and the audit's checks by id.
+function buildDictation(endCallData) {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-materialize-test-'));
+  try {
+    writeFileSync(join(dir, 'source.json'), JSON.stringify({
+      nodes: [
+        { id: 'start', type: 'Default', data: {
+          name: 'Start', isStart: true, prompt: 'Ask for their first and last name.',
+          condition: 'User confirmed their first and last name.',
+          extractVars: [['first_name', 'string', 'First name'], ['last_name', 'string', 'Last name'], ['reason', 'string', 'Why they called']],
+          captureKinds: { first_name: 'name.first', last_name: 'name.last' },
+        } },
+        { id: 'bye', type: 'End Call', data: { name: 'End call', ...endCallData } },
+      ],
+      edges: [{ id: 'e1', source: 'start', target: 'bye', data: { label: 'Caller confirmed the information.' } }],
+    }));
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify({
+      displayName: 'Synthetic', systemPrompt: 'Synthetic test only',
+      sources: [{ file: 'source.json' }],
+      entryScenario: 'Name capture',
+      scenarios: [{ name: 'Name capture', entry: { label: 'Name capture', description: 'Collect the name' }, members: ['start', 'bye'] }],
+    }));
+    execFileSync(process.execPath, [builder, '--plan', join(dir, 'plan.json'), '--out', join(dir, 'snapshot.json')]);
+    const out = execFileSync(process.execPath, [audit, '--snapshot', join(dir, 'snapshot.json'), '--source', join(dir, 'source.json')]).toString();
+    const checks = Object.fromEntries(JSON.parse(out).checks.map((c) => [c.id, c]));
+    return { snapshot: JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8')), checks };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+function flowOf(snapshot) {
+  return snapshot.behavior.nodes.find((node) => node.type === 'complex-scenario').data.flow;
+}
+
+test('a v1 End Call becomes an end-call step in its flow, reached by the v1 edge', () => {
+  const { snapshot, checks } = buildDictation({ prompt: 'Thank the caller, then say: High five!' });
+  const flow = flowOf(snapshot);
+  const endCall = flow.nodes.find((node) => node.data && node.data.name === 'End call');
+  assert.equal(endCall.type, 'end-call');
+  assert.equal(endCall.data.prompt, 'Thank the caller, then say: High five!');
+  const start = flow.nodes.find((node) => node.data && node.data.name === 'Start');
+  const route = flow.edges.find((edge) => edge.source === start.id && edge.target === endCall.id);
+  assert.equal(route.data.label, 'Caller confirmed the information.');
+  // It ends the call, so nothing leaves it for the End pill or the hub.
+  assert.equal(flow.edges.some((edge) => edge.source === endCall.id), false);
+  assert.equal(snapshot.behavior.nodes.some((node) => node.type === 'end-call'), false);
+  assert.equal(checks.S6.passed, true);
+});
+
+test('an End Call with nothing to say speaks a static "." so the call still ends', () => {
+  const { snapshot } = buildDictation({});
+  const endCall = flowOf(snapshot).nodes.find((node) => node.type === 'end-call');
+  assert.equal(endCall.data.prompt, '.');
+  assert.equal(endCall.data.useStaticText, true);
+});
+
+test('v1 capture settings carry as captureAs, and the audit checks they did', () => {
+  const { snapshot, checks } = buildDictation({ prompt: 'Bye.' });
+  const start = flowOf(snapshot).nodes.find((node) => node.data && node.data.name === 'Start');
+  const byKey = Object.fromEntries(start.data.variables.map((row) => [row.key, row.captureAs]));
+  assert.deepEqual(byKey, { first_name: 'name.first', last_name: 'name.last', reason: undefined });
+  assert.equal(checks.P9.passed, true);
+});
+
+test('the audit fails a snapshot that dropped a v1 capture setting', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  for (const node of flowOf(snapshot).nodes) {
+    for (const row of (node.data && node.data.variables) || []) delete row.captureAs;
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'norm-audit-test-'));
+  try {
+    writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(snapshot));
+    writeFileSync(join(dir, 'source.json'), JSON.stringify({
+      nodes: [{ id: 'start', type: 'Default', data: { name: 'Start', captureKinds: { last_name: 'name.last' } } }],
+      edges: [],
+    }));
+    const out = execFileSync(process.execPath, [audit, '--snapshot', join(dir, 'snapshot.json'), '--source', join(dir, 'source.json')]).toString();
+    const p9 = JSON.parse(out).checks.find((c) => c.id === 'P9');
+    assert.equal(p9.passed, false);
+    assert.match(p9.detail, /last_name=name\.last/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Runs the audit on a snapshot against one v1 source; returns checks by id.
+function runAudit(snapshot, source) {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-audit-test-'));
+  try {
+    writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(snapshot));
+    writeFileSync(join(dir, 'source.json'), JSON.stringify(source));
+    const out = execFileSync(process.execPath, [audit, '--snapshot', join(dir, 'snapshot.json'), '--source', join(dir, 'source.json')]).toString();
+    return Object.fromEntries(JSON.parse(out).checks.map((c) => [c.id, c]));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('an attached tool stays on the End Call step', () => {
+  const { snapshot } = buildDictation({
+    prompt: 'Bye.',
+    tools: [{ name: 'Log outcome', type: 'custom_tool', config: { tool_id: 'TL-11111111-2222' } }],
+  });
+  const endCall = flowOf(snapshot).nodes.find((node) => node.type === 'end-call');
+  assert.equal(endCall.data.tools.length, 1);
+  assert.equal(endCall.data.tools[0].toolId, 'TL-11111111-2222');
+});
+
+test('an End Call with a code tool keeps the wrap-up mapping so the snippet runs', () => {
+  const { snapshot, checks } = buildDictation({
+    prompt: 'Bye.',
+    extractVars: [['outcome', 'string', 'How the call ended']],
+    tools: [{ name: 'Save result', type: 'code', config: { snippet_id: 'snip-1', snippet_version: 3 } }],
+  });
+  const flow = flowOf(snapshot);
+  const wrapUp = flow.nodes.find((node) => node.data && node.data.name === 'End call');
+  const code = flow.nodes.find((node) => node.type === 'customCode');
+  const start = flow.nodes.find((node) => node.data && node.data.name === 'Start');
+  // A prompt step, reached by the v1 edge, extracts first and then runs the snippet.
+  assert.equal(wrapUp.type, 'prompt');
+  assert.ok(flow.edges.some((edge) => edge.source === start.id && edge.target === wrapUp.id));
+  assert.ok(flow.edges.some((edge) => edge.source === wrapUp.id && edge.target === code.id));
+  assert.deepEqual(code.data.variables.map((row) => row.key), ['outcome']);
+  assert.equal(flow.nodes.some((node) => node.type === 'end-call'), false);
+  // No hang-up anywhere yet: the audit says so until the plan adds a root end-call.
+  assert.equal(checks.S6.passed, false);
+  assert.equal(checks.P10.passed, false);
+  assert.equal(checks.P5.passed, true);
+});
+
+test('the audit does not count an End Call nothing leads to', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const flow = flowOf(snapshot);
+  const endCall = flow.nodes.find((node) => node.type === 'end-call');
+  flow.edges = flow.edges.filter((edge) => edge.target !== endCall.id);
+  assert.equal(runAudit(snapshot, { nodes: [], edges: [] }).S6.passed, false);
+});
+
+test('a flow that returns to the hub needs no root End Call', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const scenario = snapshot.behavior.nodes.find((node) => node.type === 'complex-scenario');
+  // A second flow whose only step hands back to the hub to route onward.
+  const other = JSON.parse(JSON.stringify(scenario));
+  other.id = 'other-scenario';
+  other.data.name = 'Other';
+  const endCallId = other.data.flow.nodes.find((node) => node.type === 'end-call').id;
+  other.data.flow.nodes = other.data.flow.nodes.filter((node) => node.id !== endCallId);
+  other.data.flow.edges = other.data.flow.edges.filter((edge) => edge.target !== endCallId);
+  snapshot.behavior.nodes.push(other);
+  assert.equal(runAudit(snapshot, { nodes: [], edges: [] }).S6.passed, true);
+});
+
+test('a v1 End Call with a code tool needs a root End Call, whatever other flows contain', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const source = {
+    nodes: [{ id: 'x', type: 'End Call', data: { name: 'Save and end', tools: [{ name: 'Save', type: 'code', config: { snippet_id: 'snip-1' } }] } }],
+    edges: [],
+  };
+  const p10 = runAudit(snapshot, source).P10;
+  assert.equal(p10.passed, false);
+  assert.match(p10.detail, /Save and end/);
+  snapshot.behavior.nodes.push({ id: 'root-end', type: 'end-call', data: { name: 'End call' } });
+  assert.equal(runAudit(snapshot, source).P10.passed, true);
+});
+
+test('the audit fails when one of two steps sharing a variable loses its capture setting', () => {
+  const { snapshot } = buildDictation({
+    prompt: 'Bye.',
+    extractVars: [['last_name', 'string', 'Last name']],
+    captureKinds: { last_name: 'name.last' },
+  });
+  const source = {
+    nodes: [
+      { id: 'start', type: 'Default', data: { name: 'Start', captureKinds: { last_name: 'name.last' } } },
+      { id: 'bye', type: 'End Call', data: { name: 'End call', captureKinds: { last_name: 'name.last' } } },
+    ],
+    edges: [],
+  };
+  assert.equal(runAudit(snapshot, source).P9.passed, true);
+  const endCall = flowOf(snapshot).nodes.find((node) => node.type === 'end-call');
+  for (const row of endCall.data.variables) delete row.captureAs;
+  const p9 = runAudit(snapshot, source).P9;
+  assert.equal(p9.passed, false);
+  assert.match(p9.detail, /last_name=name\.last on 1 of 2 steps/);
+});
+
 // Optional consuming-repository contract check. Pass the real compiler path;
 // never duplicate its implementation in this public plugin repository.
 test('real v2 compiler preserves migrated transfer behavior', {
