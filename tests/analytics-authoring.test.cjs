@@ -45,7 +45,7 @@ for (const [rule, mutate] of [
   ['synthetic_member', d => d.definition.groups[0].members.push('__start')],
   ['empty_group', d => { d.definition.groups[2].members = []; }],
   ['missing_label', d => { d.definition.groups[1].label = ' '; }],
-  ['missing_group_id', d => { d.definition.groups[1].id = 'Gate Access'; }],
+  ['missing_group_id', d => { d.definition.groups[1].id = 'x'.repeat(129); }],
   ['duplicate_group_id', d => { d.definition.groups[2].id = 'gate'; }],
   ['reserved_group_id', d => { d.definition.groups[2].id = '__unclassified__'; }],
   ['stage_missing', d => { delete d.definition.groups[2].stage; }],
@@ -71,4 +71,9 @@ test('a definition with only synthetics has no real members', () => {
 
 test('no groups fails closed', () => {
   assert.ok(rules(validateDefinition({definition: {groups: []}}, members)).includes('no_groups'));
+});
+
+test('accepts ids and labels the API accepts: mixed case, spaces, long labels', () => {
+  const d = good(); d.definition.groups[1].id = 'Gate Access'; d.definition.groups[1].label = 'L'.repeat(512);
+  assert.equal(validateDefinition(d, members).valid, true);
 });

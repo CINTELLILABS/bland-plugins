@@ -11,12 +11,12 @@
 const {readFileSync} = require('node:fs');
 
 const MAX_GROUPS = 7;
-const MAX_STAGES = 7;
+const MAX_ID_LENGTH = 128;
+const MAX_LABEL_LENGTH = 512;
 const EXCLUDED = new Set(['__entry__', 'global-prompt']);
 const SYNTHETIC = new Set(['__start', '__initialization']);
 const RESERVED_GROUP_ID = '__unclassified__';
 const DEFINITION_REF = '#definition';
-const GROUP_ID = /^[a-z0-9_-]{1,64}$/;
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -49,13 +49,13 @@ function validateDefinition(definition, members) {
   groups.forEach((group, index) => {
     const ref = object(group) && text(group.id) ? group.id.trim() : `#${index}`;
     if (!object(group) || !text(group.id)) violate('missing_group_id', ref, 'a group id is empty');
-    else if (!GROUP_ID.test(group.id)) violate('missing_group_id', ref, 'a group id must match ^[a-z0-9_-]{1,64}$');
+    else if (group.id.length > MAX_ID_LENGTH) violate('missing_group_id', ref, `a group id must be at most ${MAX_ID_LENGTH} characters`);
     else if (group.id === RESERVED_GROUP_ID) violate('reserved_group_id', ref, `${RESERVED_GROUP_ID} is derived at read time and cannot be a group id`);
     else if (seenGroups.has(group.id)) violate('duplicate_group_id', ref, `group id ${group.id} is used more than once`);
     seenGroups.add(object(group) ? group.id : ref);
-    if (!object(group) || !text(group.label) || group.label.length > 120) violate('missing_label', ref, 'a group label must be a non-empty string of at most 120 characters');
+    if (!object(group) || !text(group.label) || group.label.length > MAX_LABEL_LENGTH) violate('missing_label', ref, `a group label must be a non-blank string of at most ${MAX_LABEL_LENGTH} characters`);
     if (staged.length > 0 && object(group) && group.stage === undefined) violate('stage_missing', ref, 'some groups have a stage and this one does not');
-    if (object(group) && group.stage !== undefined && (!Number.isInteger(group.stage) || group.stage < 1 || group.stage > MAX_STAGES)) violate('stage_invalid', ref, `stage must be an integer from 1 to ${MAX_STAGES}`);
+    if (object(group) && group.stage !== undefined && (!Number.isInteger(group.stage) || group.stage < 1)) violate('stage_invalid', ref, 'stage must be an integer of 1 or more');
     const list = object(group) && Array.isArray(group.members) ? group.members : [];
     if (list.length === 0) violate('empty_group', ref, 'a group has no members');
     if (list.length > 256) violate('too_many_members', ref, 'a group may name at most 256 members');
@@ -78,7 +78,7 @@ function validateDefinition(definition, members) {
   return {valid: violations.length === 0, violations, unclassified};
 }
 
-module.exports = {validateDefinition, MAX_GROUPS, MAX_STAGES};
+module.exports = {validateDefinition, MAX_GROUPS};
 
 if (require.main === module) {
   const [definitionPath, membersPath] = process.argv.slice(2);

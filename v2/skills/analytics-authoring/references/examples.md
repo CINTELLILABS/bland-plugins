@@ -38,7 +38,7 @@ Give the sibling groups the same `stage`. Expected shape, 7 groups max:
 ```
 
 Then say what the user will see: Detailed shows the four branches apart;
-Simplified merges them into one column labelled by the first branch.
+Simplified merges them into one column labelled by the largest branch with +3.
 
 ## "Rebuild it as four categories that each split the same calls, and split the end states by reason"
 

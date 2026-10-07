@@ -21,12 +21,13 @@ promotion that adds or removes a node or tool produces a new fingerprint and
 therefore a new structure.
 
 - Readiness is counted per structure: the chart folds through a definition only
-  when at least 5 conversations ran on that structure in the read window
+  when at least 5 conversations have run on versions with that fingerprint
+  since the first of them was deployed, regardless of the page's window
   (`waypoints.served`). Below that, the definition is stored and reported in
-  `waypoints.customer` but the chart stays empty for it.
-- Every write names the structure it was written for via `expected_fingerprint`
+  `waypoints.customer` but the chart keeps the inferred layout.
+- A write should name the structure it was written for via `expected_fingerprint`
   (the definition read's `fingerprint`). A stale value is refused with 409 and
-  nothing is written.
+  nothing is written; omitting it skips that guard, so always send it.
 
 ## Definitions
 
@@ -34,10 +35,10 @@ A **definition** is `{ groups: [...] }`. Each group has:
 
 | Field | Rule |
 | -- | -- |
-| `id` | `^[a-z0-9_-]{1,64}$`, unique across groups, never `__unclassified__` |
-| `label` | 1 to 120 characters, business language |
+| `id` | non-blank, up to 128 characters, unique across groups, never `__unclassified__`; keep it stable across edits |
+| `label` | non-blank, up to 512 characters, business language |
 | `members` | 1 to 256 waypoint ids from the definition read's `members`; each id in exactly one group |
-| `stage` | optional integer 1 to 7; all-or-none across the definition, dense from 1 |
+| `stage` | optional integer of 1 or more; all-or-none across the definition, dense from 1 (so never above the group count, and the group count is capped at 7) |
 
 Rules that matter for design:
 
@@ -83,7 +84,8 @@ Two kinds exist per agent and structure:
 (`definition_id`, `lifecycle`, `fingerprint`, `stale`, `missing_members`).
 
 `served` is true only for `view=simple` when the structure is ready (5+
-conversations) and the organisation's serve mode allows it. A freshly published
+conversations since its first deployment) and the organisation's serve mode
+allows it. A freshly published
 definition on a quiet structure is stored, reported, and not drawn.
 
 ## Terminals
@@ -99,7 +101,8 @@ an escalation. Per-call reasons belong in dispositions.
 ## Views
 
 `view=simple` folds through the definition and is the only view a definition
-affects. `view=detailed` and `view=full` show the compiled waypoints
-themselves; use them to understand traffic at node level before designing
-groups, and to show parallel branches apart after publishing. See
+affects; both the Simplified and Detailed tabs draw it. `view=full` returns
+the compiled waypoints themselves with their traffic; read it through the API
+to understand node-level traffic before designing groups. The page draws the
+full read only when no definition is served. Those are the only two values. See
 [rendering](rendering.md) for what each tab draws.

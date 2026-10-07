@@ -39,6 +39,9 @@ Call them with the first-party API tools: `bland_api_get` for reads and
 
 `GET …/pathway?view=simple&layout=stages&window=<7|14|30|90>[&definition=<id>]`
 
+`view` is `simple` (the folded chart both page tabs draw) or `full` (compiled
+waypoints with traffic, for node-level analysis); there is no other value.
+
 - `definition=<uuid>` folds through that stored row (a pending draft or a
   published row). It requires `view=simple`. A superseded row or another
   agent's row is 404 `NOT_FOUND`.
@@ -69,8 +72,9 @@ Call them with the first-party API tools: `bland_api_get` for reads and
 
 - 200 `{ definition_id, status: "pending", fingerprint }`. Overwrites the
   agent's one pending row.
-- 400 `BAD_REQUEST` for shape errors (unknown key, id pattern, label length,
-  group count outside 1 to 64 at the schema layer). The message names the path.
+- 400 `BAD_REQUEST` for shape errors (unknown key, non-string id or label,
+  id over 128 or label over 512 characters, more than 256 members in a group,
+  more than 64 groups at the schema layer). The message names the path.
 - 409 `PRODUCTION_VERSION_CHANGED` when `expected_fingerprint` is not the
   production pin's. Read the definition again and resend; nothing was written.
 - 413 over 256 KiB; 429 after 30 writes per minute per organisation.
@@ -102,9 +106,10 @@ group id, or `#definition` for whole-definition rules.
 | `no_real_members` | Every member is synthetic. Add a node, tool, or `agent`. |
 | `too_many_groups` | More than 7. Merge the thinnest. |
 | `empty_group` | A group has no members. Fill it or drop it. |
-| `missing_label` / `missing_group_id` / `duplicate_group_id` / `reserved_group_id` | Fix the group header. |
+| `missing_group_id` / `duplicate_group_id` / `reserved_group_id` | A group id must be non-blank, unique, and not `__unclassified__`. |
+| `missing_label` | A group label must be a non-blank string. |
 | `stage_missing` | Some groups have `stage`, this one does not. Set every stage or none. |
-| `stage_invalid` | `stage` must be an integer of 1 or more. |
+| `stage_invalid` | `stage` must be an integer of 1 or more (dense from 1 keeps it at or below the group count). |
 | `stage_not_dense` | Stages in use must be 1..N with no gap. Renumber. |
 
 Loop: read the violations, fix exactly the named ids, resend the same route.

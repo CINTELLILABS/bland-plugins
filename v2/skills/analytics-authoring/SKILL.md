@@ -40,7 +40,7 @@ save is a write even though it does not serve.
    stages unless asked otherwise, exact member ids only, plumbing left out,
    siblings that share a `stage` for parallel branches. Keep ids of groups you
    are only relabeling. Respect the caps: at most 7 groups, each member in
-   exactly one group.
+   exactly one group, stages dense from 1.
 5. **Validate offline** with `node scripts/validate-definition.cjs <definition.json> <members.json>`
    (resolve `scripts/` from this skill's directory). It applies the same rules
    the API applies and lists violations by id. Fix them before the first PUT.
