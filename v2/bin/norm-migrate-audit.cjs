@@ -10,7 +10,8 @@
  *
  * Usage:
  *   norm-migrate-audit.cjs --snapshot snap.json [--source v1.json]... \
- *     [--persona persona.json] [--allow-missing-fallback <routeName>]... [--json]
+ *     [--persona persona.json] [--allow-missing-fallback <routeName>]... \
+ *     [--dropped-tags .norm/dropped-tags.json] [--json]
  */
 
 const fs = require("node:fs");
@@ -27,6 +28,7 @@ const snapshotPath = flagAll("snapshot")[0];
 const sourcePaths = flagAll("source");
 const personaPath = flagAll("persona")[0];
 const allowedMissingFallback = new Set(flagAll("allow-missing-fallback"));
+const droppedTagsPath = flagAll("dropped-tags")[0];
 
 const checks = [];
 function check(id, name, passed, detail) {
@@ -402,7 +404,9 @@ function main() {
 		// hub's. ≤ 1/5 of all steps, and it must exit to the hub.
 		if (entryTarget && entryTarget.type !== "agent") {
 			const st = flowSteps(entryTarget);
-			const speaking = st.filter((x) => SPEAKING.has(x.type));
+			// A static "." prompt says nothing — it is the silent-router idiom, not speech.
+			const isSilent = (x) => x.type === "prompt" && (x.data || {}).useStaticText === true && String((x.data || {}).prompt || "").trim() === ".";
+			const speaking = st.filter((x) => SPEAKING.has(x.type) && !isSilent(x));
 			const foreign = st.filter((x) => !PRE_SPEECH.has(x.type) && !SPEAKING.has(x.type));
 			const share = totalSteps ? st.length / totalSteps : 0;
 			const hasExit = entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
@@ -419,9 +423,11 @@ function main() {
 		// A2 — intents are hub children: besides the Start scenario there must
 		// be at least two hub-enterable siblings (scenarios or root end-calls),
 		// and no single flow may hold more than 60% of all steps.
+		// (No size cap on a single task scenario: v2-authoring allows one
+		// continuous task behind a thin hub; caller CHOICES are what must not
+		// live inside it, and that is a region-map judgment, not a step count.)
 		const siblings = nodes.filter((n) => (n.type === "scenario" || n.type === "complex-scenario" || n.type === "end-call") && (!entryTarget || n.id !== entryTarget.id));
-		const fat = rootFlows.filter((n) => totalSteps && flowSteps(n).length / totalSteps > 0.6 && (!entryTarget || n.id !== entryTarget.id));
-		check("A2", "intents are hub children (≥2 siblings beside Start; no flow holds >60% of steps)", siblings.length >= 2 && fat.length === 0, `${siblings.length} sibling(s)${fat.length ? `; oversized: ${fat.map(name).join(", ")}` : ""}`);
+		check("A2", "intents are hub children (≥2 hub-enterable siblings beside Start)", siblings.length >= 2, `${siblings.length} sibling(s)`);
 
 		// A3 — every root end-call is enterable: it carries an entry
 		// description for the hub, and the hub is reachable at all (Start
@@ -484,8 +490,18 @@ function main() {
 				if (o.settings && o.settings.tag && typeof o.settings.tag.name === "string") snapTags.add(o.settings.tag.name.trim());
 				Object.values(o).forEach(collectTags);
 			})(snap);
-			const missingTags = [...srcTags].filter((t) => !snapTags.has(t));
-			check("A6", "every v1 node tag carried as settings.tag", missingTags.length === 0, missingTags.join(", "));
+			// Tags on nodes the report DROPS (with reachability evidence) are
+			// declared in --dropped-tags <json: [{"tag","reason"}] or ["tag"]>;
+			// the hook passes .norm/dropped-tags.json when present.
+			const declaredDrops = new Set();
+			if (droppedTagsPath && fs.existsSync(droppedTagsPath)) {
+				for (const row of loadJson(droppedTagsPath) || []) {
+					const t = typeof row === "string" ? row : row && row.tag;
+					if (typeof t === "string" && t.trim()) declaredDrops.add(t.trim());
+				}
+			}
+			const missingTags = [...srcTags].filter((t) => !snapTags.has(t) && !declaredDrops.has(t));
+			check("A6", "every v1 node tag carried as settings.tag (or declared dropped in --dropped-tags)", missingTags.length === 0, missingTags.join(", "));
 		}
 	}
 

@@ -24,6 +24,7 @@
  *   "persona": "persona.json",                    // optional
  *   "entryScenario": "<scenario name>",           // RARE: inbound re-point; needs entryScenarioReason and code/route/webhook members only
  *   "entryScenarioReason": "<≥60 chars: why initialization + hub cannot open this call>",
+ *   "initializationNode": "<legacy id — which isStart Custom Code runs at connect when merged sources have several>",
  *   "scenarios": [{"name","entry":{"label","description"},"rule","members":[ids or unique id prefixes],
  *                  "entryMember": "<id — the step calls START at; defaults to members[0]>"}],
  *   "endCalls": [{"name","entry":{"label","description"},"prompt"}],  // optional: hub-level
@@ -537,8 +538,17 @@ const seenMembers = new Map();
 // not a scenario step — it fires at connect, the hub speaks next. Carry it
 // there, and refuse a plan that also files it into a scenario.
 const startCodeNodes = mergedNodes.filter((n) => n && n.type === "Custom Code" && n.data && n.data.isStart === true);
-if (startCodeNodes.length > 1) throw new Error(`more than one isStart Custom Code node: ${startCodeNodes.map((n) => n.id).join(", ")}`);
-const startCodeNode = startCodeNodes[0] || null;
+// Merged sources can each start with code; only one can run at connect. The
+// plan picks it with "initializationNode" (id or unique prefix); the other
+// start code nodes stay ordinary members of their scenarios.
+let startCodeNode = startCodeNodes[0] || null;
+if (plan.initializationNode) {
+	const chosen = resolveMember(plan.initializationNode);
+	startCodeNode = nodeById.get(chosen) || null;
+	if (!startCodeNode || startCodeNode.type !== "Custom Code") throw new Error(`initializationNode "${plan.initializationNode}" is not a Custom Code node`);
+} else if (startCodeNodes.length > 1) {
+	throw new Error(`${startCodeNodes.length} source pathways start with Custom Code (${startCodeNodes.map((n) => n.id).join(", ")}) — set plan.initializationNode to the one that runs at connect; the others stay scenario members`);
+}
 let initialization = null;
 if (startCodeNode) {
 	const { id: _id, position: _pos, type: _type, data } = toStep(startCodeNode);
@@ -574,7 +584,7 @@ for (const sc of plan.scenarios || []) {
 		if (reason.length < 60) {
 			throw new Error(`entryScenario "${sc.name}": Start is the Initialization code step, not a scenario. Re-pointing the inbound edge needs plan.entryScenarioReason (≥60 chars) saying why initialization + hub cannot do this — or drop entryScenario and let the hub open the call`);
 		}
-		const PRE_SPEECH_LEGACY = new Set(["Custom Code", "Route", "Webhook"]);
+		const PRE_SPEECH_LEGACY = new Set(["Custom Code", "Route", "Webhook", "Custom Tool"]);
 		const speaking = members.map((id) => nodeById.get(id)).filter((n) => n && !PRE_SPEECH_LEGACY.has(n.type));
 		if (speaking.length) {
 			throw new Error(`entryScenario "${sc.name}" holds conversational node(s): ${speaking.map((n) => `${str((n.data || {}).name) || n.id} (${n.type})`).join(", ")}. Start may only run code / deterministic routes / webhooks before the first sentence; move these to hub-child scenarios`);

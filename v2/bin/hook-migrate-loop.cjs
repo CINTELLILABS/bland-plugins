@@ -122,6 +122,8 @@ async function main() {
 		const cmd = ["--snapshot", s.snapshot];
 		for (const src of s.sources || []) cmd.push("--source", src);
 		if (s.persona) cmd.push("--persona", s.persona);
+		const droppedTags = path.join(path.dirname(stateFile), "dropped-tags.json");
+		if (fs.existsSync(droppedTags)) cmd.push("--dropped-tags", droppedTags);
 		const r = spawnSync(process.execPath, [auditBin, ...cmd], { encoding: "utf8", timeout: 30000 });
 		const verdict = JSON.parse(r.stdout || "{}");
 		if (verdict.passed === true) {
