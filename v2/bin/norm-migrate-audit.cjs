@@ -362,6 +362,86 @@ function main() {
 		check("P9", "every v1 capture setting carried as captureAs", missingCapture.length === 0, missingCapture.slice(0, 5).join(", "));
 	}
 
+	// ── Content & capability carriage (keep everything v1 had) ──────────────
+	// Structure follows v2 doctrine; CONTENT is copied, never rewritten. These
+	// checks are whitespace-insensitive containment tests against the whole
+	// snapshot: a node's prompt, its hold condition, the edge descriptions
+	// that ARE the call flow, every extraction variable, every KB id, and
+	// every global node's trigger must all survive — a dropped node is only
+	// legitimate when the report drops it, which --dropped-tags declares by
+	// tag; here a node whose own prompt was not carried is treated as dropped
+	// and its edges are not demanded.
+	if (sourcePaths.length) {
+		const norm = (t) => String(t || "").replace(/\s+/g, " ").trim();
+		// Compare against the snapshot's STRING VALUES, not its JSON encoding
+		// (where quotes and newlines are escaped and would never match).
+		const snapStrings = [];
+		(function collectStrings(o) {
+			if (Array.isArray(o)) return o.forEach(collectStrings);
+			if (!o || typeof o !== "object") return;
+			for (const v of Object.values(o)) {
+				if (typeof v === "string") snapStrings.push(v);
+				else collectStrings(v);
+			}
+		})(snap);
+		const snapNorm = snapStrings.map(norm).join("\n");
+		const carried = (t) => {
+			const n = norm(t);
+			return n.length < 8 || snapNorm.includes(n);
+		};
+		const snapVarKeys = new Set();
+		(function collectKeys(o) {
+			if (Array.isArray(o)) return o.forEach(collectKeys);
+			if (!o || typeof o !== "object") return;
+			if (typeof o.key === "string" && ("type" in o || "description" in o)) snapVarKeys.add(o.key);
+			Object.values(o).forEach(collectKeys);
+		})(snap);
+		const missPrompt = [];
+		const missCondition = [];
+		const missEdge = [];
+		const missVar = [];
+		const missKb = [];
+		const missGlobal = [];
+		for (const sp of sourcePaths) {
+			const src = loadJson(sp);
+			const nodes = (src.nodes || []).filter((n) => n && n.id !== "global-prompt" && n.data);
+			const carriedNode = new Map();
+			for (const n of nodes) {
+				const d = n.data;
+				const speech = typeof d.prompt === "string" && d.prompt.trim() ? d.prompt : typeof d.text === "string" && !d.text.trim().startsWith("<|") ? d.text : "";
+				const ok = carried(speech);
+				carriedNode.set(n.id, ok || !speech);
+				if (!ok) missPrompt.push(`${d.name || n.id}`);
+				if (ok && d.condition && !carried(d.condition)) missCondition.push(`${d.name || n.id}`);
+				if (ok) {
+					for (const row of d.extractVars || []) {
+						const key = Array.isArray(row) ? row[0] : row && row.name;
+						if (typeof key === "string" && key && !snapVarKeys.has(key) && !snapText.includes(`"${key}"`)) missVar.push(`${d.name || n.id}.${key}`);
+					}
+					const kb = Array.isArray(d.kbTool) ? d.kbTool : d.kbTool ? [d.kbTool] : [];
+					for (const id of kb) if (typeof id === "string" && id && !snapText.includes(id)) missKb.push(`${d.name || n.id}:${id.slice(0, 8)}`);
+					if (d.isGlobal === true) {
+						if (!carried(d.globalLabel)) missGlobal.push(`${d.name || n.id} label`);
+						if (!carried(d.globalDescription)) missGlobal.push(`${d.name || n.id} description`);
+					}
+				}
+			}
+			for (const e of src.edges || []) {
+				if (!e || !e.data) continue;
+				if (carriedNode.get(e.source) === false || carriedNode.get(e.target) === false) continue;
+				const label = e.data.label;
+				const desc = e.data.description;
+				if (desc && !carried(desc)) missEdge.push(`${String(e.source).slice(0, 8)}→${String(e.target).slice(0, 8)} "${String(label || "").slice(0, 30)}"`);
+			}
+		}
+		check("P11", "every v1 node prompt/text carried verbatim", missPrompt.length === 0, missPrompt.slice(0, 6).join(", "));
+		check("P12", "every v1 hold condition carried verbatim (escapes may be appended)", missCondition.length === 0, missCondition.slice(0, 6).join(", "));
+		check("P13", "every v1 edge description carried verbatim (the call flow)", missEdge.length === 0, missEdge.slice(0, 5).join("; "));
+		check("P14", "every v1 extraction variable carried", missVar.length === 0, missVar.slice(0, 6).join(", "));
+		check("P15", "every v1 knowledge-base id carried", missKb.length === 0, missKb.slice(0, 6).join(", "));
+		check("P16", "every v1 global node trigger (label + description) carried verbatim", missGlobal.length === 0, missGlobal.slice(0, 6).join(", "));
+	}
+
 
 	// ── v2 architecture (migration doctrine — deterministic, FAIL not warn) ──
 	// A v1 pathway poured into one flow hanging off Start is still a v1 pathway:
