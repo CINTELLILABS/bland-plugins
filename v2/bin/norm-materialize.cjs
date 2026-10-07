@@ -22,7 +22,8 @@
  *   "hubPrompt": "<hub routing prompt; a scenario directory is auto-appended>",
  *   "sources": [{"file": "v1-export.json", "prefix": "sa"}, ...],
  *   "persona": "persona.json",                    // optional
- *   "entryScenario": "<scenario name>",           // optional inbound re-point
+ *   "entryScenario": "<scenario name>",           // RARE: inbound re-point; needs entryScenarioReason and code/route/webhook members only
+ *   "entryScenarioReason": "<≥60 chars: why initialization + hub cannot open this call>",
  *   "scenarios": [{"name","entry":{"label","description"},"rule","members":[ids or unique id prefixes],
  *                  "entryMember": "<id — the step calls START at; defaults to members[0]>"}],
  *   "endCalls": [{"name","entry":{"label","description"},"prompt"}],  // optional: hub-level
@@ -530,6 +531,20 @@ function personaCondition(name) {
 }
 
 const seenMembers = new Map();
+// ── Start = the Initialization code step ────────────────────────────────────
+// A v1 pathway whose start node is Custom Code runs that code before anyone
+// speaks. In v2 that is `initialization` (agent-scoped, on the start edge),
+// not a scenario step — it fires at connect, the hub speaks next. Carry it
+// there, and refuse a plan that also files it into a scenario.
+const startCodeNodes = mergedNodes.filter((n) => n && n.type === "Custom Code" && n.data && n.data.isStart === true);
+if (startCodeNodes.length > 1) throw new Error(`more than one isStart Custom Code node: ${startCodeNodes.map((n) => n.id).join(", ")}`);
+const startCodeNode = startCodeNodes[0] || null;
+let initialization = null;
+if (startCodeNode) {
+	const { id: _id, position: _pos, type: _type, data } = toStep(startCodeNode);
+	initialization = { enabled: true, step: data };
+	warnings.push(`Start node "${str(startCodeNode.data.name) || startCodeNode.id}" (Custom Code) carried as initialization (runs at connect, before the first sentence); its outgoing edge(s) are the hub's to route`);
+}
 const scenarioNodes = [];
 const consumedHooks = new Set();
 for (const sc of plan.scenarios || []) {
@@ -543,10 +558,28 @@ for (const sc of plan.scenarios || []) {
 		}
 	}
 	for (const id of members) {
+		if (startCodeNode && id === startCodeNode.id) throw new Error(`"${sc.name}" lists the Start code node ${id} as a member — it is carried as initialization automatically; remove it from members`);
 		if (seenMembers.has(id)) throw new Error(`${id} in both "${seenMembers.get(id)}" and "${sc.name}"`);
 		seenMembers.set(id, sc.name);
 	}
 	const memberSet = new Set(members);
+	// Start is the Initialization code step, not a scenario. Re-pointing the
+	// inbound edge at a scenario is the rare exception: it needs a written
+	// reason in the plan, and the scenario may hold ONLY pre-speech work
+	// (code, deterministic routes, webhooks). The first spoken sentence — the
+	// greeting included — belongs to the hub or a hub child. A conversational
+	// node here is the "whole call hanging off Start" shape; refuse to build it.
+	if (plan.entryScenario && sc.name === plan.entryScenario) {
+		const reason = str(plan.entryScenarioReason);
+		if (reason.length < 60) {
+			throw new Error(`entryScenario "${sc.name}": Start is the Initialization code step, not a scenario. Re-pointing the inbound edge needs plan.entryScenarioReason (≥60 chars) saying why initialization + hub cannot do this — or drop entryScenario and let the hub open the call`);
+		}
+		const PRE_SPEECH_LEGACY = new Set(["Custom Code", "Route", "Webhook"]);
+		const speaking = members.map((id) => nodeById.get(id)).filter((n) => n && !PRE_SPEECH_LEGACY.has(n.type));
+		if (speaking.length) {
+			throw new Error(`entryScenario "${sc.name}" holds conversational node(s): ${speaking.map((n) => `${str((n.data || {}).name) || n.id} (${n.type})`).join(", ")}. Start may only run code / deterministic routes / webhooks before the first sentence; move these to hub-child scenarios`);
+		}
+	}
 	const startPill = { id: randomUUID(), type: "start", position: { x: 0, y: 0 }, data: {} };
 	const endPill = { id: randomUUID(), type: "end", position: { x: 0, y: 0 }, data: {} };
 	const steps = members.map((id) => toStep(nodeById.get(id)));
@@ -707,7 +740,7 @@ for (const k of plan.silentPills || []) {
 	if (!consumedHooks.has(`pill:${k}`)) throw new Error(`silentPills target matched no scenario member: ${k}`);
 }
 
-const uncovered = mergedNodes.filter((n) => !seenMembers.has(n.id)).map((n) => `${n.id} (${(n.data || {}).name || n.type})`);
+const uncovered = mergedNodes.filter((n) => !seenMembers.has(n.id) && !(startCodeNode && n.id === startCodeNode.id)).map((n) => `${n.id} (${(n.data || {}).name || n.type})`);
 if (uncovered.length > 0) warn(`NOT covered by any scenario (must each be a deliberate disposition): ${uncovered.join(", ")}`);
 
 // ── assemble ────────────────────────────────────────────────────────────────
@@ -737,6 +770,7 @@ const entryTarget = plan.entryScenario ? scenarioNodes.find((n) => n.data.name =
 if (plan.entryScenario && !entryTarget) throw new Error(`entryScenario "${plan.entryScenario}" not found`);
 
 const snapshot = {
+	...(initialization ? { initialization } : {}),
 	behavior: {
 		nodes: [{ id: "inbound", type: "inbound", position: { x: 0, y: 0 }, data: { number: "" } }, hub, ...scenarioNodes, ...endCallNodes],
 		edges: [{ id: "e-inbound-agent", type: "straight", source: "inbound", target: entryTarget ? entryTarget.id : hubId, animated: true, deletable: false, selectable: false }],

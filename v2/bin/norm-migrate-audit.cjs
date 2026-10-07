@@ -381,23 +381,39 @@ function main() {
 		const entryTarget = inboundEdge ? byId.get(inboundEdge.target) : undefined;
 		const name = (n) => String(((n || {}).data || {}).name || (n || {}).id || "?");
 
-		// A1 — Start (the inbound-targeted scenario, when it is not the hub)
-		// holds only pre-first-sentence work: at most one speaking step (the
-		// greeting), no end-call steps, ≤ 1/5 of all steps, and an exit pill.
+		// A0 — Start IS the Initialization code step. When the v1 start node is
+		// Custom Code, the snapshot must carry it as `initialization` (runs at
+		// connect, before the first sentence) with the same snippet pin / code.
+		if (sourcePaths.length) {
+			const starts = [];
+			for (const sp of sourcePaths) for (const n of loadJson(sp).nodes || []) if (n && n.type === "Custom Code" && n.data && n.data.isStart === true) starts.push(n);
+			if (starts.length) {
+				const init = snap.initialization || {};
+				const step = init.step || {};
+				const src = starts[0].data || {};
+				const pinOk = src.snippet_id ? step.snippetId === src.snippet_id : typeof step.code === "string" && step.code.trim() === String(src.code || "").trim();
+				check("A0", "v1 start code node carried as initialization (enabled, same snippet pin)", init.enabled === true && pinOk, init.enabled === true && pinOk ? "" : init.enabled === true ? `initialization pin differs from start node "${src.name || starts[0].id}"` : `initialization missing/disabled — start node "${src.name || starts[0].id}" (${String(src.snippet_id || "").slice(0, 8)}…) must run at connect, not inside a scenario`);
+			}
+		}
+
+		// A1 — a Start scenario (inbound edge re-pointed off the hub) is the
+		// rare exception and may hold ONLY pre-speech work: code, deterministic
+		// routes, webhooks, tools. Zero speaking steps — the greeting is the
+		// hub's. ≤ 1/5 of all steps, and it must exit to the hub.
 		if (entryTarget && entryTarget.type !== "agent") {
 			const st = flowSteps(entryTarget);
 			const speaking = st.filter((x) => SPEAKING.has(x.type));
-			const endCalls = st.filter((x) => x.type === "end-call");
+			const foreign = st.filter((x) => !PRE_SPEECH.has(x.type) && !SPEAKING.has(x.type));
 			const share = totalSteps ? st.length / totalSteps : 0;
 			const hasExit = entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
 			const problems = [];
-			if (speaking.length > 1) problems.push(`${speaking.length} speaking steps (${speaking.map(name).slice(0, 4).join(", ")}) — only a greeting may speak before the hub takes over`);
-			if (endCalls.length) problems.push(`${endCalls.length} end-call step(s) inside Start — caller outcomes belong to hub children`);
+			if (speaking.length) problems.push(`${speaking.length} speaking step(s) (${speaking.map(name).slice(0, 4).join(", ")}) — nothing speaks before the hub; the greeting is the hub's`);
+			if (foreign.length) problems.push(`non-pre-speech step(s): ${foreign.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")}`);
 			if (share > 0.2) problems.push(`${st.length}/${totalSteps} steps (${Math.round(share * 100)}%) in Start — budget is 20%`);
 			if (!hasExit) problems.push("no exit pill — the call can never reach the hub");
-			check("A1", "Start holds only pre-first-sentence work (≤1 speaking step, no end-calls, ≤20% of steps, exits to hub)", problems.length === 0, `"${name(entryTarget)}": ${problems.join("; ")}`);
+			check("A1", "Start scenario holds only pre-speech work (0 speaking steps; code/route/webhook/tool only; ≤20% of steps; exits to hub)", problems.length === 0, `"${name(entryTarget)}": ${problems.join("; ")}`);
 		} else {
-			check("A1", "Start holds only pre-first-sentence work", true, "inbound edge targets the hub");
+			check("A1", "Start scenario holds only pre-speech work", true, "inbound edge targets the hub");
 		}
 
 		// A2 — intents are hub children: besides the Start scenario there must
