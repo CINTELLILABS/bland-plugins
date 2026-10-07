@@ -392,9 +392,18 @@ function main() {
 			if (starts.length) {
 				const init = snap.initialization || {};
 				const step = init.step || {};
-				const src = starts[0].data || {};
-				const pinOk = src.snippet_id ? step.snippetId === src.snippet_id : typeof step.code === "string" && step.code.trim() === String(src.code || "").trim();
-				check("A0", "v1 start code node carried as initialization (enabled, same snippet pin)", init.enabled === true && pinOk, init.enabled === true && pinOk ? "" : init.enabled === true ? `initialization pin differs from start node "${src.name || starts[0].id}"` : `initialization missing/disabled — start node "${src.name || starts[0].id}" (${String(src.snippet_id || "").slice(0, 8)}…) must run at connect, not inside a scenario`);
+				// Merged sources can each start with code; the plan's
+				// initializationNode picks which one runs at connect (the
+				// builder refuses a plan that leaves it ambiguous), so any of
+				// them satisfies this check — never only the first source's.
+				const matches = (n) => {
+					const src = n.data || {};
+					return src.snippet_id ? step.snippetId === src.snippet_id : typeof step.code === "string" && step.code.trim() === String(src.code || "").trim();
+				};
+				const label = (n) => `"${(n.data || {}).name || n.id}" (${String((n.data || {}).snippet_id || "").slice(0, 8)}…)`;
+				const pinOk = starts.some(matches);
+				const ok = init.enabled === true && pinOk;
+				check("A0", "v1 start code node carried as initialization (enabled, same snippet pin)", ok, ok ? "" : init.enabled === true ? `initialization pin matches none of the start code node(s) ${starts.map(label).join(", ")}` : `initialization missing/disabled — start node ${starts.map(label).join(" or ")} must run at connect, not inside a scenario`);
 			}
 		}
 
@@ -458,16 +467,28 @@ function main() {
 			const srcAll = sourcePaths.map((sp) => JSON.stringify(loadJson(sp))).join("\n");
 			required = ESCAPES.filter(([, re]) => re.test(srcAll));
 		}
+		// A step-level global whose label/description names an escape covers
+		// every hold that does not outrank globals with
+		// settings.advanced.conditionOverridesGlobalPathway.
+		const globalText = [];
+		for (const sc of rootFlows) {
+			for (const st of flowSteps(sc)) {
+				const g = (((st.data || {}).settings || {}).global) || {};
+				if (g.isGlobal === true) globalText.push([g.label, g.description, (st.data || {}).name, (st.data || {}).prompt].map((x) => String(x || "")).join("\n"));
+			}
+		}
+		const globalCovers = (re) => globalText.some((t) => re.test(t));
 		const holdIssues = [];
 		for (const sc of rootFlows) {
 			for (const st of flowSteps(sc)) {
 				const lw = String(((st.data || {}).loopWhile) || "").trim();
 				if (!lw) continue;
-				const missing = required.filter(([, re]) => !re.test(lw)).map(([k]) => k);
-				if (missing.length) holdIssues.push(`${name(sc)}/${name(st)} lacks ${missing.join(", ")}`);
+				const outranks = ((((st.data || {}).settings || {}).advanced) || {}).conditionOverridesGlobalPathway === true;
+				const missing = required.filter(([, re]) => !re.test(lw) && (outranks || !globalCovers(re))).map(([k]) => k);
+				if (missing.length) holdIssues.push(`${name(sc)}/${name(st)} lacks ${missing.join(", ")}${outranks ? " (conditionOverridesGlobalPathway set, so globals cannot help)" : ""}`);
 			}
 		}
-		check("A4", `every hold condition carries the escapes the source handles (${required.map(([k]) => k).join(", ")})`, holdIssues.length === 0, holdIssues.slice(0, 4).join("; "));
+		check("A4", `every hold condition carries the escapes the source handles (${required.map(([k]) => k).join(", ")}), itself or via a step-level global the hold does not outrank`, holdIssues.length === 0, holdIssues.slice(0, 4).join("; "));
 
 		// A5 — no parking lots.
 		const PARK = /legacy|archived|unreachable|never enter|do not enter|don'?t enter|parking|dead code|retired|unused/i;

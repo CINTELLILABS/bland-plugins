@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 const builder = resolve(dirname(fileURLToPath(import.meta.url)), '../../v2/bin/norm-materialize.cjs');
@@ -78,7 +78,6 @@ function buildDictation(endCallData) {
     writeFileSync(join(dir, 'plan.json'), JSON.stringify({
       displayName: 'Synthetic', systemPrompt: 'Synthetic test only',
       sources: [{ file: 'source.json' }],
-      entryScenario: 'Name capture',
       scenarios: [{ name: 'Name capture', entry: { label: 'Name capture', description: 'Collect the name' }, members: ['start', 'bye'] }],
     }));
     execFileSync(process.execPath, [builder, '--plan', join(dir, 'plan.json'), '--out', join(dir, 'snapshot.json')]);
@@ -243,6 +242,98 @@ test('the audit fails when one of two steps sharing a variable loses its capture
   const p9 = runAudit(snapshot, source).P9;
   assert.equal(p9.passed, false);
   assert.match(p9.detail, /last_name=name\.last on 1 of 2 steps/);
+});
+
+// Runs the audit against several v1 sources at once (merged migrations).
+function runAuditMerged(snapshot, sources) {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-audit-test-'));
+  try {
+    writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(snapshot));
+    const args = ['--snapshot', join(dir, 'snapshot.json')];
+    sources.forEach((source, k) => {
+      writeFileSync(join(dir, `source${k}.json`), JSON.stringify(source));
+      args.push('--source', join(dir, `source${k}.json`));
+    });
+    const out = execFileSync(process.execPath, [audit, ...args]).toString();
+    return Object.fromEntries(JSON.parse(out).checks.map((c) => [c.id, c]));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('A0 accepts whichever merged source\'s start code the plan chose as initialization', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const startCode = (snippet) => ({ nodes: [{ id: `start-${snippet}`, type: 'Custom Code', data: { name: `Start ${snippet}`, isStart: true, snippet_id: snippet } }], edges: [] });
+  const sources = [startCode('snip-a'), startCode('snip-b')];
+  snapshot.initialization = { enabled: true, step: { snippetId: 'snip-b' } };
+  assert.equal(runAuditMerged(snapshot, sources).A0.passed, true);
+  snapshot.initialization = { enabled: true, step: { snippetId: 'snip-a' } };
+  assert.equal(runAuditMerged(snapshot, sources).A0.passed, true);
+  snapshot.initialization = { enabled: true, step: { snippetId: 'snip-c' } };
+  const a0 = runAuditMerged(snapshot, sources).A0;
+  assert.equal(a0.passed, false);
+  assert.match(a0.detail, /matches none of the start code node\(s\) "Start snip-a".*"Start snip-b"/);
+});
+
+test('A4 accepts an escape a step-level global provides, unless the hold outranks globals', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const source = { nodes: [{ id: 'x', type: 'Default', data: { prompt: 'If they want to opt out, stop.' } }], edges: [] };
+  const flow = flowOf(snapshot);
+  const hold = flow.nodes.find((node) => node.data && node.data.name === 'Start');
+  hold.data.loopWhile = 'User confirmed their first and last name.';
+  const a4Missing = runAudit(snapshot, source).A4;
+  assert.equal(a4Missing.passed, false);
+  assert.match(a4Missing.detail, /lacks opt-out/);
+  flow.nodes.push({ id: 'g1', type: 'prompt', position: { x: 0, y: 0 }, data: { name: 'Opt out', prompt: 'Confirm removal.', settings: { global: { isGlobal: true, label: 'Caller asks to opt out', description: 'Do not call again', returnMode: 'manual' } } } });
+  assert.equal(runAudit(snapshot, source).A4.passed, true);
+  hold.data.settings = { ...(hold.data.settings || {}), advanced: { conditionOverridesGlobalPathway: true } };
+  const a4Outranked = runAudit(snapshot, source).A4;
+  assert.equal(a4Outranked.passed, false);
+  assert.match(a4Outranked.detail, /conditionOverridesGlobalPathway set/);
+});
+
+const stateBin = resolve(dirname(fileURLToPath(import.meta.url)), '../../v2/bin/norm-migration-state.cjs');
+const hookBin = resolve(dirname(fileURLToPath(import.meta.url)), '../../v2/bin/hook-migrate-loop.cjs');
+
+test('a new migration loop starts without the previous one\'s dropped-tag declarations', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-state-test-'));
+  try {
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: dir };
+    mkdirSync(join(dir, '.norm'), { recursive: true });
+    writeFileSync(join(dir, '.norm', 'dropped-tags.json'), JSON.stringify([{ tag: 'legacy', reason: 'unreachable' }]));
+    execFileSync(process.execPath, [stateBin, 'init', '--snapshot', join(dir, 'snapshot.json')], { env, stdio: ['ignore', 'ignore', 'ignore'] });
+    assert.equal(existsSync(join(dir, '.norm', 'dropped-tags.json')), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the Stop hook ignores a dropped-tags file older than the migration it gates', () => {
+  // A6 fails on a live tag the source carries; a stale declaration must not excuse it.
+  const dir = mkdtempSync(join(tmpdir(), 'norm-hook-test-'));
+  try {
+    const { snapshot } = buildDictation({ prompt: 'Bye.' });
+    const source = { nodes: [{ id: 'x', type: 'Default', data: { prompt: 'Hi', tag: { name: 'vip' } } }], edges: [] };
+    mkdirSync(join(dir, '.norm'), { recursive: true });
+    writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(snapshot));
+    writeFileSync(join(dir, 'source.json'), JSON.stringify(source));
+    const stale = join(dir, '.norm', 'dropped-tags.json');
+    writeFileSync(stale, JSON.stringify(['vip']));
+    const old = new Date(Date.now() - 60_000);
+    utimesSync(stale, old, old);
+    const run = () => {
+      const state = { active: true, created_at: Date.now(), snapshot: join(dir, 'snapshot.json'), sources: [join(dir, 'source.json')], iter: 0, max_iter: 12, push: { head: '', at: 0 }, sims: { head: '', passed: false, failing: [], at: 0 }, uncovered: [] };
+      writeFileSync(join(dir, '.norm', 'migration.json'), JSON.stringify(state));
+      const r = spawnSync(process.execPath, [hookBin], { input: JSON.stringify({ hook_event_name: 'Stop', cwd: dir }), env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf8' });
+      return r.stdout + r.stderr;
+    };
+    assert.match(run(), /AUDIT A6 .*vip/);
+    // The same declaration written for this migration is honoured.
+    writeFileSync(stale, JSON.stringify(['vip']));
+    assert.doesNotMatch(run(), /AUDIT A6/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // Optional consuming-repository contract check. Pass the real compiler path;

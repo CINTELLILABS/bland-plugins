@@ -43,7 +43,7 @@ Carriage is mechanical for CONTENT; the ARCHITECTURE is v2's, never v1's. A migr
 3. **Every root end-call must be reachable.** A flow that never exits makes the hub's end-calls dead code. The sim suite must drive at least one call into each root end-call, proven by the engine trace.
 4. **Every hold condition carries the universal escapes** in addition to its own completion condition: opt-out / do-not-call, wrong person, not interested, callback requested, transfer requested, voicemail, IVR. The routing stack evaluates the hold FIRST — an unmet hold blocks all routing, so a hold without escapes traps the call on that step while the model improvises goodbyes it cannot act on.
 5. **No parking lots.** Unreachable or dead v1 nodes are `dropped` with reachability evidence in the report — never warehoused in a "legacy / do not enter" scenario. A scenario whose entry tells the hub never to enter it fails the audit.
-6. **Tags and metadata are carried, not "cosmetic."** v1 node `tag` → the step's `settings.tag`; names preserved verbatim; any tag that cannot be carried is listed in the report.
+6. **Tags and metadata are carried, not "cosmetic."** v1 node `tag` → the step's `settings.tag`; names preserved verbatim; any tag that cannot be carried is listed in the report AND declared in `.norm/dropped-tags.json` (`[{"tag","reason"}]`) so audit A6 accepts the drop; the file belongs to one migration (`init` clears it).
 7. **Litmus test before pushing:** look at the canvas. If it reads as one big flow hanging off Start, it is a v1 pathway wearing a v2 costume — redo the architecture.
 
 ## The procedure (one-shot bar)
