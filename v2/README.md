@@ -89,6 +89,7 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 - **evaluations** — judge identity versus rubric versions, calibration, scenario
   attachments, simulation scoring, call-cohort runs, and execution versus verdict
   failures.
+- **[analytics-authoring](skills/analytics-authoring/SKILL.md)** — the agent's analytics Sankey: waypoint groups and stages, parallel branches, the customer waypoint-definition API (read, validate, pending, preview, publish), what each view draws, and the boundary with dispositions.
 - **call-analysis** — bounded call retrieval, offset pagination, reproducible
   cohorts, workspace analysis, evidence-linked categories, and report artifacts.
 

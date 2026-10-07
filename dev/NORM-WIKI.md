@@ -36,6 +36,7 @@ Run from the repository root:
 ```sh
 node --test dev/scripts/test-norm-wiki.mjs
 node --test dev/scripts/test-norm-materialize.mjs
+node --test tests/analytics-authoring.test.cjs
 git diff --check
 ```
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## norm 1.7.0 – 2026-10-07
+
+- Add the analytics-authoring skill for an agent's analytics Sankey: waypoint
+  concepts (fingerprint, inferred vs customer definitions, stages and parallel
+  branches, the 7-group cap, one group per member, unclassified share,
+  readiness, fixed terminals), the customer waypoint-definition API contract
+  (read, pending save, preview, publish, every validation rule, the
+  `expected_fingerprint` guard), what the Simplified and Detailed views draw,
+  worked prompts, and an offline validator that applies the API's rules.
+- Add the `/norm:analytics` command entry point and an analytics authoring
+  regression rubric under `dev/benchmarks`.
+
 ## norm 1.6.0 – 2026-10-05
 
 - Migration: a v1 End Call becomes an `end-call` step inside its flow, reached

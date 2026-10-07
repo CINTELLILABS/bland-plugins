@@ -22,6 +22,7 @@ dispositions, external resources and operational surfaces, read the
 | Build a judge, attach a test case, run evaluations | [Evaluations skill](../../evaluations/SKILL.md), [evaluation workflow](../../evaluations/references/workflows.md), [API map](../../evaluations/references/api.md) |
 | Simulate a caller or investigate a test result | [Testing](../../v2-testing/SKILL.md) |
 | Test actual audio, interruptions, recovery, or response latency | [Voice evidence](../../v2-testing/references/voice.md) |
+| Build, edit or simplify the analytics Sankey (waypoint groups, stages, parallel branches) | [Analytics authoring](../../analytics-authoring/SKILL.md) |
 | Analyze hundreds or thousands of calls with code | [Call analysis skill](../../call-analysis/SKILL.md), [retrieval and pagination](../../call-analysis/references/retrieval.md), [analysis recipe](../../call-analysis/references/analysis.md) |
 | Save, publish, promote, rollback, branch, or select a version | [Lifecycle](../../v2-lifecycle/SKILL.md), [lifecycle API](../../v2-lifecycle/references/api.md) |
 | Migrate v1 content into v2 without changing its meaning | [Migration](../../v2-migration/SKILL.md) |
