@@ -10,7 +10,8 @@
  *
  * Usage:
  *   norm-migrate-audit.cjs --snapshot snap.json [--source v1.json]... \
- *     [--persona persona.json] [--allow-missing-fallback <routeName>]... [--json]
+ *     [--persona persona.json] [--allow-missing-fallback <routeName>]... \
+ *     [--dropped-tags .norm/dropped-tags.json]   (rows: "tag" | {tag} | {node: id|name, reason}) [--json]
  */
 
 const fs = require("node:fs");
@@ -27,6 +28,7 @@ const snapshotPath = flagAll("snapshot")[0];
 const sourcePaths = flagAll("source");
 const personaPath = flagAll("persona")[0];
 const allowedMissingFallback = new Set(flagAll("allow-missing-fallback"));
+const droppedTagsPath = flagAll("dropped-tags")[0];
 
 const checks = [];
 function check(id, name, passed, detail) {
@@ -46,6 +48,24 @@ function main() {
 	}
 	const snap = loadJson(snapshotPath);
 	const snapText = JSON.stringify(snap);
+	// Declared drops (--dropped-tags <json>): plain strings are tags; objects
+	// may carry {tag} and/or {node: "<v1 node id or name>", reason}. Only a
+	// DECLARED node drop excuses a missing node (P11); only a declared tag drop
+	// excuses a missing tag (A6). Undeclared losses fail.
+	const normDrop = (t) => String(t || "").replace(/\s+/g, " ").trim();
+	const declaredDropTags = new Set();
+	const declaredDropNodes = new Set();
+	if (droppedTagsPath && fs.existsSync(droppedTagsPath)) {
+		for (const row of loadJson(droppedTagsPath) || []) {
+			if (typeof row === "string") declaredDropTags.add(row.trim());
+			else if (row && typeof row === "object") {
+				if (typeof row.tag === "string") declaredDropTags.add(row.tag.trim());
+				if (typeof row.node === "string") declaredDropNodes.add(normDrop(row.node));
+				if (typeof row.id === "string") declaredDropNodes.add(normDrop(row.id));
+				if (typeof row.name === "string") declaredDropNodes.add(normDrop(row.name));
+			}
+		}
+	}
 	const behavior = snap.behavior || {};
 	const nodes = Array.isArray(behavior.nodes) ? behavior.nodes : [];
 	const edges = Array.isArray(behavior.edges) ? behavior.edges : [];
@@ -358,6 +378,297 @@ function main() {
 			if (got < want) missingCapture.push(`${pair} on ${got} of ${want} steps`);
 		}
 		check("P9", "every v1 capture setting carried as captureAs", missingCapture.length === 0, missingCapture.slice(0, 5).join(", "));
+	}
+
+	// ── Content & capability carriage (keep everything v1 had) ──────────────
+	// Structure follows v2 doctrine; CONTENT is copied, never rewritten. These
+	// checks are whitespace-insensitive containment tests against the whole
+	// snapshot: a node's prompt, its hold condition, the edge descriptions
+	// that ARE the call flow, every extraction variable, every KB id, and
+	// every global node's trigger must all survive — a dropped node is only
+	// legitimate when the report drops it, which --dropped-tags declares by
+	// tag; here a node whose own prompt was not carried is treated as dropped
+	// and its edges are not demanded.
+	if (sourcePaths.length) {
+		const norm = (t) => String(t || "").replace(/\s+/g, " ").trim();
+		// Compare against the snapshot's STRING VALUES, not its JSON encoding
+		// (where quotes and newlines are escaped and would never match).
+		const snapStrings = [];
+		(function collectStrings(o) {
+			if (Array.isArray(o)) return o.forEach(collectStrings);
+			if (!o || typeof o !== "object") return;
+			for (const v of Object.values(o)) {
+				if (typeof v === "string") snapStrings.push(v);
+				else collectStrings(v);
+			}
+		})(snap);
+		const snapNorm = snapStrings.map(norm).join("\n");
+		const carried = (t) => {
+			const n = norm(t);
+			return n.length < 8 || snapNorm.includes(n);
+		};
+		const isDeclaredDrop = (n) => declaredDropNodes.has(normDrop(n.id)) || declaredDropNodes.has(normDrop((n.data || {}).name));
+		// Index the snapshot's steps by name: a v1 node is "carried" when a step
+		// of the same name exists. A node with no such step is a documented drop
+		// (dispositions live in the report), and its prompt/edges are not
+		// demanded here; a carried step with static "." speech is a deliberate
+		// silentPill and its prose is not demanded either.
+		const stepsByName = new Map();
+		(function indexSteps(o) {
+			if (Array.isArray(o)) return o.forEach(indexSteps);
+			if (!o || typeof o !== "object") return;
+			if (typeof o.type === "string" && o.data && typeof o.data.name === "string") {
+				const list = stepsByName.get(norm(o.data.name)) || [];
+				list.push(o);
+				stepsByName.set(norm(o.data.name), list);
+			}
+			Object.values(o).forEach(indexSteps);
+		})(snap);
+		// The start code node is carried as `initialization.step` (a bare step
+		// data object). It vouches for exactly ONE source node: the one with the
+		// same snippet pin, or byte-identical code — never for a same-named code
+		// node from another merged source.
+		const initStep = (snap.initialization || {}).step || null;
+		const initCarries = (d) => {
+			if (!initStep) return false;
+			if (initStep.snippetId && d.snippet_id) return initStep.snippetId === d.snippet_id && (initStep.snippetVersion === undefined || d.snippet_version === undefined || initStep.snippetVersion === d.snippet_version);
+			return typeof initStep.code === "string" && typeof d.code === "string" && norm(initStep.code) === norm(d.code);
+		};
+		const stepsFor = (d) => stepsByName.get(norm(d.name)) || [];
+		const isSilenced = (st) => (st.data || {}).useStaticText === true && String((st.data || {}).prompt || "").trim() === ".";
+		const missPrompt = [];
+		const missCondition = [];
+		const missEdge = [];
+		const missVar = [];
+		const missKb = [];
+		const missGlobal = [];
+		for (const sp of sourcePaths) {
+			const src = loadJson(sp);
+			const nodes = (src.nodes || []).filter((n) => n && n.id !== "global-prompt" && n.data);
+			const carriedNode = new Map();
+			// Several v1 nodes often share a name ("End Call"); for those, the
+			// node is carried when its OWN speech is present somewhere, and a
+			// missing prompt is a drop rather than a rewrite.
+			const initCarriedIds = new Set();
+			const nameCount = new Map();
+			for (const n of nodes) nameCount.set(norm(n.data.name), (nameCount.get(norm(n.data.name)) || 0) + 1);
+			for (const n of nodes) {
+				const d = n.data;
+				const steps = stepsFor(d);
+				if (steps.length === 0 && n.type === "Custom Code" && initCarries(d)) {
+					carriedNode.set(n.id, true);
+					initCarriedIds.add(n.id);
+					continue;
+				}
+				const speech = typeof d.prompt === "string" && d.prompt.trim() ? d.prompt : typeof d.text === "string" && !d.text.trim().startsWith("<|") ? d.text : "";
+				const duplicateName = (nameCount.get(norm(d.name)) || 0) > 1;
+				// A node whose speech is carried VERBATIM somewhere (e.g. a greeting
+				// folded into the hub prompt, per doctrine) is carried even without a
+				// same-named step; a node with no speech (route/code) needs a step.
+				const absent = (steps.length === 0 && !(speech && carried(speech))) || (duplicateName && speech && !carried(speech) && !steps.some(isSilenced));
+				if (absent) {
+					carriedNode.set(n.id, false);
+					if (!isDeclaredDrop(n)) missPrompt.push(`${d.name || n.id} — node not carried and not declared dropped (--dropped-tags {"node":"${String(n.id).slice(0, 8)}…"})`);
+					continue;
+				}
+				carriedNode.set(n.id, true);
+				if (steps.length === 0) continue; // carried into the hub prompt verbatim; no step to inspect further
+				if (speech && !steps.some(isSilenced) && !carried(speech)) missPrompt.push(`${d.name || n.id}`);
+				if (d.condition && !carried(d.condition)) missCondition.push(`${d.name || n.id}`);
+				// Extraction variables must live on the SAME step, not merely
+				// somewhere in the snapshot (a snippet input or tool response of
+				// the same name does not extract the caller's value).
+				for (const row of d.extractVars || []) {
+					const key = Array.isArray(row) ? row[0] : row && row.name;
+					if (typeof key !== "string" || !key) continue;
+					const onStep = steps.some((st) => Array.isArray((st.data || {}).variables) && st.data.variables.some((v) => v && v.key === key));
+					if (!onStep) missVar.push(`${d.name || n.id}.${key}`);
+				}
+				const kb = Array.isArray(d.kbTool) ? d.kbTool : d.kbTool ? [d.kbTool] : [];
+				for (const id of kb) if (typeof id === "string" && id && !snapText.includes(id)) missKb.push(`${d.name || n.id}:${id.slice(0, 8)}`);
+				if (d.isGlobal === true) {
+					if (!carried(d.globalLabel)) missGlobal.push(`${d.name || n.id} label`);
+					if (!carried(d.globalDescription)) missGlobal.push(`${d.name || n.id} description`);
+				}
+			}
+			for (const e of src.edges || []) {
+				if (!e || !e.data) continue;
+				if (carriedNode.get(e.source) !== true || carriedNode.get(e.target) !== true) continue;
+				// Edges out of the start code node are replaced by the implicit
+				// initialization → hub hand-off; their routing text has no v2 home.
+				if (initCarriedIds.has(e.source)) continue;
+				// Deterministic edges route on their conditions; the builder carries
+				// the conditions and writes an empty description on purpose.
+				if (Array.isArray(e.data.condition) && e.data.condition.length > 0) continue;
+				const desc = e.data.description;
+				if (desc && !carried(desc)) missEdge.push(`${String(e.source).slice(0, 8)}→${String(e.target).slice(0, 8)} "${String(e.data.label || "").slice(0, 30)}"`);
+			}
+		}
+		check("P11", "every v1 node carried verbatim or explicitly declared dropped (silenced pills excluded)", missPrompt.length === 0, missPrompt.slice(0, 6).join(", "));
+		check("P12", "every v1 hold condition carried verbatim (escapes may be appended)", missCondition.length === 0, missCondition.slice(0, 6).join(", "));
+		check("P13", "every LLM-routed v1 edge description carried verbatim (deterministic edges route on conditions)", missEdge.length === 0, missEdge.slice(0, 5).join("; "));
+		check("P14", "every v1 extraction variable carried on the same step", missVar.length === 0, missVar.slice(0, 6).join(", "));
+		check("P15", "every v1 knowledge-base id carried", missKb.length === 0, missKb.slice(0, 6).join(", "));
+		check("P16", "every v1 global node trigger (label + description) carried verbatim", missGlobal.length === 0, missGlobal.slice(0, 6).join(", "));
+	}
+
+
+	// ── v2 architecture (migration doctrine — deterministic, FAIL not warn) ──
+	// A v1 pathway poured into one flow hanging off Start is still a v1 pathway:
+	// the hub is switched off for the whole call, root end-calls become dead
+	// code, and the first hold condition traps the caller. These checks are the
+	// machine half of /norm:validate 20–25; the Stop hook blocks on them.
+	{
+		const STEP_TYPES = new Set(["prompt", "knowledge", "tool", "webhook", "customCode", "sms", "transfer", "smsOtp", "identityQuestions", "pressButton", "waitForResponse", "transferPathway", "playAudio", "route", "channel", "ivr", "scheduling", "twilioFlowRedirect", "amazonConnect", "resetSttLanguage", "end-call"]);
+		const SPEAKING = new Set(["prompt", "knowledge", "waitForResponse", "end-call"]);
+		const PRE_SPEECH = new Set(["customCode", "route", "webhook", "tool"]);
+		const flowSteps = (n) => {
+			if (n.type === "scenario") return [n];
+			const f = (n.data || {}).flow;
+			return f && Array.isArray(f.nodes) ? f.nodes.filter((x) => STEP_TYPES.has(x.type)) : [];
+		};
+		const rootFlows = nodes.filter((n) => n.type === "scenario" || n.type === "complex-scenario");
+		const totalSteps = rootFlows.reduce((acc, n) => acc + flowSteps(n).length, 0);
+		const byId = new Map(nodes.map((n) => [n.id, n]));
+		const entryTarget = inboundEdge ? byId.get(inboundEdge.target) : undefined;
+		const name = (n) => String(((n || {}).data || {}).name || (n || {}).id || "?");
+
+		// A0 — Start IS the Initialization code step. When the v1 start node is
+		// Custom Code, the snapshot must carry it as `initialization` (runs at
+		// connect, before the first sentence) with the same snippet pin / code.
+		if (sourcePaths.length) {
+			const starts = [];
+			for (const sp of sourcePaths) for (const n of loadJson(sp).nodes || []) if (n && n.type === "Custom Code" && n.data && n.data.isStart === true) starts.push(n);
+			if (starts.length) {
+				const init = snap.initialization || {};
+				const step = init.step || {};
+				// Merged sources can each start with code; the plan's
+				// initializationNode picks which one runs at connect (the
+				// builder refuses a plan that leaves it ambiguous), so any of
+				// them satisfies this check — never only the first source's.
+				const matches = (n) => {
+					const src = n.data || {};
+					return src.snippet_id ? step.snippetId === src.snippet_id : typeof step.code === "string" && step.code.trim() === String(src.code || "").trim();
+				};
+				const label = (n) => `"${(n.data || {}).name || n.id}" (${String((n.data || {}).snippet_id || "").slice(0, 8)}…)`;
+				const pinOk = starts.some(matches);
+				const ok = init.enabled === true && pinOk;
+				check("A0", "v1 start code node carried as initialization (enabled, same snippet pin)", ok, ok ? "" : init.enabled === true ? `initialization pin matches none of the start code node(s) ${starts.map(label).join(", ")}` : `initialization missing/disabled — start node ${starts.map(label).join(" or ")} must run at connect, not inside a scenario`);
+			}
+		}
+
+		// A1 — a Start scenario (inbound edge re-pointed off the hub) is the
+		// rare exception and may hold ONLY pre-speech work: code, deterministic
+		// routes, webhooks, tools. Zero speaking steps — the greeting is the
+		// hub's. ≤ 1/5 of all steps, and it must exit to the hub.
+		if (entryTarget && entryTarget.type !== "agent") {
+			const st = flowSteps(entryTarget);
+			// A static "." prompt says nothing — it is the silent-router idiom, not speech.
+			const isSilent = (x) => x.type === "prompt" && (x.data || {}).useStaticText === true && String((x.data || {}).prompt || "").trim() === ".";
+			const speaking = st.filter((x) => SPEAKING.has(x.type) && !isSilent(x));
+			const foreign = st.filter((x) => !PRE_SPEECH.has(x.type) && !SPEAKING.has(x.type));
+			const share = totalSteps ? st.length / totalSteps : 0;
+			const hasExit = entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
+			const problems = [];
+			if (speaking.length) problems.push(`${speaking.length} speaking step(s) (${speaking.map(name).slice(0, 4).join(", ")}) — nothing speaks before the hub; the greeting is the hub's`);
+			if (foreign.length) problems.push(`non-pre-speech step(s): ${foreign.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")}`);
+			if (share > 0.2) problems.push(`${st.length}/${totalSteps} steps (${Math.round(share * 100)}%) in Start — budget is 20%`);
+			if (!hasExit) problems.push("no exit pill — the call can never reach the hub");
+			check("A1", "Start scenario holds only pre-speech work (0 speaking steps; code/route/webhook/tool only; ≤20% of steps; exits to hub)", problems.length === 0, `"${name(entryTarget)}": ${problems.join("; ")}`);
+		} else {
+			check("A1", "Start scenario holds only pre-speech work", true, "inbound edge targets the hub");
+		}
+
+		// A2 — intents are hub children: besides the Start scenario there must
+		// be at least two hub-enterable siblings (scenarios or root end-calls),
+		// and no single flow may hold more than 60% of all steps.
+		// (No size cap on a single task scenario: v2-authoring allows one
+		// continuous task behind a thin hub; caller CHOICES are what must not
+		// live inside it, and that is a region-map judgment, not a step count.)
+		const siblings = nodes.filter((n) => (n.type === "scenario" || n.type === "complex-scenario" || n.type === "end-call") && (!entryTarget || n.id !== entryTarget.id));
+		check("A2", "intents are hub children (≥2 hub-enterable siblings beside Start)", siblings.length >= 2, `${siblings.length} sibling(s)`);
+
+		// A3 — every root end-call is enterable: it carries an entry
+		// description for the hub, and the hub is reachable at all (Start
+		// exits — covered by A1's exit test, repeated here so the message names
+		// the dead end-calls).
+		const rootEnds = nodes.filter((n) => n.type === "end-call");
+		const startExits = !entryTarget || entryTarget.type === "agent" || entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
+		const deadEnds = rootEnds.filter((n) => !startExits || !String(((n.data || {}).entry || {}).description || "").trim());
+		check("A3", "every root end-call is reachable (hub reachable + entry description present)", deadEnds.length === 0, deadEnds.map(name).join(", "));
+
+		// A4 — universal escapes on every hold. The hold is evaluated before all
+		// routing, so a hold that lacks one of these traps the call on the step.
+		const ESCAPES = [
+			["opt-out", /opt[- ]?out|do not call|stop calling|no longer (be |want to be )?(called|contacted)|remove .* list/i],
+			["wrong person", /wrong (person|number)|not the (right|intended) person|isn'?t .* (who|the person)/i],
+			["not interested", /not interested|no longer (interested|looking|in the market)|declin/i],
+			["callback", /call ?back|call (me|them|you) (back|later)|better time/i],
+			["transfer", /transfer|speak (to|with) (a|an|someone|a live|a human)|representative|live agent|human/i],
+			["voicemail", /voicemail|voice ?mail|leave (a|your) message|the tone/i],
+			["IVR", /\bivr\b|screen(er|ing)|automated (system|menu|assistant)|press \d|menu options/i],
+		];
+		// Required set = the escapes the v1 source itself handles anywhere (an
+		// inbound agent with no voicemail lane is not asked to escape to one);
+		// without a source, the caller-universal five.
+		const UNIVERSAL = new Set(["opt-out", "wrong person", "not interested", "callback", "transfer"]);
+		let required = ESCAPES.filter(([k]) => UNIVERSAL.has(k));
+		if (sourcePaths.length) {
+			const srcAll = sourcePaths.map((sp) => JSON.stringify(loadJson(sp))).join("\n");
+			required = ESCAPES.filter(([, re]) => re.test(srcAll));
+		}
+		// A step-level global whose label/description names an escape covers
+		// every hold that does not outrank globals with
+		// settings.advanced.conditionOverridesGlobalPathway.
+		const globalText = [];
+		for (const sc of rootFlows) {
+			for (const st of flowSteps(sc)) {
+				const g = (((st.data || {}).settings || {}).global) || {};
+				// Only the global's trigger fields decide when it fires; its name and spoken
+				// prompt do not, so they must not count as escape coverage.
+				if (g.isGlobal === true) globalText.push([g.label, g.description].map((x) => String(x || "")).join("\n"));
+			}
+		}
+		const globalCovers = (re) => globalText.some((t) => re.test(t));
+		const holdIssues = [];
+		for (const sc of rootFlows) {
+			for (const st of flowSteps(sc)) {
+				const lw = String(((st.data || {}).loopWhile) || "").trim();
+				if (!lw) continue;
+				const outranks = ((((st.data || {}).settings || {}).advanced) || {}).conditionOverridesGlobalPathway === true;
+				const missing = required.filter(([, re]) => !re.test(lw) && (outranks || !globalCovers(re))).map(([k]) => k);
+				if (missing.length) holdIssues.push(`${name(sc)}/${name(st)} lacks ${missing.join(", ")}${outranks ? " (conditionOverridesGlobalPathway set, so globals cannot help)" : ""}`);
+			}
+		}
+		check("A4", `every hold condition carries the escapes the source handles (${required.map(([k]) => k).join(", ")}), itself or via a step-level global the hold does not outrank`, holdIssues.length === 0, holdIssues.slice(0, 4).join("; "));
+
+		// A5 — no parking lots.
+		const PARK = /legacy|archived|unreachable|never enter|do not enter|don'?t enter|parking|dead code|retired|unused/i;
+		const lots = rootFlows.filter((n) => PARK.test(name(n)) || PARK.test(String(((n.data || {}).entry || {}).description || "")));
+		check("A5", "no parking-lot scenarios (dead v1 nodes are dropped in the report, never warehoused)", lots.length === 0, lots.map(name).join(", "));
+
+		// A6 — every v1 node tag is carried as a settings.tag somewhere.
+		if (sourcePaths.length) {
+			const srcTags = new Set();
+			for (const sp of sourcePaths) {
+				for (const n of loadJson(sp).nodes || []) {
+					const t = ((n && n.data) || {}).tag;
+					if (t && typeof t.name === "string" && t.name.trim()) srcTags.add(t.name.trim());
+				}
+			}
+			const snapTags = new Set();
+			(function collectTags(o) {
+				if (Array.isArray(o)) return o.forEach(collectTags);
+				if (!o || typeof o !== "object") return;
+				if (o.settings && o.settings.tag && typeof o.settings.tag.name === "string") snapTags.add(o.settings.tag.name.trim());
+				Object.values(o).forEach(collectTags);
+			})(snap);
+			// Tags on nodes the report DROPS (with reachability evidence) are
+			// declared in --dropped-tags <json: [{"tag","reason"}] or ["tag"]>;
+			// the hook passes .norm/dropped-tags.json when present.
+			const missingTags = [...srcTags].filter((t) => !snapTags.has(t) && !declaredDropTags.has(t));
+			check("A6", "every v1 node tag carried as settings.tag (or declared dropped in --dropped-tags)", missingTags.length === 0, missingTags.join(", "));
+		}
 	}
 
 	const passed = checks.every((c) => c.passed);

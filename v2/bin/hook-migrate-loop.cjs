@@ -122,6 +122,17 @@ async function main() {
 		const cmd = ["--snapshot", s.snapshot];
 		for (const src of s.sources || []) cmd.push("--source", src);
 		if (s.persona) cmd.push("--persona", s.persona);
+		// Drop declarations belong to one migration: `init` clears the file,
+		// and one older than this loop (left by a hand-edited state) is ignored
+		// rather than excusing a live tag of the same name.
+		const droppedTags = path.join(path.dirname(stateFile), "dropped-tags.json");
+		let droppedAt = 0;
+		try {
+			droppedAt = fs.statSync(droppedTags).mtimeMs;
+		} catch {
+			droppedAt = 0;
+		}
+		if (droppedAt && droppedAt >= (s.created_at || 0)) cmd.push("--dropped-tags", droppedTags);
 		const r = spawnSync(process.execPath, [auditBin, ...cmd], { encoding: "utf8", timeout: 30000 });
 		const verdict = JSON.parse(r.stdout || "{}");
 		if (verdict.passed === true) {

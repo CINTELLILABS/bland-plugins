@@ -77,6 +77,13 @@ if (sub === "init") {
 		process.stderr.write(`an ACTIVE migration loop already exists (agent ${prior.agent_id || "?"}, snapshot ${prior.snapshot}). Finish it, run 'stop', or re-init with --force.\n`);
 		process.exit(1);
 	}
+	// Drop declarations (dropped-tags.json, read by audit A6) are per
+	// migration: a tag one source dropped is not dropped for the next.
+	const droppedTags = path.join(NORM_DIR, "dropped-tags.json");
+	if (fs.existsSync(droppedTags)) {
+		fs.rmSync(droppedTags);
+		process.stderr.write("cleared .norm/dropped-tags.json from the previous migration; declare this one's drops afresh\n");
+	}
 	save({
 		active: true,
 		created_at: Date.now(),
