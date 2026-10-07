@@ -421,7 +421,9 @@ function toStep(node) {
 						optimizeForIVR: wt.optimizeForIVR !== false,
 						agentPromptStatic: wt.isAgentPromptStatic === true,
 						mergePromptStatic: wt.isMergeCallPromptStatic === true,
-						timeout: wt.useTimeout === true && typeof wt.timeout === "number" ? wt.timeout : null,
+						// v1 stores the warm-transfer timeout as a numeric STRING ("600"); a
+						// strict number test silently dropped it (JCB, 2026-10-07).
+						timeout: wt.useTimeout === true && Number.isFinite(Number(wt.timeout)) && String(wt.timeout).trim() !== "" ? Number(wt.timeout) : null,
 						voicemailMessage: wt.useVoicemailMessage === true && wt.voicemailResponseType !== "pathway" ? str(wt.voicemailMessage) : "",
 						...(str(wt.dtmfSequence) ? { dtmfSequence: wt.dtmfSequence } : {}),
 						...(typeof wt.allowMergeControl === "boolean" ? { allowMergeControl: wt.allowMergeControl } : {}),
