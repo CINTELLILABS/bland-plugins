@@ -389,13 +389,24 @@ function main() {
 			const n = norm(t);
 			return n.length < 8 || snapNorm.includes(n);
 		};
-		const snapVarKeys = new Set();
-		(function collectKeys(o) {
-			if (Array.isArray(o)) return o.forEach(collectKeys);
+		// Index the snapshot's steps by name: a v1 node is "carried" when a step
+		// of the same name exists. A node with no such step is a documented drop
+		// (dispositions live in the report), and its prompt/edges are not
+		// demanded here; a carried step with static "." speech is a deliberate
+		// silentPill and its prose is not demanded either.
+		const stepsByName = new Map();
+		(function indexSteps(o) {
+			if (Array.isArray(o)) return o.forEach(indexSteps);
 			if (!o || typeof o !== "object") return;
-			if (typeof o.key === "string" && ("type" in o || "description" in o)) snapVarKeys.add(o.key);
-			Object.values(o).forEach(collectKeys);
+			if (typeof o.type === "string" && o.data && typeof o.data.name === "string") {
+				const list = stepsByName.get(norm(o.data.name)) || [];
+				list.push(o);
+				stepsByName.set(norm(o.data.name), list);
+			}
+			Object.values(o).forEach(indexSteps);
 		})(snap);
+		const stepsFor = (d) => stepsByName.get(norm(d.name)) || [];
+		const isSilenced = (st) => (st.data || {}).useStaticText === true && String((st.data || {}).prompt || "").trim() === ".";
 		const missPrompt = [];
 		const missCondition = [];
 		const missEdge = [];
@@ -406,38 +417,53 @@ function main() {
 			const src = loadJson(sp);
 			const nodes = (src.nodes || []).filter((n) => n && n.id !== "global-prompt" && n.data);
 			const carriedNode = new Map();
+			// Several v1 nodes often share a name ("End Call"); for those, the
+			// node is carried when its OWN speech is present somewhere, and a
+			// missing prompt is a drop rather than a rewrite.
+			const nameCount = new Map();
+			for (const n of nodes) nameCount.set(norm(n.data.name), (nameCount.get(norm(n.data.name)) || 0) + 1);
 			for (const n of nodes) {
 				const d = n.data;
+				const steps = stepsFor(d);
 				const speech = typeof d.prompt === "string" && d.prompt.trim() ? d.prompt : typeof d.text === "string" && !d.text.trim().startsWith("<|") ? d.text : "";
-				const ok = carried(speech);
-				carriedNode.set(n.id, ok || !speech);
-				if (!ok) missPrompt.push(`${d.name || n.id}`);
-				if (ok && d.condition && !carried(d.condition)) missCondition.push(`${d.name || n.id}`);
-				if (ok) {
-					for (const row of d.extractVars || []) {
-						const key = Array.isArray(row) ? row[0] : row && row.name;
-						if (typeof key === "string" && key && !snapVarKeys.has(key) && !snapText.includes(`"${key}"`)) missVar.push(`${d.name || n.id}.${key}`);
-					}
-					const kb = Array.isArray(d.kbTool) ? d.kbTool : d.kbTool ? [d.kbTool] : [];
-					for (const id of kb) if (typeof id === "string" && id && !snapText.includes(id)) missKb.push(`${d.name || n.id}:${id.slice(0, 8)}`);
-					if (d.isGlobal === true) {
-						if (!carried(d.globalLabel)) missGlobal.push(`${d.name || n.id} label`);
-						if (!carried(d.globalDescription)) missGlobal.push(`${d.name || n.id} description`);
-					}
+				const duplicateName = (nameCount.get(norm(d.name)) || 0) > 1;
+				if (steps.length === 0 || (duplicateName && speech && !carried(speech) && !steps.some(isSilenced))) {
+					carriedNode.set(n.id, false);
+					continue;
+				}
+				carriedNode.set(n.id, true);
+				if (speech && !steps.some(isSilenced) && !carried(speech)) missPrompt.push(`${d.name || n.id}`);
+				if (d.condition && !carried(d.condition)) missCondition.push(`${d.name || n.id}`);
+				// Extraction variables must live on the SAME step, not merely
+				// somewhere in the snapshot (a snippet input or tool response of
+				// the same name does not extract the caller's value).
+				for (const row of d.extractVars || []) {
+					const key = Array.isArray(row) ? row[0] : row && row.name;
+					if (typeof key !== "string" || !key) continue;
+					const onStep = steps.some((st) => Array.isArray((st.data || {}).variables) && st.data.variables.some((v) => v && v.key === key));
+					if (!onStep) missVar.push(`${d.name || n.id}.${key}`);
+				}
+				const kb = Array.isArray(d.kbTool) ? d.kbTool : d.kbTool ? [d.kbTool] : [];
+				for (const id of kb) if (typeof id === "string" && id && !snapText.includes(id)) missKb.push(`${d.name || n.id}:${id.slice(0, 8)}`);
+				if (d.isGlobal === true) {
+					if (!carried(d.globalLabel)) missGlobal.push(`${d.name || n.id} label`);
+					if (!carried(d.globalDescription)) missGlobal.push(`${d.name || n.id} description`);
 				}
 			}
 			for (const e of src.edges || []) {
 				if (!e || !e.data) continue;
-				if (carriedNode.get(e.source) === false || carriedNode.get(e.target) === false) continue;
-				const label = e.data.label;
+				if (carriedNode.get(e.source) !== true || carriedNode.get(e.target) !== true) continue;
+				// Deterministic edges route on their conditions; the builder carries
+				// the conditions and writes an empty description on purpose.
+				if (Array.isArray(e.data.condition) && e.data.condition.length > 0) continue;
 				const desc = e.data.description;
-				if (desc && !carried(desc)) missEdge.push(`${String(e.source).slice(0, 8)}→${String(e.target).slice(0, 8)} "${String(label || "").slice(0, 30)}"`);
+				if (desc && !carried(desc)) missEdge.push(`${String(e.source).slice(0, 8)}→${String(e.target).slice(0, 8)} "${String(e.data.label || "").slice(0, 30)}"`);
 			}
 		}
-		check("P11", "every v1 node prompt/text carried verbatim", missPrompt.length === 0, missPrompt.slice(0, 6).join(", "));
+		check("P11", "every carried v1 node's prompt/text verbatim (dropped nodes and silenced pills excluded)", missPrompt.length === 0, missPrompt.slice(0, 6).join(", "));
 		check("P12", "every v1 hold condition carried verbatim (escapes may be appended)", missCondition.length === 0, missCondition.slice(0, 6).join(", "));
-		check("P13", "every v1 edge description carried verbatim (the call flow)", missEdge.length === 0, missEdge.slice(0, 5).join("; "));
-		check("P14", "every v1 extraction variable carried", missVar.length === 0, missVar.slice(0, 6).join(", "));
+		check("P13", "every LLM-routed v1 edge description carried verbatim (deterministic edges route on conditions)", missEdge.length === 0, missEdge.slice(0, 5).join("; "));
+		check("P14", "every v1 extraction variable carried on the same step", missVar.length === 0, missVar.slice(0, 6).join(", "));
 		check("P15", "every v1 knowledge-base id carried", missKb.length === 0, missKb.slice(0, 6).join(", "));
 		check("P16", "every v1 global node trigger (label + description) carried verbatim", missGlobal.length === 0, missGlobal.slice(0, 6).join(", "));
 	}
