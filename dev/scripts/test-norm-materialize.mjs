@@ -380,3 +380,93 @@ test('real v2 compiler preserves migrated transfer behavior', {
   const cold = compile(materialize({ ...input, isEnabled: false }));
   assert.equal(cold.nodes.find((node) => node.type === 'Transfer Call').data.warmTransferFields, undefined);
 });
+
+// A v1 outbound pathway: start code → call screener → (voicemail | greeting) →
+// qualify → FAQ (knowledge) → end. Builds with the given plan and returns the
+// snapshot plus the audit's checks by id; a builder refusal surfaces as the
+// thrown error's stderr text.
+function buildScreener(plan) {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-materialize-test-'));
+  try {
+    writeFileSync(join(dir, 'source.json'), JSON.stringify({
+      nodes: [
+        { id: 'start', type: 'Custom Code', data: { name: 'Set Dealer Name', isStart: true, snippet_id: 'snip-dealer', code: 'return { dealer: "Acme" };' } },
+        { id: 'screener', type: 'Default', data: { name: 'Call Screener', prompt: 'If an automated screener answers, say who you are and why you are calling.', condition: 'A human has picked up.' } },
+        { id: 'vm', type: 'End Call', data: { name: 'Leave Voicemail', prompt: 'Leave a short voicemail asking for a call back.' } },
+        { id: 'greeting', type: 'Default', data: { name: 'Greeting', prompt: 'Greet the lead and ask if now is a good time.', condition: 'The lead confirmed they can talk.' } },
+        { id: 'qualify', type: 'Default', data: { name: 'Qualify', prompt: 'Ask which vehicle they are interested in.', condition: 'The lead named a vehicle.' } },
+        { id: 'faq', type: 'Knowledge Base', data: { name: 'FAQ', kbIds: ['kb-1'] } },
+        { id: 'done', type: 'End Call', data: { name: 'Done', prompt: 'Thank them and say goodbye.' } },
+      ],
+      edges: [
+        { id: 'e0', source: 'start', target: 'screener', data: { label: 'next' } },
+        { id: 'e1', source: 'screener', target: 'vm', data: { label: 'Voicemail answered.' } },
+        { id: 'e2', source: 'screener', target: 'greeting', data: { label: 'A human answered.' } },
+        { id: 'e3', source: 'greeting', target: 'qualify', data: { label: 'Now is a good time.' } },
+        { id: 'e4', source: 'qualify', target: 'faq', data: { label: 'They have a question.' } },
+        { id: 'e5', source: 'faq', target: 'done', data: { label: 'Question answered.' } },
+      ],
+    }));
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify({
+      displayName: 'Synthetic', systemPrompt: 'Synthetic test only', sources: [{ file: 'source.json' }], ...plan,
+    }));
+    execFileSync(process.execPath, [builder, '--plan', join(dir, 'plan.json'), '--out', join(dir, 'snapshot.json')], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const out = execFileSync(process.execPath, [audit, '--snapshot', join(dir, 'snapshot.json'), '--source', join(dir, 'source.json')]).toString();
+    const checks = Object.fromEntries(JSON.parse(out).checks.map((c) => [c.id, c]));
+    return { snapshot: JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8')), checks };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+const REASON = 'Outbound dials hit call screeners and voicemail before any human; answer detection must run before the hub greets.';
+const entry = { label: 'Answer detection', description: 'Every call starts here.' };
+
+test('a Start scenario may speak to handle screeners and voicemail (A1 passes, initialization carried)', () => {
+  const { snapshot, checks } = buildScreener({
+    entryScenario: 'Answer detection', entryScenarioReason: REASON,
+    scenarios: [
+      { name: 'Answer detection', entry, members: ['screener', 'vm'] },
+      { name: 'Qualify', entry: { label: 'Qualify', description: 'Human answered and can talk' }, members: ['greeting', 'qualify'] },
+      { name: 'FAQ', entry: { label: 'FAQ', description: 'The lead has a question' }, members: ['faq', 'done'] },
+    ],
+  });
+  assert.equal(snapshot.initialization.enabled, true);
+  assert.equal(snapshot.initialization.step.snippetId, 'snip-dealer');
+  assert.equal(checks.A0.passed, true, checks.A0.detail);
+  assert.equal(checks.A1.passed, true, checks.A1.detail);
+  assert.equal(checks.A2.passed, true, checks.A2.detail);
+});
+
+test('the builder refuses a Knowledge Base member in the Start scenario', () => {
+  assert.throws(() => buildScreener({
+    entryScenario: 'Answer detection', entryScenarioReason: REASON,
+    scenarios: [
+      { name: 'Answer detection', entry, members: ['screener', 'vm', 'faq'] },
+      { name: 'Qualify', entry: { label: 'Qualify', description: 'Human answered' }, members: ['greeting', 'qualify'] },
+      { name: 'Done', entry: { label: 'Done', description: 'Wrap up' }, members: ['done'] },
+    ],
+  }), (err) => /call-body node\(s\): FAQ \(Knowledge Base\)/.test(String(err.stderr)));
+});
+
+test('a Start scenario holding the call body fails A1 on the step budget', () => {
+  const { checks } = buildScreener({
+    entryScenario: 'Answer detection', entryScenarioReason: REASON,
+    scenarios: [
+      { name: 'Answer detection', entry, members: ['screener', 'vm', 'greeting', 'qualify', 'done'] },
+      { name: 'FAQ', entry: { label: 'FAQ', description: 'The lead has a question' }, members: ['faq'] },
+    ],
+    endCalls: [{ name: 'Opt out', entry: { label: 'Opt out', description: 'The lead asks not to be called again' }, prompt: 'Confirm and say goodbye.' }],
+  });
+  assert.equal(checks.A1.passed, false);
+  assert.match(checks.A1.detail, /budget is a third/);
+});
+
+test('a Start scenario without a written reason is refused', () => {
+  assert.throws(() => buildScreener({
+    entryScenario: 'Answer detection',
+    scenarios: [
+      { name: 'Answer detection', entry, members: ['screener', 'vm'] },
+      { name: 'Qualify', entry: { label: 'Qualify', description: 'Human answered' }, members: ['greeting', 'qualify', 'faq', 'done'] },
+    ],
+  }), (err) => /entryScenarioReason/.test(String(err.stderr)));
+});

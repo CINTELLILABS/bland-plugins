@@ -1,5 +1,18 @@
 # Changelog
 
+## norm 1.8.0 – 2026-10-07
+
+- Migration: a Start scenario (inbound edge re-pointed off the hub) is the
+  home for connection gating — call screeners, IVR / menu navigation,
+  voicemail detection and the voicemail message, carrier intercepts,
+  availability checks, mid-call-drop resume — and may speak for that. It
+  still needs a written `entryScenarioReason`, must exit to the hub, and
+  may not hold the call body: audit A1 now fails on knowledge, scheduling,
+  verification (OTP / identity) or pathway-transfer steps in Start, or a
+  Start over a third of all steps (four steps or fewer always fit); the builder refuses a Knowledge Base
+  member in the entry scenario. The earlier "zero speaking steps" rule is
+  gone.
+
 ## norm 1.7.0 – 2026-10-07
 
 - Add the analytics-authoring skill for an agent's analytics Sankey: waypoint

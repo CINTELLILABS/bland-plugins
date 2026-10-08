@@ -22,7 +22,7 @@
  *   "hubPrompt": "<hub routing prompt; a scenario directory is auto-appended>",
  *   "sources": [{"file": "v1-export.json", "prefix": "sa"}, ...],
  *   "persona": "persona.json",                    // optional
- *   "entryScenario": "<scenario name>",           // RARE: inbound re-point; needs entryScenarioReason and code/route/webhook members only
+ *   "entryScenario": "<scenario name>",           // exception: inbound re-point for connection gating (screener / IVR / voicemail / availability); needs entryScenarioReason; no Knowledge Base members
  *   "entryScenarioReason": "<≥60 chars: why initialization + hub cannot open this call>",
  *   "initializationNode": "<legacy id — which isStart Custom Code runs at connect when merged sources have several>",
  *   "scenarios": [{"name","entry":{"label","description"},"rule","members":[ids or unique id prefixes],
@@ -576,20 +576,23 @@ for (const sc of plan.scenarios || []) {
 	}
 	const memberSet = new Set(members);
 	// Start is the Initialization code step, not a scenario. Re-pointing the
-	// inbound edge at a scenario is the rare exception: it needs a written
-	// reason in the plan, and the scenario may hold ONLY pre-speech work
-	// (code, deterministic routes, webhooks). The first spoken sentence — the
-	// greeting included — belongs to the hub or a hub child. A conversational
-	// node here is the "whole call hanging off Start" shape; refuse to build it.
+	// inbound edge at a scenario is the exception for CONNECTION gating — call
+	// screeners, IVR / menu navigation, voicemail detection and the voicemail
+	// message, carrier intercepts, availability checks — and needs a written
+	// reason in the plan. Such a scenario may speak for that purpose, but the
+	// call body (knowledge answers, scheduling, verification, pathway
+	// transfers, caller-chosen outcomes) is a hub child; a Start holding it
+	// is the "whole call hanging off Start" shape — refuse to build it. The
+	// step budget and the exit to the hub are audited (A1).
 	if (plan.entryScenario && sc.name === plan.entryScenario) {
 		const reason = str(plan.entryScenarioReason);
 		if (reason.length < 60) {
-			throw new Error(`entryScenario "${sc.name}": Start is the Initialization code step, not a scenario. Re-pointing the inbound edge needs plan.entryScenarioReason (≥60 chars) saying why initialization + hub cannot do this — or drop entryScenario and let the hub open the call`);
+			throw new Error(`entryScenario "${sc.name}": Start is the Initialization code step, not a scenario. Re-pointing the inbound edge needs plan.entryScenarioReason (≥60 chars) naming the connection gating it does (screener / IVR / voicemail / availability) — or drop entryScenario and let the hub open the call`);
 		}
-		const PRE_SPEECH_LEGACY = new Set(["Custom Code", "Route", "Webhook", "Custom Tool"]);
-		const speaking = members.map((id) => nodeById.get(id)).filter((n) => n && !PRE_SPEECH_LEGACY.has(n.type));
-		if (speaking.length) {
-			throw new Error(`entryScenario "${sc.name}" holds conversational node(s): ${speaking.map((n) => `${str((n.data || {}).name) || n.id} (${n.type})`).join(", ")}. Start may only run code / deterministic routes / webhooks before the first sentence; move these to hub-child scenarios`);
+		const CORE_LOGIC_LEGACY = new Set(["Knowledge Base"]);
+		const core = members.map((id) => nodeById.get(id)).filter((n) => n && CORE_LOGIC_LEGACY.has(n.type));
+		if (core.length) {
+			throw new Error(`entryScenario "${sc.name}" holds call-body node(s): ${core.map((n) => `${str((n.data || {}).name) || n.id} (${n.type})`).join(", ")}. Start handles connection gating only (screener / IVR / voicemail / availability); knowledge answers and every caller-chosen outcome are hub children`);
 		}
 	}
 	const startPill = { id: randomUUID(), type: "start", position: { x: 0, y: 0 }, data: {} };
