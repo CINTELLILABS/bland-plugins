@@ -572,12 +572,19 @@ function main() {
 				for (const t of d.tools || []) for (const rp of (t || {}).responsePathways || []) add(x.id, (rp || {}).targetId);
 				add(x.id, d.targetNodeId);
 				add(x.id, d.errorFallbackNodeId);
-				add(x.id, (((d.settings || {}).global) || {}).forwardingNode);
 			}
 			const seen = new Set();
-			// A step-level global is enterable without an incoming edge (the
-			// runtime selects it on its trigger), so it seeds the walk too.
-			const queue = fnodes.filter((x) => x.type === "start" || ((((x.data || {}).settings || {}).global) || {}).isGlobal === true).map((x) => x.id);
+			// A step-level global can fire while any step is active, but what it
+			// reaches depends on its returnMode: "redirect" lands on its
+			// forwardingNode (a real route from anywhere in the flow); "previous"
+			// returns to the interrupted step, so its drawn edges are never taken
+			// from the selection. Seed from the start pill and from every
+			// redirect-global's forwarding node — never from the global itself.
+			const queue = fnodes.filter((x) => x.type === "start").map((x) => x.id);
+			for (const x of fnodes) {
+				const g = (((x.data || {}).settings || {}).global) || {};
+				if (g.isGlobal === true && g.returnMode === "redirect" && byFlowId.has(g.forwardingNode)) queue.push(g.forwardingNode);
+			}
 			while (queue.length) {
 				const id = queue.shift();
 				if (seen.has(id)) continue;

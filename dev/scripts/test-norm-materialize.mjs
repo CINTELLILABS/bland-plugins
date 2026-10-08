@@ -620,6 +620,12 @@ test('exit reachability: a global step with a forwarding exit counts, a draft re
     data: { name: 'Escape', prompt: 'Say goodbye.', settings: { global: { isGlobal: true, label: 'Opt out', description: 'The lead opts out.', returnMode: 'redirect', forwardingNode: endPill.id } } },
   });
   assert.equal(auditOf(viaGlobal, SCREENER_SOURCE).A1.passed, true, auditOf(viaGlobal, SCREENER_SOURCE).A1.detail);
+  // A global that returns to the interrupted step never takes its drawn edge.
+  const returning = structuredClone(cut);
+  const returningFlow = returning.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow;
+  returningFlow.nodes.push({ id: 'aside', type: 'prompt', position: { x: 0, y: 0 }, data: { name: 'Aside', prompt: 'Answer, then resume.', settings: { global: { isGlobal: true, label: 'Question', description: 'The lead asks something.', returnMode: 'previous', forwardingNode: '' } } } });
+  returningFlow.edges.push({ id: 'aside-exit', source: 'aside', target: endPill.id });
+  assert.equal(auditOf(returning, SCREENER_SOURCE).A1.passed, false);
 });
 
 test('A0/P11: a numeric-string source pin matches the same numeric version', () => {
