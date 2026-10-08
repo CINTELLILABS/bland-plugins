@@ -35,6 +35,13 @@ function check(id, name, passed, detail) {
 	checks.push({ id, name, passed: Boolean(passed), detail: detail || "" });
 }
 
+// Snippet pins arrive as numbers or numeric strings ("3" and 3 are the same version).
+function sameVersion(a, b) {
+	if (a === undefined || b === undefined) return true;
+	const na = Number(a);
+	const nb = Number(b);
+	return Number.isFinite(na) && Number.isFinite(nb) ? na === nb : String(a) === String(b);
+}
 function loadJson(p) {
 	const raw = JSON.parse(fs.readFileSync(p, "utf8"));
 	return raw && raw.data && typeof raw.data === "object" ? raw.data : raw;
@@ -431,7 +438,7 @@ function main() {
 		const initStep = (snap.initialization || {}).step || null;
 		const initCarries = (d) => {
 			if (!initStep) return false;
-			if (initStep.snippetId && d.snippet_id) return initStep.snippetId === d.snippet_id && (initStep.snippetVersion === undefined || d.snippet_version === undefined || initStep.snippetVersion === d.snippet_version);
+			if (initStep.snippetId && d.snippet_id) return initStep.snippetId === d.snippet_id && sameVersion(initStep.snippetVersion, d.snippet_version);
 			return typeof initStep.code === "string" && typeof d.code === "string" && norm(initStep.code) === norm(d.code);
 		};
 		const stepsFor = (d) => stepsByName.get(norm(d.name)) || [];
@@ -601,7 +608,7 @@ function main() {
 					const src = n.data || {};
 					// Same pin AND same version when the source pins one — a
 					// different version of the same snippet is different code.
-					if (src.snippet_id) return step.snippetId === src.snippet_id && (src.snippet_version === undefined || step.snippetVersion === src.snippet_version);
+					if (src.snippet_id) return step.snippetId === src.snippet_id && sameVersion(step.snippetVersion, src.snippet_version);
 					return typeof step.code === "string" && step.code.trim() === String(src.code || "").trim();
 				};
 				const label = (n) => `"${(n.data || {}).name || n.id}" (${String((n.data || {}).snippet_id || "").slice(0, 8)}…)`;

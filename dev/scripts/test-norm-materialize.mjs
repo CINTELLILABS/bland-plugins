@@ -622,3 +622,17 @@ test('exit reachability: a global step with a forwarding exit counts, a draft re
   assert.equal(auditOf(viaGlobal, SCREENER_SOURCE).A1.passed, true, auditOf(viaGlobal, SCREENER_SOURCE).A1.detail);
 });
 
+test('A0/P11: a numeric-string source pin matches the same numeric version', () => {
+  const { snapshot } = buildScreener({
+    entryScenario: 'Answer detection', entryScenarioReason: REASON,
+    scenarios: [{ name: 'Answer detection', entry, members: ['screener', 'vm'] }, ...BODY],
+  });
+  const source = structuredClone(SCREENER_SOURCE);
+  source.nodes.find((n) => n.id === 'start').data.snippet_version = '3';
+  const pinned = structuredClone(snapshot);
+  pinned.initialization.step.snippetVersion = 3;
+  const checks = auditOf(pinned, source);
+  assert.equal(checks.A0.passed, true, checks.A0.detail);
+  assert.equal(checks.P11.passed, true, checks.P11.detail);
+});
+
