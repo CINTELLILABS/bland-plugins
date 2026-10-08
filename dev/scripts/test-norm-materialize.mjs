@@ -642,7 +642,10 @@ test('exit reachability: a global step with a forwarding exit counts, a draft re
   const tFlow = viaTransfer.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow;
   tFlow.nodes.push({ id: 'handoff', type: 'transfer', position: { x: 0, y: 0 }, data: { name: 'Handoff', transferNumber: '+18005550100', warmTransfer: { enabled: true, voicemailTargetStepId: endPill.id } } });
   tFlow.edges.push({ id: 'to-handoff', source: tFlow.nodes.find((n) => n.type === 'start').id, target: 'handoff' });
-  assert.equal(auditOf(viaTransfer, SCREENER_SOURCE).A1.passed, true, auditOf(viaTransfer, SCREENER_SOURCE).A1.detail);
+  // (A transfer inside Start is itself a core-logic A1 failure; the exit is what this asserts.)
+  const viaTransferChecks = auditOf(viaTransfer, SCREENER_SOURCE);
+  assert.doesNotMatch(viaTransferChecks.A1.detail, /no exit pill/);
+  assert.equal(viaTransferChecks.A3.passed, true, viaTransferChecks.A3.detail);
 });
 
 test('A0/P11: a numeric-string source pin matches the same numeric version', () => {
