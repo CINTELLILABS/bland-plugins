@@ -626,6 +626,11 @@ test('exit reachability: a global step with a forwarding exit counts, a draft re
   returningFlow.nodes.push({ id: 'aside', type: 'prompt', position: { x: 0, y: 0 }, data: { name: 'Aside', prompt: 'Answer, then resume.', settings: { global: { isGlobal: true, label: 'Question', description: 'The lead asks something.', returnMode: 'previous', forwardingNode: '' } } } });
   returningFlow.edges.push({ id: 'aside-exit', source: 'aside', target: endPill.id });
   assert.equal(auditOf(returning, SCREENER_SOURCE).A1.passed, false);
+  // A manual global keeps its own drawn edges live, so its edge to the exit is a route.
+  const manual = structuredClone(returning);
+  const aside = manual.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow.nodes.find((n) => n.id === 'aside');
+  aside.data.settings.global.returnMode = 'manual';
+  assert.equal(auditOf(manual, SCREENER_SOURCE).A1.passed, true, auditOf(manual, SCREENER_SOURCE).A1.detail);
 });
 
 test('A0/P11: a numeric-string source pin matches the same numeric version', () => {

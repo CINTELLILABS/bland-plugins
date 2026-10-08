@@ -579,15 +579,18 @@ function main() {
 			}
 			const seen = new Set();
 			// A step-level global can fire while any step is active, but what it
-			// reaches depends on its returnMode: "redirect" lands on its
-			// forwardingNode (a real route from anywhere in the flow); "previous"
-			// returns to the interrupted step, so its drawn edges are never taken
-			// from the selection. Seed from the start pill and from every
-			// redirect-global's forwarding node — never from the global itself.
+			// reaches depends on its returnMode (SERVER toPathway.ts globalNodeData):
+			// "redirect" lands on its forwardingNode; "manual" disables the
+			// auto-return so the global's own drawn edges route onward; "previous"
+			// returns to the interrupted step, so its drawn edges are never taken.
+			// Seed from the start pill, every manual global, and every
+			// redirect-global's forwarding node.
 			const queue = fnodes.filter((x) => x.type === "start").map((x) => x.id);
 			for (const x of fnodes) {
 				const g = (((x.data || {}).settings || {}).global) || {};
-				if (g.isGlobal === true && g.returnMode === "redirect" && byFlowId.has(g.forwardingNode)) queue.push(g.forwardingNode);
+				if (g.isGlobal !== true) continue;
+				if (g.returnMode === "manual") queue.push(x.id);
+				else if (g.returnMode === "redirect" && byFlowId.has(g.forwardingNode)) queue.push(g.forwardingNode);
 			}
 			while (queue.length) {
 				const id = queue.shift();
