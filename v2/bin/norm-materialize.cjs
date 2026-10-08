@@ -22,7 +22,7 @@
  *   "hubPrompt": "<hub routing prompt; a scenario directory is auto-appended>",
  *   "sources": [{"file": "v1-export.json", "prefix": "sa"}, ...],
  *   "persona": "persona.json",                    // optional
- *   "entryScenario": "<scenario name>",           // exception: inbound re-point for connection gating (screener / IVR / voicemail / availability); needs entryScenarioReason; no Knowledge Base members
+ *   "entryScenario": "<scenario name>",           // exception: inbound re-point for connection gating (screener / IVR / voicemail / availability); needs entryScenarioReason; no Knowledge Base / Transfer Call members
  *   "entryScenarioReason": "<≥60 chars: why initialization + hub cannot open this call>",
  *   "initializationNode": "<legacy id — which isStart Custom Code runs at connect when merged sources have several>",
  *   "scenarios": [{"name","entry":{"label","description"},"rule","members":[ids or unique id prefixes],
@@ -589,10 +589,10 @@ for (const sc of plan.scenarios || []) {
 		if (reason.length < 60) {
 			throw new Error(`entryScenario "${sc.name}": Start is the Initialization code step, not a scenario. Re-pointing the inbound edge needs plan.entryScenarioReason (≥60 chars) naming the connection gating it does (screener / IVR / voicemail / availability) — or drop entryScenario and let the hub open the call`);
 		}
-		const CORE_LOGIC_LEGACY = new Set(["Knowledge Base"]);
+		const CORE_LOGIC_LEGACY = new Set(["Knowledge Base", "Transfer Call"]);
 		const core = members.map((id) => nodeById.get(id)).filter((n) => n && CORE_LOGIC_LEGACY.has(n.type));
 		if (core.length) {
-			throw new Error(`entryScenario "${sc.name}" holds call-body node(s): ${core.map((n) => `${str((n.data || {}).name) || n.id} (${n.type})`).join(", ")}. Start handles connection gating only (screener / IVR / voicemail / availability); knowledge answers and every caller-chosen outcome are hub children`);
+			throw new Error(`entryScenario "${sc.name}" holds call-body node(s): ${core.map((n) => `${str((n.data || {}).name) || n.id} (${n.type})`).join(", ")}. Start handles connection gating only (screener / IVR / voicemail / availability); knowledge answers, transfers and every caller-chosen outcome are hub children`);
 		}
 	}
 	const startPill = { id: randomUUID(), type: "start", position: { x: 0, y: 0 }, data: {} };

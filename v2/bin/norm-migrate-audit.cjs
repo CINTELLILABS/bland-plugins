@@ -522,7 +522,7 @@ function main() {
 		const STEP_TYPES = new Set(["prompt", "knowledge", "tool", "webhook", "customCode", "sms", "transfer", "smsOtp", "identityQuestions", "pressButton", "waitForResponse", "transferPathway", "playAudio", "route", "channel", "ivr", "scheduling", "twilioFlowRedirect", "amazonConnect", "resetSttLanguage", "end-call"]);
 		// Step types that are the call BODY — never connection gating. A Start
 		// scenario holding one of these is the whole call hanging off Start.
-		const CORE_LOGIC = new Set(["knowledge", "scheduling", "smsOtp", "identityQuestions", "transferPathway"]);
+		const CORE_LOGIC = new Set(["knowledge", "scheduling", "smsOtp", "identityQuestions", "transfer", "transferPathway"]);
 		const flowSteps = (n) => {
 			if (n.type === "scenario") return [n];
 			const f = (n.data || {}).flow;
@@ -574,10 +574,10 @@ function main() {
 			const share = totalSteps ? st.length / totalSteps : 0;
 			const hasExit = entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
 			const problems = [];
-			if (core.length) problems.push(`core-logic step(s) in Start: ${core.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")} — knowledge, scheduling, verification and pathway transfers are hub children`);
+			if (core.length) problems.push(`core-logic step(s) in Start: ${core.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")} — knowledge, scheduling, verification and transfers (department handoffs included) are hub children`);
 			if (st.length > 4 && share > 1 / 3) problems.push(`${st.length}/${totalSteps} steps (${Math.round(share * 100)}%) in Start — budget is a third; Start handles screeners / voicemail / IVR / availability, the call body is the hub's`);
 			if (!hasExit) problems.push("no exit pill — the call can never reach the hub");
-			check("A1", "Start scenario holds only connection gating (no knowledge/scheduling/verification/pathway-transfer steps; ≤ a third of steps; exits to hub)", problems.length === 0, `"${name(entryTarget)}": ${problems.join("; ")}`);
+			check("A1", "Start scenario holds only connection gating (no knowledge/scheduling/verification/transfer steps; ≤ a third of steps; exits to hub)", problems.length === 0, `"${name(entryTarget)}": ${problems.join("; ")}`);
 		} else {
 			check("A1", "Start scenario holds only connection gating", true, "inbound edge targets the hub");
 		}

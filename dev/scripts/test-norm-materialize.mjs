@@ -382,70 +382,110 @@ test('real v2 compiler preserves migrated transfer behavior', {
 });
 
 // A v1 outbound pathway: start code → call screener → (voicemail | greeting) →
-// qualify → FAQ (knowledge) → end. Builds with the given plan and returns the
-// snapshot plus the audit's checks by id; a builder refusal surfaces as the
-// thrown error's stderr text.
+// qualify → FAQ (knowledge) → end, plus a dealership transfer. Hold conditions
+// name the escapes the source handles (voicemail, screener, call back) so A4
+// is satisfiable.
+const SCREENER_SOURCE = {
+  nodes: [
+    { id: 'start', type: 'Custom Code', data: { name: 'Set Dealer Name', isStart: true, snippet_id: 'snip-dealer', code: 'return { dealer: "Acme" };' } },
+    { id: 'screener', type: 'Default', data: { name: 'Call Screener', prompt: 'If an automated screener answers, say who you are and why you are calling.', condition: 'A human has picked up, voicemail answered, the automated screener asked for a response, or the person asked for a call back or to be transferred.' } },
+    { id: 'vm', type: 'End Call', data: { name: 'Leave Voicemail', prompt: 'Leave a short voicemail asking for a call back.' } },
+    { id: 'greeting', type: 'Default', data: { name: 'Greeting', prompt: 'Greet the lead and ask if now is a good time.', condition: 'The lead said whether now is a good time, asked for a call back or a transfer, or voicemail / an automated screener answered.' } },
+    { id: 'qualify', type: 'Default', data: { name: 'Qualify', prompt: 'Ask which vehicle they are interested in.' } },
+    { id: 'faq', type: 'Knowledge Base', data: { name: 'FAQ', kbIds: ['kb-1'] } },
+    { id: 'handoff', type: 'Transfer Call', data: { name: 'Transfer to Dealership', transferNumber: '+18005550100' } },
+    { id: 'done', type: 'End Call', data: { name: 'Done', prompt: 'Thank them and say goodbye.' } },
+  ],
+  edges: [
+    { id: 'e0', source: 'start', target: 'screener', data: { label: 'next' } },
+    { id: 'e1', source: 'screener', target: 'vm', data: { label: 'Voicemail answered.' } },
+    { id: 'e2', source: 'screener', target: 'greeting', data: { label: 'A human answered.' } },
+    { id: 'e3', source: 'greeting', target: 'qualify', data: { label: 'Now is a good time.' } },
+    { id: 'e4', source: 'qualify', target: 'faq', data: { label: 'They have a question.' } },
+    { id: 'e5', source: 'qualify', target: 'handoff', data: { label: 'They want to speak to the dealership.' } },
+    { id: 'e6', source: 'faq', target: 'done', data: { label: 'Question answered.' } },
+  ],
+};
+function auditOf(snapshot, source) {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-audit-test-'));
+  try {
+    writeFileSync(join(dir, 'source.json'), JSON.stringify(source));
+    writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(snapshot));
+    const out = execFileSync(process.execPath, [audit, '--snapshot', join(dir, 'snapshot.json'), '--source', join(dir, 'source.json')]).toString();
+    return Object.fromEntries(JSON.parse(out).checks.map((c) => [c.id, c]));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+// Builds SCREENER_SOURCE with the given plan; returns the snapshot and the
+// audit's checks by id. A builder refusal surfaces as the thrown error's stderr.
 function buildScreener(plan) {
   const dir = mkdtempSync(join(tmpdir(), 'norm-materialize-test-'));
   try {
-    writeFileSync(join(dir, 'source.json'), JSON.stringify({
-      nodes: [
-        { id: 'start', type: 'Custom Code', data: { name: 'Set Dealer Name', isStart: true, snippet_id: 'snip-dealer', code: 'return { dealer: "Acme" };' } },
-        { id: 'screener', type: 'Default', data: { name: 'Call Screener', prompt: 'If an automated screener answers, say who you are and why you are calling.', condition: 'A human has picked up.' } },
-        { id: 'vm', type: 'End Call', data: { name: 'Leave Voicemail', prompt: 'Leave a short voicemail asking for a call back.' } },
-        { id: 'greeting', type: 'Default', data: { name: 'Greeting', prompt: 'Greet the lead and ask if now is a good time.', condition: 'The lead confirmed they can talk.' } },
-        { id: 'qualify', type: 'Default', data: { name: 'Qualify', prompt: 'Ask which vehicle they are interested in.', condition: 'The lead named a vehicle.' } },
-        { id: 'faq', type: 'Knowledge Base', data: { name: 'FAQ', kbIds: ['kb-1'] } },
-        { id: 'done', type: 'End Call', data: { name: 'Done', prompt: 'Thank them and say goodbye.' } },
-      ],
-      edges: [
-        { id: 'e0', source: 'start', target: 'screener', data: { label: 'next' } },
-        { id: 'e1', source: 'screener', target: 'vm', data: { label: 'Voicemail answered.' } },
-        { id: 'e2', source: 'screener', target: 'greeting', data: { label: 'A human answered.' } },
-        { id: 'e3', source: 'greeting', target: 'qualify', data: { label: 'Now is a good time.' } },
-        { id: 'e4', source: 'qualify', target: 'faq', data: { label: 'They have a question.' } },
-        { id: 'e5', source: 'faq', target: 'done', data: { label: 'Question answered.' } },
-      ],
-    }));
+    writeFileSync(join(dir, 'source.json'), JSON.stringify(SCREENER_SOURCE));
     writeFileSync(join(dir, 'plan.json'), JSON.stringify({
       displayName: 'Synthetic', systemPrompt: 'Synthetic test only', sources: [{ file: 'source.json' }], ...plan,
     }));
     execFileSync(process.execPath, [builder, '--plan', join(dir, 'plan.json'), '--out', join(dir, 'snapshot.json')], { stdio: ['ignore', 'pipe', 'pipe'] });
-    const out = execFileSync(process.execPath, [audit, '--snapshot', join(dir, 'snapshot.json'), '--source', join(dir, 'source.json')]).toString();
-    const checks = Object.fromEntries(JSON.parse(out).checks.map((c) => [c.id, c]));
-    return { snapshot: JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8')), checks };
+    const snapshot = JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8'));
+    return { snapshot, checks: auditOf(snapshot, SCREENER_SOURCE) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
 const REASON = 'Outbound dials hit call screeners and voicemail before any human; answer detection must run before the hub greets.';
 const entry = { label: 'Answer detection', description: 'Every call starts here.' };
+const BODY = [
+  { name: 'Qualify', entry: { label: 'Qualify', description: 'Human answered and can talk' }, members: ['greeting', 'qualify'] },
+  { name: 'FAQ', entry: { label: 'FAQ', description: 'The lead has a question' }, members: ['faq', 'done'] },
+  { name: 'Transfer to Dealership', entry: { label: 'Transfer', description: 'The lead wants the dealership' }, members: ['handoff'] },
+];
 
-test('a Start scenario may speak to handle screeners and voicemail (A1 passes, initialization carried)', () => {
+test('a Start scenario may speak to handle screeners and voicemail (full architecture audit passes, initialization carried)', () => {
   const { snapshot, checks } = buildScreener({
     entryScenario: 'Answer detection', entryScenarioReason: REASON,
-    scenarios: [
-      { name: 'Answer detection', entry, members: ['screener', 'vm'] },
-      { name: 'Qualify', entry: { label: 'Qualify', description: 'Human answered and can talk' }, members: ['greeting', 'qualify'] },
-      { name: 'FAQ', entry: { label: 'FAQ', description: 'The lead has a question' }, members: ['faq', 'done'] },
-    ],
+    scenarios: [{ name: 'Answer detection', entry, members: ['screener', 'vm'] }, ...BODY],
   });
   assert.equal(snapshot.initialization.enabled, true);
   assert.equal(snapshot.initialization.step.snippetId, 'snip-dealer');
-  assert.equal(checks.A0.passed, true, checks.A0.detail);
-  assert.equal(checks.A1.passed, true, checks.A1.detail);
-  assert.equal(checks.A2.passed, true, checks.A2.detail);
+  for (const id of ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6']) assert.equal(checks[id].passed, true, `${id}: ${checks[id].detail}`);
 });
 
-test('the builder refuses a Knowledge Base member in the Start scenario', () => {
-  assert.throws(() => buildScreener({
+test('A1 rejects every call-body step type inside a small Start (budget cannot hide it)', () => {
+  const { snapshot } = buildScreener({
     entryScenario: 'Answer detection', entryScenarioReason: REASON,
-    scenarios: [
-      { name: 'Answer detection', entry, members: ['screener', 'vm', 'faq'] },
-      { name: 'Qualify', entry: { label: 'Qualify', description: 'Human answered' }, members: ['greeting', 'qualify'] },
-      { name: 'Done', entry: { label: 'Done', description: 'Wrap up' }, members: ['done'] },
-    ],
-  }), (err) => /call-body node\(s\): FAQ \(Knowledge Base\)/.test(String(err.stderr)));
+    scenarios: [{ name: 'Answer detection', entry, members: ['screener', 'vm'] }, ...BODY],
+  });
+  const startFlow = snapshot.behavior.nodes.find((node) => node.type === 'complex-scenario' && node.data.name === 'Answer detection').data.flow;
+  const stepData = {
+    knowledge: { name: 'FAQ', kbIds: ['kb-1'] },
+    scheduling: { name: 'Book', prompt: 'Book a slot.' },
+    smsOtp: { name: 'OTP', prompt: 'Verify the code.' },
+    identityQuestions: { name: 'Verify', prompt: 'Confirm identity.' },
+    transfer: { name: 'Transfer to Dealership', transferNumber: '+18005550100' },
+    transferPathway: { name: 'Hand off', pathwayId: 'p-1' },
+  };
+  for (const [type, data] of Object.entries(stepData)) {
+    const injected = structuredClone(snapshot);
+    const flow = injected.behavior.nodes.find((node) => node.type === 'complex-scenario' && node.data.name === 'Answer detection').data.flow;
+    flow.nodes.push({ id: `injected-${type}`, type, position: { x: 0, y: 0 }, data });
+    assert.equal(startFlow.nodes.filter((node) => node.type !== 'start' && node.type !== 'end').length + 1 <= 4, true);
+    const checks = auditOf(injected, SCREENER_SOURCE);
+    assert.equal(checks.A1.passed, false, `${type} passed A1`);
+    assert.match(checks.A1.detail, new RegExp(`core-logic step\\(s\\) in Start: .*\\(${type}\\)`));
+  }
+});
+
+test('the builder refuses Knowledge Base and Transfer Call members in the Start scenario', () => {
+  for (const [member, label] of [['faq', 'FAQ \\(Knowledge Base\\)'], ['handoff', 'Transfer to Dealership \\(Transfer Call\\)']]) {
+    assert.throws(() => buildScreener({
+      entryScenario: 'Answer detection', entryScenarioReason: REASON,
+      scenarios: [
+        { name: 'Answer detection', entry, members: ['screener', 'vm', member] },
+        ...BODY.map((sc) => ({ ...sc, members: sc.members.filter((id) => id !== member) })).filter((sc) => sc.members.length > 0),
+      ],
+    }), (err) => new RegExp(`call-body node\\(s\\): ${label}`).test(String(err.stderr)), member);
+  }
 });
 
 test('a Start scenario holding the call body fails A1 on the step budget', () => {
@@ -454,8 +494,8 @@ test('a Start scenario holding the call body fails A1 on the step budget', () =>
     scenarios: [
       { name: 'Answer detection', entry, members: ['screener', 'vm', 'greeting', 'qualify', 'done'] },
       { name: 'FAQ', entry: { label: 'FAQ', description: 'The lead has a question' }, members: ['faq'] },
+      { name: 'Transfer to Dealership', entry: { label: 'Transfer', description: 'The lead wants the dealership' }, members: ['handoff'] },
     ],
-    endCalls: [{ name: 'Opt out', entry: { label: 'Opt out', description: 'The lead asks not to be called again' }, prompt: 'Confirm and say goodbye.' }],
   });
   assert.equal(checks.A1.passed, false);
   assert.match(checks.A1.detail, /budget is a third/);
@@ -464,9 +504,6 @@ test('a Start scenario holding the call body fails A1 on the step budget', () =>
 test('a Start scenario without a written reason is refused', () => {
   assert.throws(() => buildScreener({
     entryScenario: 'Answer detection',
-    scenarios: [
-      { name: 'Answer detection', entry, members: ['screener', 'vm'] },
-      { name: 'Qualify', entry: { label: 'Qualify', description: 'Human answered' }, members: ['greeting', 'qualify', 'faq', 'done'] },
-    ],
+    scenarios: [{ name: 'Answer detection', entry, members: ['screener', 'vm'] }, ...BODY],
   }), (err) => /entryScenarioReason/.test(String(err.stderr)));
 });
