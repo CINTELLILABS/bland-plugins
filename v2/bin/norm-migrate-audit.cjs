@@ -35,12 +35,16 @@ function check(id, name, passed, detail) {
 	checks.push({ id, name, passed: Boolean(passed), detail: detail || "" });
 }
 
-// Snippet pins arrive as numbers or numeric strings ("3" and 3 are the same version).
-function sameVersion(a, b) {
-	if (a === undefined || b === undefined) return true;
-	const na = Number(a);
-	const nb = Number(b);
-	return Number.isFinite(na) && Number.isFinite(nb) ? na === nb : String(a) === String(b);
+// Does the snapshot's pin (`got`) satisfy the source's (`want`)? Pins arrive
+// as numbers or numeric strings ("3" and 3 are the same version). An unpinned
+// source accepts anything; a pinned source needs the same version — a missing
+// snapshot version is not a match.
+function sameVersion(got, want) {
+	if (want === undefined || want === null || want === "") return true;
+	if (got === undefined || got === null || got === "") return false;
+	const ng = Number(got);
+	const nw = Number(want);
+	return Number.isFinite(ng) && Number.isFinite(nw) ? ng === nw : String(got) === String(want);
 }
 function loadJson(p) {
 	const raw = JSON.parse(fs.readFileSync(p, "utf8"));
