@@ -559,6 +559,11 @@ function main() {
 		// flow's edges and the step-level redirects the runtime can take (route
 		// and channel rules + fallback, response pathways on the step and its
 		// tools, STT-reset / scheduling-error jumps, a global's forwarding node)?
+		// Step types the compiler emits `settings` (and so a global trigger)
+		// for — SERVER toPathway.ts mapStepNode applies stepSettingsData only
+		// on these; a global flag on sms / smsOtp / amazonConnect never reaches
+		// the runtime.
+		const GLOBAL_CAPABLE = new Set(["prompt", "knowledge", "tool", "webhook", "customCode", "transfer", "identityQuestions", "pressButton", "waitForResponse", "transferPathway", "playAudio", "route", "channel", "ivr", "scheduling", "twilioFlowRedirect", "resetSttLanguage"]);
 		const flowReaches = (flow, goal) => {
 			const fnodes = Array.isArray((flow || {}).nodes) ? flow.nodes : [];
 			const fedges = Array.isArray((flow || {}).edges) ? flow.edges : [];
@@ -587,6 +592,7 @@ function main() {
 			// redirect-global's forwarding node.
 			const queue = fnodes.filter((x) => x.type === "start").map((x) => x.id);
 			for (const x of fnodes) {
+				if (!GLOBAL_CAPABLE.has(x.type)) continue;
 				const g = (((x.data || {}).settings || {}).global) || {};
 				if (g.isGlobal !== true) continue;
 				if (g.returnMode === "manual") queue.push(x.id);

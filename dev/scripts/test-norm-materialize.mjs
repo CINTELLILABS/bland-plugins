@@ -631,6 +631,12 @@ test('exit reachability: a global step with a forwarding exit counts, a draft re
   const aside = manual.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow.nodes.find((n) => n.id === 'aside');
   aside.data.settings.global.returnMode = 'manual';
   assert.equal(auditOf(manual, SCREENER_SOURCE).A1.passed, true, auditOf(manual, SCREENER_SOURCE).A1.detail);
+  // A global flag on a step type the compiler emits no settings for never reaches the runtime.
+  const smsGlobal = structuredClone(manual);
+  const smsNode = smsGlobal.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow.nodes.find((n) => n.id === 'aside');
+  smsNode.type = 'sms';
+  smsNode.data = { name: 'Aside', message: 'Hi', fromNumber: '', settings: smsNode.data.settings };
+  assert.equal(auditOf(smsGlobal, SCREENER_SOURCE).A1.passed, false);
 });
 
 test('A0/P11: a numeric-string source pin matches the same numeric version', () => {
