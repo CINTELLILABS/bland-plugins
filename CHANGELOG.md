@@ -1,5 +1,16 @@
 # Changelog
 
+## norm 1.8.1 – 2026-10-08
+
+- Migration audit, matched to the platform's own copy (SERVER #12015): a v1
+  node folded into the hub prompt (speech carried, no step of its own) still
+  owes its extraction variables (P14), knowledge-base ids (P15) and global
+  trigger (P16) — only a declared node drop excuses them; a declared node
+  drop now excuses the whole node. A1/A3 require the Start flow's exit pill
+  to be reachable from its start pill over edges, rules, response pathways
+  and fallbacks, not merely drawn. A0 compares the initialization snippet
+  version when the source pins one.
+
 ## norm 1.8.0 – 2026-10-07
 
 - Migration: a Start scenario (inbound edge re-pointed off the hub) is the
