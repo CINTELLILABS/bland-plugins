@@ -581,6 +581,8 @@ function main() {
 				for (const t of d.tools || []) for (const rp of (t || {}).responsePathways || []) add(x.id, (rp || {}).targetId);
 				add(x.id, d.targetNodeId);
 				add(x.id, d.errorFallbackNodeId);
+				// A warm transfer's "if agent unavailable → go to node" resume step (SERVER #11894).
+				add(x.id, ((d.warmTransfer || {}).voicemailTargetStepId));
 			}
 			const seen = new Set();
 			// A step-level global can fire while any step is active, but what it

@@ -637,6 +637,12 @@ test('exit reachability: a global step with a forwarding exit counts, a draft re
   smsNode.type = 'sms';
   smsNode.data = { name: 'Aside', message: 'Hi', fromNumber: '', settings: smsNode.data.settings };
   assert.equal(auditOf(smsGlobal, SCREENER_SOURCE).A1.passed, false);
+  // A warm transfer's resume-on-no-answer step is a route to the exit.
+  const viaTransfer = structuredClone(cut);
+  const tFlow = viaTransfer.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow;
+  tFlow.nodes.push({ id: 'handoff', type: 'transfer', position: { x: 0, y: 0 }, data: { name: 'Handoff', transferNumber: '+18005550100', warmTransfer: { enabled: true, voicemailTargetStepId: endPill.id } } });
+  tFlow.edges.push({ id: 'to-handoff', source: tFlow.nodes.find((n) => n.type === 'start').id, target: 'handoff' });
+  assert.equal(auditOf(viaTransfer, SCREENER_SOURCE).A1.passed, true, auditOf(viaTransfer, SCREENER_SOURCE).A1.detail);
 });
 
 test('A0/P11: a numeric-string source pin matches the same numeric version', () => {
