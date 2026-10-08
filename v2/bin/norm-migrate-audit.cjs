@@ -471,11 +471,14 @@ function main() {
 					if (!isDeclaredDrop(n)) missPrompt.push(`${d.name || n.id} — node not carried and not declared dropped (--dropped-tags {"node":"${String(n.id).slice(0, 8)}…"})`);
 					continue;
 				}
-				carriedNode.set(n.id, true);
 				// A DECLARED node drop excuses the whole node — its words may still
 				// appear (e.g. in the hub prompt) but the report dropped it and
-				// everything on it with a reason.
-				if (isDeclaredDrop(n)) continue;
+				// everything on it with a reason, its edges included (P13).
+				if (isDeclaredDrop(n)) {
+					carriedNode.set(n.id, false);
+					continue;
+				}
+				carriedNode.set(n.id, true);
 				// A node folded into the hub prompt (speech carried, no step of its
 				// own) keeps its words but has no step to hold an extraction
 				// variable; KB ids and global triggers are checked snapshot-wide.
@@ -556,14 +559,18 @@ function main() {
 				const d = x.data || {};
 				for (const r of d.rules || []) add(x.id, (r || {}).targetNodeId);
 				add(x.id, d.fallbackNodeId);
-				for (const rp of d.responsePathways || []) add(x.id, (rp || {}).targetNodeId);
+				// A step response-pathway row without a variable is a draft the
+				// compiler drops (toPathway.ts toStepResponsePathways) — not a route.
+				for (const rp of d.responsePathways || []) if (String(((rp || {}).variable) || "").trim()) add(x.id, (rp || {}).targetNodeId);
 				for (const t of d.tools || []) for (const rp of (t || {}).responsePathways || []) add(x.id, (rp || {}).targetId);
 				add(x.id, d.targetNodeId);
 				add(x.id, d.errorFallbackNodeId);
 				add(x.id, (((d.settings || {}).global) || {}).forwardingNode);
 			}
 			const seen = new Set();
-			const queue = fnodes.filter((x) => x.type === "start").map((x) => x.id);
+			// A step-level global is enterable without an incoming edge (the
+			// runtime selects it on its trigger), so it seeds the walk too.
+			const queue = fnodes.filter((x) => x.type === "start" || ((((x.data || {}).settings || {}).global) || {}).isGlobal === true).map((x) => x.id);
 			while (queue.length) {
 				const id = queue.shift();
 				if (seen.has(id)) continue;

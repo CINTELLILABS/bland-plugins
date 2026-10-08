@@ -570,3 +570,55 @@ test('A0 fails when initialization runs a different version of the start snippet
   assert.match(checks.A0.detail, /matches none/);
 });
 
+test('a declared node drop also releases its edge descriptions (P13)', () => {
+  const { snapshot } = buildScreener({
+    entryScenario: 'Answer detection', entryScenarioReason: REASON,
+    scenarios: [{ name: 'Answer detection', entry, members: ['screener', 'vm'] }, ...BODY],
+  });
+  const source = structuredClone(SCREENER_SOURCE);
+  source.edges.find((e) => e.id === 'e3').data.description = 'The lead confirmed now is a good time to talk.';
+  const folded = structuredClone(snapshot);
+  const qualify = folded.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Qualify').data.flow;
+  qualify.nodes = qualify.nodes.filter((n) => !(n.data && n.data.name === 'Greeting'));
+  qualify.edges = qualify.edges.filter((e) => qualify.nodes.some((n) => n.id === e.source) && qualify.nodes.some((n) => n.id === e.target));
+  const hub = folded.behavior.nodes.find((n) => n.type === 'agent');
+  hub.data.prompt = `${hub.data.prompt}\nGreet the lead and ask if now is a good time.`;
+  assert.equal(auditOf(folded, source).P13.passed, false);
+  const dir = mkdtempSync(join(tmpdir(), 'norm-audit-test-'));
+  try {
+    writeFileSync(join(dir, 'source.json'), JSON.stringify(source));
+    writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(folded));
+    writeFileSync(join(dir, 'drops.json'), JSON.stringify([{ node: 'Greeting', reason: 'the hub greets' }]));
+    const out = execFileSync(process.execPath, [audit, '--snapshot', join(dir, 'snapshot.json'), '--source', join(dir, 'source.json'), '--dropped-tags', join(dir, 'drops.json')]).toString();
+    assert.equal(Object.fromEntries(JSON.parse(out).checks.map((c) => [c.id, c])).P13.passed, true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('exit reachability: a global step with a forwarding exit counts, a draft response pathway does not', () => {
+  const { snapshot } = buildScreener({
+    entryScenario: 'Answer detection', entryScenarioReason: REASON,
+    scenarios: [{ name: 'Answer detection', entry, members: ['screener', 'vm'] }, ...BODY],
+  });
+  const cut = structuredClone(snapshot);
+  const start = cut.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow;
+  const endPill = start.nodes.find((n) => n.type === 'end');
+  start.edges = start.edges.filter((e) => e.target !== endPill.id);
+  // A draft tool-step row (no variable) pointing at the exit is not a route.
+  const draft = structuredClone(cut);
+  draft.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow.nodes.push({
+    id: 'lookup', type: 'tool', position: { x: 0, y: 0 }, data: { name: 'Lookup', toolId: 'TL-1', responsePathways: [{ id: 'rp', label: '', variable: '', operator: '==', value: '', targetNodeId: endPill.id }] },
+  });
+  const draftFlow = draft.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow;
+  draftFlow.edges.push({ id: 'to-lookup', source: draftFlow.nodes.find((n) => n.type === 'start').id, target: 'lookup' });
+  assert.equal(auditOf(draft, SCREENER_SOURCE).A1.passed, false);
+  // A global step (no incoming edge) that forwards to the exit is a real route.
+  const viaGlobal = structuredClone(cut);
+  viaGlobal.behavior.nodes.find((n) => n.type === 'complex-scenario' && n.data.name === 'Answer detection').data.flow.nodes.push({
+    id: 'escape', type: 'prompt', position: { x: 0, y: 0 },
+    data: { name: 'Escape', prompt: 'Say goodbye.', settings: { global: { isGlobal: true, label: 'Opt out', description: 'The lead opts out.', returnMode: 'redirect', forwardingNode: endPill.id } } },
+  });
+  assert.equal(auditOf(viaGlobal, SCREENER_SOURCE).A1.passed, true, auditOf(viaGlobal, SCREENER_SOURCE).A1.detail);
+});
+
