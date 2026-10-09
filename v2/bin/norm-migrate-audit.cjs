@@ -520,8 +520,9 @@ function main() {
 	// machine half of /norm:validate 20–25; the Stop hook blocks on them.
 	{
 		const STEP_TYPES = new Set(["prompt", "knowledge", "tool", "webhook", "customCode", "sms", "transfer", "smsOtp", "identityQuestions", "pressButton", "waitForResponse", "transferPathway", "playAudio", "route", "channel", "ivr", "scheduling", "twilioFlowRedirect", "amazonConnect", "resetSttLanguage", "end-call"]);
-		const SPEAKING = new Set(["prompt", "knowledge", "waitForResponse", "end-call"]);
-		const PRE_SPEECH = new Set(["customCode", "route", "webhook", "tool"]);
+		// Step types that are the call BODY — never connection gating. A Start
+		// scenario holding one of these is the whole call hanging off Start.
+		const CORE_LOGIC = new Set(["knowledge", "scheduling", "smsOtp", "identityQuestions", "transfer", "transferPathway"]);
 		const flowSteps = (n) => {
 			if (n.type === "scenario") return [n];
 			const f = (n.data || {}).flow;
@@ -557,26 +558,28 @@ function main() {
 			}
 		}
 
-		// A1 — a Start scenario (inbound edge re-pointed off the hub) is the
-		// rare exception and may hold ONLY pre-speech work: code, deterministic
-		// routes, webhooks, tools. Zero speaking steps — the greeting is the
-		// hub's. ≤ 1/5 of all steps, and it must exit to the hub.
+		// A1 — a Start scenario (inbound edge re-pointed off the hub) handles
+		// CONNECTION gating only: call screeners, IVR / menu navigation,
+		// voicemail detection and the voicemail message, carrier intercepts,
+		// "is now a good time" availability checks, mid-call-drop resume. It
+		// may speak for that. The call body — questions, offers, knowledge
+		// answers, scheduling, verification, department transfers, every
+		// caller-chosen outcome — belongs to hub children. Mechanically: no
+		// core-logic step types, ≤ 1/3 of all steps (a Start of ≤4 steps is
+		// always within budget — small pathways skew the share), and an exit
+		// to the hub.
 		if (entryTarget && entryTarget.type !== "agent") {
 			const st = flowSteps(entryTarget);
-			// A static "." prompt says nothing — it is the silent-router idiom, not speech.
-			const isSilent = (x) => x.type === "prompt" && (x.data || {}).useStaticText === true && String((x.data || {}).prompt || "").trim() === ".";
-			const speaking = st.filter((x) => SPEAKING.has(x.type) && !isSilent(x));
-			const foreign = st.filter((x) => !PRE_SPEECH.has(x.type) && !SPEAKING.has(x.type));
+			const core = st.filter((x) => CORE_LOGIC.has(x.type));
 			const share = totalSteps ? st.length / totalSteps : 0;
 			const hasExit = entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
 			const problems = [];
-			if (speaking.length) problems.push(`${speaking.length} speaking step(s) (${speaking.map(name).slice(0, 4).join(", ")}) — nothing speaks before the hub; the greeting is the hub's`);
-			if (foreign.length) problems.push(`non-pre-speech step(s): ${foreign.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")}`);
-			if (share > 0.2) problems.push(`${st.length}/${totalSteps} steps (${Math.round(share * 100)}%) in Start — budget is 20%`);
+			if (core.length) problems.push(`core-logic step(s) in Start: ${core.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")} — knowledge, scheduling, verification and transfers (department handoffs included) are hub children`);
+			if (st.length > 4 && share > 1 / 3) problems.push(`${st.length}/${totalSteps} steps (${Math.round(share * 100)}%) in Start — budget is a third; Start handles screeners / voicemail / IVR / availability, the call body is the hub's`);
 			if (!hasExit) problems.push("no exit pill — the call can never reach the hub");
-			check("A1", "Start scenario holds only pre-speech work (0 speaking steps; code/route/webhook/tool only; ≤20% of steps; exits to hub)", problems.length === 0, `"${name(entryTarget)}": ${problems.join("; ")}`);
+			check("A1", "Start scenario holds only connection gating (no knowledge/scheduling/verification/transfer steps; ≤ a third of steps; exits to hub)", problems.length === 0, `"${name(entryTarget)}": ${problems.join("; ")}`);
 		} else {
-			check("A1", "Start scenario holds only pre-speech work", true, "inbound edge targets the hub");
+			check("A1", "Start scenario holds only connection gating", true, "inbound edge targets the hub");
 		}
 
 		// A2 — intents are hub children: besides the Start scenario there must
