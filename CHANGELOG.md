@@ -1,5 +1,26 @@
 # Changelog
 
+## norm 1.9.0 – 2026-10-08
+
+- Add the analytics-cohorts skill for conversation cohorts: the `where`
+  predicate grammar (node shapes, ops by type class, value rules, limits,
+  every refusal message with its fix), the cohort API contract (create, poll,
+  ids paging, expiry, window rules, role and rate limits, the other predicate
+  keys), what a leaf means (one existence test per joined leaf, `not` as "no
+  such row", window binding, the nine outcomes in business words, minutes for
+  `call_length`, case-sensitive `contains`), light and heavy cost classes,
+  worked prompts, a generated table and column reference, and an offline
+  validator that applies the API's `where` rules message for message.
+  The page opens the Conversations list itself once a cohort is ready.
+- Add a customer-metrics roadmap reference so a metric request before the
+  routes land gets a probe and an honest answer, with every unverified field
+  marked.
+- Extend `/norm:analytics` with a cohort branch ("show me the calls where…",
+  "how many calls…") beside the Sankey branch.
+- Add `dev/SKILL-AUTHORING.md`, the guide to building a skill that triggers
+  and works in Claude Code and Codex, and a cohorts regression rubric under
+  `dev/benchmarks`.
+
 ## norm 1.8.1 – 2026-10-08
 
 - Migration audit, matched to the platform's own copy (SERVER #12015): a v1
