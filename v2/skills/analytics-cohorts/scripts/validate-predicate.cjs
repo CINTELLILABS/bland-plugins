@@ -288,15 +288,20 @@ function predicateCostClass(raw) {
 
 // Keys of a cohort request body and of its `predicate` object. Neither set
 // overlaps a predicate node's keys (and, or, not, col, op, value), so a file
-// carrying any of them is a request or a predicate, never a bare node.
+// carrying only wrapper keys is a request or a predicate, and a file carrying
+// any node key is the bare node itself, whatever else it carries: a node with
+// a stray `day` beside its `col` is a malformed node to refuse, not a
+// predicate with no `where`.
 const REQUEST_KEYS = ['agent_key', 'window', 'predicate'];
 const PREDICATE_KEYS = ['metric', 'outcomes', 'hour_utc', 'day', 'waypoint', 'disposition', 'eligible_for_scoring', 'sampling', 'where'];
+const NODE_KEYS = ['and', 'or', 'not', 'col', 'op', 'value'];
 
 // Find the `where` node inside whatever the file holds, in this order:
-//   1. a whole cohort request (any of REQUEST_KEYS): its `predicate.where`;
-//   2. a predicate object (any of PREDICATE_KEYS): its `where`;
-//   3. an empty object `{}`: an empty predicate, so no `where`;
-//   4. anything else: the bare `where` node itself.
+//   1. anything carrying a node key: the bare `where` node itself;
+//   2. a whole cohort request (any of REQUEST_KEYS): its `predicate.where`;
+//   3. a predicate object (any of PREDICATE_KEYS): its `where`;
+//   4. an empty object `{}`: an empty predicate, so no `where`;
+//   5. anything else: the bare `where` node itself.
 // Returns { where } when there is one to check, { absent: true } when there
 // is none (valid: `where` is optional, and an empty predicate means every
 // conversation in the window), or { violation } when `predicate` itself is
@@ -306,6 +311,7 @@ function locateWhere(document) {
   if (!isPlainObject(document)) return {where: document};
   const keys = Object.keys(document);
   if (keys.length === 0) return {absent: true};
+  if (keys.some(key => NODE_KEYS.includes(key))) return {where: document};
   if (keys.some(key => REQUEST_KEYS.includes(key))) {
     if (!hasOwn(document, 'predicate')) return {absent: true};
     if (!isPlainObject(document.predicate)) return {violation: {path: 'predicate', message: 'must be an object'}};

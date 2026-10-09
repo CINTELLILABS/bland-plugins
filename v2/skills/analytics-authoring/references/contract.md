@@ -136,5 +136,6 @@ Attached target: pathway "Conversation Flow, Simplified" id=<agent id> context={
 - `pathway`: the agent id, the page's window and the view the user is looking
   at. Use them; skip the page read.
 - `stage`: one group of the published definition (`id` is the group id,
-  `context` carries the agent id and window). Change that group only and keep
-  every other group's id, members and stage.
+  `context` carries the agent id and window). Keep unrelated groups unchanged.
+  For a requested move or merge, make only the related membership changes and
+  renumbering needed to keep members unique and stages dense from 1.

@@ -98,6 +98,17 @@ test('names the offending node by its path and reports every refusal', () => {
   ]);
 });
 
+test('a node carrying a stray wrapper key is checked as a node and refused, not read as a predicate with no where', () => {
+  const mixed = {col: 'call_length', op: '>=', value: 5, day: '2026-01-01'};
+  assert.deepEqual(locateWhere(mixed), {where: mixed});
+  const result = check(mixed);
+  assert.equal(result.valid, false);
+  assert.ok(result.violations.some(violation => violation.path === 'where.day'), JSON.stringify(result.violations));
+  // The same key on a real predicate object still reads as its `where`.
+  assert.deepEqual(locateWhere({day: '2026-01-01'}), {absent: true});
+  assert.deepEqual(locateWhere({day: '2026-01-01', where: {col: 'call_length', op: '>=', value: 5}}), {where: {col: 'call_length', op: '>=', value: 5}});
+});
+
 test('honours a custom root', () => {
   assert.deepEqual(validatePredicate({and: [leaf('to', 'is_null')]}, 'predicate.where'), [
     {path: 'predicate.where.and[0].col', message: 'denied column (may not be used in a predicate): calls.to'},
