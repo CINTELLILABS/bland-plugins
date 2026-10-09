@@ -170,3 +170,19 @@ mode the page hides its own filters.
 | 409 | `COHORT_NOT_READY` | Ids were read before `ready`. Keep polling status. |
 | 429 | `TOO_MANY_REQUESTS` | More than 20 creates in 60 s for this caller. Wait a minute before one more attempt. |
 | 503 | `COHORT_START_FAILED` | The build could not start. The cohort row is marked `failed`. One later resend is reasonable. |
+
+## Attached target
+
+A dashboard turn can begin with one preface line, written by the page, for
+example:
+
+```text
+Attached target: cohort "Contained, Oct 3" id=<cohort id> context={"request":{"agent_key":"<agent id>","window":{"start":"…","end":"…"},"predicate":{"outcomes":["contained"],"day":"2026-10-03"}}}
+```
+
+- `cohort`: `context.request` is the request that built the selection the
+  user is looking at. Build the new cohort from that request plus the user's
+  extra condition as `predicate.where`; never widen the window or drop a key
+  the request had.
+- `pathway` and `stage` targets belong to the Sankey skill
+  (analytics-authoring).

@@ -123,3 +123,18 @@ There is no preview route. Preview is: PUT the pending draft, then
 `GET …/pathway?view=simple&layout=stages&definition=<pending id>`. Publish only
 after the user has seen what they asked for when the change is large or the
 request was ambiguous.
+
+## Attached target
+
+A dashboard turn can begin with one preface line, written by the page, for
+example:
+
+```text
+Attached target: pathway "Conversation Flow, Simplified" id=<agent id> context={"window":30,"view":"simple"}
+```
+
+- `pathway`: the agent id, the page's window and the view the user is looking
+  at. Use them; skip the page read.
+- `stage`: one group of the published definition (`id` is the group id,
+  `context` carries the agent id and window). Change that group only and keep
+  every other group's id, members and stage.

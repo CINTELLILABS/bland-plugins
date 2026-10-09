@@ -13,10 +13,16 @@ call columns. Use the [Sankey definition](../analytics-authoring/SKILL.md) to
 change how journeys are drawn. Use [dispositions](../evaluations/references/dispositions.md)
 when the condition is a judgement about what was said.
 
-Read the [grammar](references/grammar.md) before writing a predicate and the
-[contract](references/contract.md) before the first request. The usable
-columns are in [tables](references/tables.md); what a leaf means is in
+Read the [grammar](references/grammar.md) before writing a predicate, the
+[contract](references/contract.md) before the first request, the usable
+columns in [tables](references/tables.md), and what a leaf means in
 [semantics](references/semantics.md).
+
+## Attached target
+
+An `Attached target:` preface line with a `cohort` target carries the request
+that built the selection on screen; build from it plus the user's condition
+([contract](references/contract.md#attached-target)).
 
 ## Workflow
 
@@ -33,21 +39,19 @@ columns are in [tables](references/tables.md); what a leaf means is in
 4. **Create** with `call_bland_api` POST `/v2/analytics/cohorts`, body
    `{ "agent_key": "<agent>", "window": { "start": "…", "end": "…" }, "predicate": { … } }`.
    A 202 returns `{ id, status: "building" }`.
-5. **Poll** with `bland_api_get` on `/v2/analytics/cohorts/<id>`. Wait a few
-   seconds between the first reads, then about 15 seconds. Stop at `ready` or
-   `failed`. A light predicate on a 30-day window usually takes seconds. A
-   heavy one can take minutes.
+5. **Poll** `bland_api_get` on `/v2/analytics/cohorts/<id>`: a few seconds
+   between the first reads, then about 15. Stop at `ready` or `failed`. Light
+   predicates take seconds; heavy ones can take minutes.
 6. **Report** `size`, `visible_size` and `truncated`, and say in words what
-   the predicate selected. In a connected dashboard session the
-   Conversations page opens the list by itself; never ask for a reload.
-   Standalone, there is no page: give `/dashboard/conversations?cohort=<id>`
-   and say nothing was opened.
+   the predicate selected. In a connected dashboard session the Conversations
+   page opens the list itself; never ask for a reload. Standalone, give
+   `/dashboard/conversations?cohort=<id>` and say nothing was opened.
 7. **Ids on request only.** Page `/v2/analytics/cohorts/<id>/ids` when the user
    wants the ids, for example to start a judge run
    ([evaluations](../evaluations/SKILL.md)).
 
-Use the two API tools directly. Never script fetch or search the docs for
-these routes; the contract is here.
+Use the two API tools directly; never script fetch or search the docs for
+these routes.
 
 ## Refusals
 
@@ -67,7 +71,7 @@ again, and resend. Every message and its fix is in the
 
 ## What this cannot express
 
-Say the rule and hand off. Never approximate with a lookalike predicate.
+Say the rule and hand off; never approximate with a lookalike predicate.
 
 - **One row satisfying two conditions on a joined table.** Each joined leaf is
   its own `EXISTS`. Two leaves on one table can match different rows.

@@ -10,9 +10,14 @@ The Sankey on an agent's Analytics page folds real traffic through a
 (nodes and tools) it contains. You change the chart by publishing a new
 definition. You never change the agent, its versions or its deployment.
 
-Read [concepts](references/concepts.md) before your first design,
-[the contract](references/contract.md) before any write, and
-[rendering](references/rendering.md) before promising what the user will see.
+Read [concepts](references/concepts.md) before designing, [the
+contract](references/contract.md) before writing, and
+[rendering](references/rendering.md) before promising what the user sees.
+
+## Attached target
+
+An `Attached target:` preface line names the agent, window and view, or one
+stage to change alone ([contract](references/contract.md#attached-target)).
 
 ## Questions versus changes
 
@@ -71,12 +76,11 @@ searches or other API families.
 - A definition regroups, renames and reorders compiled waypoints. It cannot add
   waypoints, change terminals, or classify calls by anything but the waypoints
   they visited.
-- The three terminals (completed by AI, transferred, hung up) are the engine's
-  fixed vocabulary. Splitting one by reason is a dispositions task.
+- The three terminals (completed by AI, transferred, hung up) are fixed.
+  Splitting one by reason is a dispositions task.
 - Edits apply to the production version's structure. A promotion that changes
   the node or tool set changes the fingerprint; a published definition carries
   forward only when every member still exists.
-- Read-only or local-only instructions cover every write here, including a
-  pending save. Say what you would have written instead.
+- Read-only instructions cover a pending save too.
 
 Worked prompts: [examples](references/examples.md).
