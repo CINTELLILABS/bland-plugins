@@ -35,6 +35,17 @@ function check(id, name, passed, detail) {
 	checks.push({ id, name, passed: Boolean(passed), detail: detail || "" });
 }
 
+// Does the snapshot's pin (`got`) satisfy the source's (`want`)? Pins arrive
+// as numbers or numeric strings ("3" and 3 are the same version). An unpinned
+// source accepts anything; a pinned source needs the same version — a missing
+// snapshot version is not a match.
+function sameVersion(got, want) {
+	if (want === undefined || want === null || want === "") return true;
+	if (got === undefined || got === null || got === "") return false;
+	const ng = Number(got);
+	const nw = Number(want);
+	return Number.isFinite(ng) && Number.isFinite(nw) ? ng === nw : String(got) === String(want);
+}
 function loadJson(p) {
 	const raw = JSON.parse(fs.readFileSync(p, "utf8"));
 	return raw && raw.data && typeof raw.data === "object" ? raw.data : raw;
@@ -431,7 +442,7 @@ function main() {
 		const initStep = (snap.initialization || {}).step || null;
 		const initCarries = (d) => {
 			if (!initStep) return false;
-			if (initStep.snippetId && d.snippet_id) return initStep.snippetId === d.snippet_id && (initStep.snippetVersion === undefined || d.snippet_version === undefined || initStep.snippetVersion === d.snippet_version);
+			if (initStep.snippetId && d.snippet_id) return initStep.snippetId === d.snippet_id && sameVersion(initStep.snippetVersion, d.snippet_version);
 			return typeof initStep.code === "string" && typeof d.code === "string" && norm(initStep.code) === norm(d.code);
 		};
 		const stepsFor = (d) => stepsByName.get(norm(d.name)) || [];
@@ -471,10 +482,21 @@ function main() {
 					if (!isDeclaredDrop(n)) missPrompt.push(`${d.name || n.id} — node not carried and not declared dropped (--dropped-tags {"node":"${String(n.id).slice(0, 8)}…"})`);
 					continue;
 				}
+				// A DECLARED node drop excuses the whole node — its words may still
+				// appear (e.g. in the hub prompt) but the report dropped it and
+				// everything on it with a reason, its edges included (P13).
+				if (isDeclaredDrop(n)) {
+					carriedNode.set(n.id, false);
+					continue;
+				}
 				carriedNode.set(n.id, true);
-				if (steps.length === 0) continue; // carried into the hub prompt verbatim; no step to inspect further
-				if (speech && !steps.some(isSilenced) && !carried(speech)) missPrompt.push(`${d.name || n.id}`);
-				if (d.condition && !carried(d.condition)) missCondition.push(`${d.name || n.id}`);
+				// A node folded into the hub prompt (speech carried, no step of its
+				// own) keeps its words but has no step to hold an extraction
+				// variable; KB ids and global triggers are checked snapshot-wide.
+				// Those checks still run. A hold condition only lives on a step, so
+				// a folded node owes none.
+				if (steps.length > 0 && speech && !steps.some(isSilenced) && !carried(speech)) missPrompt.push(`${d.name || n.id}`);
+				if (steps.length > 0 && d.condition && !carried(d.condition)) missCondition.push(`${d.name || n.id}`);
 				// Extraction variables must live on the SAME step, not merely
 				// somewhere in the snapshot (a snippet input or tool response of
 				// the same name does not extract the caller's value).
@@ -533,6 +555,63 @@ function main() {
 		const byId = new Map(nodes.map((n) => [n.id, n]));
 		const entryTarget = inboundEdge ? byId.get(inboundEdge.target) : undefined;
 		const name = (n) => String(((n || {}).data || {}).name || (n || {}).id || "?");
+		// Is a flow node satisfying `goal` reachable from the start pill over the
+		// flow's edges and the step-level redirects the runtime can take (route
+		// and channel rules + fallback, response pathways on the step and its
+		// tools, STT-reset / scheduling-error jumps, a global's forwarding node)?
+		// Step types the compiler emits `settings` (and so a global trigger)
+		// for — SERVER toPathway.ts mapStepNode applies stepSettingsData only
+		// on these; a global flag on sms / smsOtp / amazonConnect never reaches
+		// the runtime.
+		const GLOBAL_CAPABLE = new Set(["prompt", "knowledge", "tool", "webhook", "customCode", "transfer", "identityQuestions", "pressButton", "waitForResponse", "transferPathway", "playAudio", "route", "channel", "ivr", "scheduling", "twilioFlowRedirect", "resetSttLanguage"]);
+		const flowReaches = (flow, goal) => {
+			const fnodes = Array.isArray((flow || {}).nodes) ? flow.nodes : [];
+			const fedges = Array.isArray((flow || {}).edges) ? flow.edges : [];
+			const byFlowId = new Map(fnodes.map((x) => [x.id, x]));
+			const next = new Map();
+			const add = (from, to) => { if (from && to && byFlowId.has(to)) next.set(from, [...(next.get(from) || []), to]); };
+			for (const e of fedges) add(e.source, e.target);
+			for (const x of fnodes) {
+				const d = x.data || {};
+				for (const r of d.rules || []) add(x.id, (r || {}).targetNodeId);
+				add(x.id, d.fallbackNodeId);
+				// A step response-pathway row without a variable is a draft the
+				// compiler drops (toPathway.ts toStepResponsePathways) — not a route.
+				for (const rp of d.responsePathways || []) if (String(((rp || {}).variable) || "").trim()) add(x.id, (rp || {}).targetNodeId);
+				for (const t of d.tools || []) for (const rp of (t || {}).responsePathways || []) add(x.id, (rp || {}).targetId);
+				add(x.id, d.targetNodeId);
+				add(x.id, d.errorFallbackNodeId);
+				// A warm transfer's "if agent unavailable → go to node" resume step (SERVER #11894).
+				add(x.id, ((d.warmTransfer || {}).voicemailTargetStepId));
+			}
+			const seen = new Set();
+			// A step-level global can fire while any step is active, but what it
+			// reaches depends on its returnMode (SERVER toPathway.ts globalNodeData):
+			// "redirect" lands on its forwardingNode; "manual" disables the
+			// auto-return so the global's own drawn edges route onward; "previous"
+			// returns to the interrupted step, so its drawn edges are never taken.
+			// Seed from the start pill, every manual global, and every
+			// redirect-global's forwarding node.
+			const queue = fnodes.filter((x) => x.type === "start").map((x) => x.id);
+			for (const x of fnodes) {
+				if (!GLOBAL_CAPABLE.has(x.type)) continue;
+				const g = (((x.data || {}).settings || {}).global) || {};
+				if (g.isGlobal !== true) continue;
+				if (g.returnMode === "manual") queue.push(x.id);
+				else if (g.returnMode === "redirect" && byFlowId.has(g.forwardingNode)) queue.push(g.forwardingNode);
+			}
+			while (queue.length) {
+				const id = queue.shift();
+				if (seen.has(id)) continue;
+				seen.add(id);
+				if (goal(byFlowId.get(id))) return true;
+				queue.push(...(next.get(id) || []));
+			}
+			return false;
+		};
+		// The exit pill must be REACHABLE from the Start pill — a drawn but
+		// disconnected pill is no way back to the hub.
+		const exitReachable = (n) => n.type === "scenario" || flowReaches((n.data || {}).flow, (x) => x && x.type === "end");
 
 		// A0 — Start IS the Initialization code step. When the v1 start node is
 		// Custom Code, the snapshot must carry it as `initialization` (runs at
@@ -549,7 +628,10 @@ function main() {
 				// them satisfies this check — never only the first source's.
 				const matches = (n) => {
 					const src = n.data || {};
-					return src.snippet_id ? step.snippetId === src.snippet_id : typeof step.code === "string" && step.code.trim() === String(src.code || "").trim();
+					// Same pin AND same version when the source pins one — a
+					// different version of the same snippet is different code.
+					if (src.snippet_id) return step.snippetId === src.snippet_id && sameVersion(step.snippetVersion, src.snippet_version);
+					return typeof step.code === "string" && step.code.trim() === String(src.code || "").trim();
 				};
 				const label = (n) => `"${(n.data || {}).name || n.id}" (${String((n.data || {}).snippet_id || "").slice(0, 8)}…)`;
 				const pinOk = starts.some(matches);
@@ -572,7 +654,7 @@ function main() {
 			const st = flowSteps(entryTarget);
 			const core = st.filter((x) => CORE_LOGIC.has(x.type));
 			const share = totalSteps ? st.length / totalSteps : 0;
-			const hasExit = entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
+			const hasExit = exitReachable(entryTarget);
 			const problems = [];
 			if (core.length) problems.push(`core-logic step(s) in Start: ${core.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")} — knowledge, scheduling, verification and transfers (department handoffs included) are hub children`);
 			if (st.length > 4 && share > 1 / 3) problems.push(`${st.length}/${totalSteps} steps (${Math.round(share * 100)}%) in Start — budget is a third; Start handles screeners / voicemail / IVR / availability, the call body is the hub's`);
@@ -596,7 +678,7 @@ function main() {
 		// exits — covered by A1's exit test, repeated here so the message names
 		// the dead end-calls).
 		const rootEnds = nodes.filter((n) => n.type === "end-call");
-		const startExits = !entryTarget || entryTarget.type === "agent" || entryTarget.type === "scenario" || ((entryTarget.data || {}).flow || { nodes: [] }).nodes.some((x) => x.type === "end");
+		const startExits = !entryTarget || entryTarget.type === "agent" || exitReachable(entryTarget);
 		const deadEnds = rootEnds.filter((n) => !startExits || !String(((n.data || {}).entry || {}).description || "").trim());
 		check("A3", "every root end-call is reachable (hub reachable + entry description present)", deadEnds.length === 0, deadEnds.map(name).join(", "));
 
