@@ -1,3 +1,10 @@
+<!-- Example markers, read by tests/analytics-cohorts.test.cjs. Every json
+fence holding a "where" or "predicate" key must validate clean and light. An
+HTML comment "expect: heavy" on the line before a fence: clean and heavy.
+"expect: refused MESSAGE": refused with exactly that one message. The next json
+fence is its fix, either the whole corrected request or only the replacement
+node; it must validate clean and change nothing but the node named. -->
+
 # Worked prompts
 
 Synthetic setting: an inbound support agent with a booking node, a transfer
@@ -6,8 +13,9 @@ desk and a post-call webhook. Today is 2026-10-08 and the page shows the last
 page context; real node ids come from a read, never from a guess.
 
 Each turn follows the same calls: one offline validate, one POST, polls until
-`ready` or `failed`, and a report. The Conversations page opens the list by
-itself.
+`ready` or `failed`, and a report. These turns run in a connected dashboard
+session, so the Conversations page opens the list by itself. Standalone, give
+`/dashboard/conversations?cohort=<id>` instead and say nothing was opened.
 
 ## "Show me the contained calls that ran five minutes or longer"
 
@@ -41,6 +49,7 @@ A visit to a node is a `pathway_events` row with that `node_id`. Read the node
 id first (the Sankey definition read lists every node with its id). This
 predicate is **heavy**: say it will take longer.
 
+<!-- expect: heavy -->
 ```json
 {
   "agent_key": "<agent id>",
@@ -55,6 +64,7 @@ For webhooks, `call_webhook_logs` records that a webhook was logged for the
 call. Its `url` and `payload` are denied, so a cohort can say "a webhook was
 logged" but not which one. Also heavy.
 
+<!-- expect: heavy -->
 ```json
 {
   "agent_key": "<agent id>",
@@ -144,10 +154,14 @@ joined table, `not` would mean "no such row"
 ## A refusal and the fix
 
 The user asks for "calls longer than 3 minutes that were abandoned". A first
-draft names a column that does not exist:
+draft names a column that does not exist.
 
+Refused request:
+
+<!-- expect: refused unknown column: calls.duration -->
 ```json
 {
+  "agent_key": "<agent id>",
   "window": { "start": "2026-09-08T00:00:00Z", "end": "2026-10-08T00:00:00Z" },
   "predicate": {
     "where": {
@@ -164,13 +178,27 @@ The offline checker reports `where.and[1].col: unknown column: calls.duration`.
 Had it reached the API, the answer is 400 `COHORT_PREDICATE_INVALID` with the
 message `and[1].col: unknown column: calls.duration`.
 
-Fix exactly that node. The length column is `call_length`, in minutes:
+Fix exactly that node. The length column is `call_length`, in minutes. Keep
+`agent_key` and the window, so the scope stays the page's agent.
+
+Corrected request:
 
 ```json
-{ "col": "call_length", "op": ">", "value": 3 }
+{
+  "agent_key": "<agent id>",
+  "window": { "start": "2026-09-08T00:00:00Z", "end": "2026-10-08T00:00:00Z" },
+  "predicate": {
+    "where": {
+      "and": [
+        { "col": "outcome", "op": "in", "value": ["abandoned", "ai_abandoned"] },
+        { "col": "call_length", "op": ">", "value": 3 }
+      ]
+    }
+  }
+}
 ```
 
-Validate again, then POST. Leave `and[0]` as it was. If the next answer names
+Validate again, then POST. Only `and[1]` changed; `and[0]` is as it was. If the next answer names
 another node, fix that one the same way.
 
 ## Anti-patterns these examples guard against

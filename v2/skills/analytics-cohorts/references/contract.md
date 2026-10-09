@@ -133,9 +133,15 @@ window or drop heavy leaves first.
 ## The Conversations page
 
 The page opens a cohort at `/dashboard/conversations?cohort=<id>`. In cohort
-mode the page hides its own filters. After Norm creates a cohort, the
-dashboard polls it to ready and opens that list by itself. Do not tell the
-user to reload, and do not ask them to paste an id or a link.
+mode the page hides its own filters.
+
+- **Connected dashboard session** (Norm running inside the Bland dashboard
+  with the page attached): after Norm creates a cohort, the dashboard polls it
+  to ready and opens that list by itself. Do not tell the user to reload, and
+  do not ask them to paste an id or a link.
+- **Standalone session** (Codex or Claude Code with no page attached): nothing
+  opens. Give the relative link `/dashboard/conversations?cohort=<id>` and say
+  the page was not opened.
 
 ## Window rules
 

@@ -7,7 +7,7 @@ const {spawnSync} = require('node:child_process');
 const skill = join(__dirname, '../v2/skills/analytics-cohorts');
 const script = join(skill, 'scripts/validate-predicate.cjs');
 const {
-  validatePredicate, predicateCostClass, resolveColumn, MAX_DEPTH, MAX_LEAVES, MAX_IN_VALUES, OUTCOMES, TABLES,
+  validatePredicate, predicateCostClass, resolveColumn, check, locateWhere, MAX_DEPTH, MAX_LEAVES, MAX_IN_VALUES, OUTCOMES, TABLES,
 } = require(script);
 const {renderTables} = require(join(skill, 'scripts/render-tables.cjs'));
 
@@ -291,3 +291,111 @@ test('tables.md leads with calls, shows classes not stored types, and lists ever
   assert.match(page, /## call_outcomes[\s\S]*?Availability: not yet in the lake: refused/);
   assert.doesNotMatch(page, /\| (bigint|double|int|timestamp_ntz|array<|map<|struct<)/);
 });
+
+const NO_WHERE = {valid: true, cost_class: 'light', leaves: 0, violations: []};
+
+test('a bare {} file means no where, while the raw validator stays strict', () => {
+  assert.deepEqual(check({}), NO_WHERE);
+  assert.deepEqual(cli({}), {status: 0, out: NO_WHERE, err: ''});
+  // validatePredicate is the API's where check: an empty node is refused there.
+  assert.deepEqual(messages({}), ['where.col: must be a column name']);
+  assert.equal(cli({predicate: {where: {}}}).status, 1);
+  assert.equal(cli({where: {}}).status, 1);
+  // An object with unknown keys is still a node, and still refused.
+  assert.deepEqual(cli({foo: 1}).out.violations, [{path: 'where.foo', message: 'unknown key; a node is { and } | { or } | { not } | { col, op, value? }'}]);
+  assert.deepEqual(cli({op: 'is_null'}).out.violations, [{path: 'where.col', message: 'must be a column name'}]);
+});
+
+test('CLI usage names every accepted shape, including a bare {}', () => {
+  const run = spawnSync(process.execPath, [script], {encoding: 'utf8'});
+  assert.equal(run.status, 2);
+  assert.match(run.stderr, /Usage: node validate-predicate\.cjs <predicate\.json>/);
+  assert.match(run.stderr, /bare \{\}\) is valid: light, 0 leaves/);
+});
+
+test('a 10,000-deep not chain is refused at depth 8 and never overflows the stack', () => {
+  let node = leaf('completed', '=', true);
+  for (let i = 0; i < 10000; i++) node = {not: node};
+  const refusal = {path: `where${'.not'.repeat(8)}`, message: 'nesting exceeds the maximum depth of 8'};
+  assert.equal(predicateCostClass(node), 'heavy');
+  assert.deepEqual(check(node), {valid: false, cost_class: 'heavy', leaves: 0, violations: [refusal]});
+  // Written as text: serializing the chain is itself deeper than the stack.
+  const chain = `${'{"not":'.repeat(10000)}{"col":"completed","op":"=","value":true}${'}'.repeat(10000)}`;
+  for (const text of [chain, `{"predicate":{"where":${chain}}}`]) {
+    const {status, out, err} = cli(text);
+    assert.equal(status, 1, err);
+    assert.deepEqual(out, {valid: false, cost_class: 'heavy', leaves: 0, violations: [refusal]});
+  }
+});
+
+test('the cost walk stops at the depth bound: 8 levels resolve, 9 count as heavy', () => {
+  const nest = depth => (depth === 1 ? leaf('completed', '=', true) : {not: nest(depth - 1)});
+  assert.equal(predicateCostClass(nest(8)), 'light');
+  assert.equal(predicateCostClass(nest(9)), 'heavy');
+});
+
+// ---- references/examples.md ------------------------------------------------
+// Convention (documented at the top of examples.md): a ```json fence holding a
+// top-level "where" or "predicate" key must validate clean and light, unless
+// the line before it is <!-- expect: heavy --> (clean and heavy) or
+// <!-- expect: refused MESSAGE --> (exactly that one refusal; the next json
+// fence is its fix, a whole corrected request or only the replacement node).
+const examplesPath = join(skill, 'references/examples.md');
+const examplesText = readFileSync(examplesPath, 'utf8');
+const fences = [...examplesText.matchAll(/^(?:<!-- expect: (.+?) -->\n)?```json\n([\s\S]*?)^```$/gm)].map((m, index) => {
+  const line = examplesText.slice(0, m.index).split('\n').length;
+  return {index, line, expect: m[1] ?? null, doc: JSON.parse(m[2])};
+});
+const isRequest = doc => doc !== null && typeof doc === 'object' && !Array.isArray(doc) && ('where' in doc || 'predicate' in doc);
+const requests = fences.filter(f => isRequest(f.doc));
+const nodePath = violationPath => {
+  const tokens = violationPath.replace(/\.col$/, '').split(/\.|\[(\d+)\]/).filter(t => t !== undefined && t !== '');
+  assert.equal(tokens[0], 'where');
+  assert.ok(tokens.length > 1, 'a refusal at the where root has no node to replace');
+  return tokens.slice(1).map(t => (/^\d+$/.test(t) ? Number(t) : t));
+};
+const replaceNode = (doc, path, replacement) => {
+  const copy = structuredClone(doc);
+  let node = locateWhere(copy).where;
+  for (const key of path.slice(0, -1)) node = node[key];
+  node[path[path.length - 1]] = structuredClone(replacement);
+  return copy;
+};
+
+test('examples.md: the markers are the known ones and the cases are all present', () => {
+  for (const f of fences) assert.ok(f.expect === null || f.expect === 'heavy' || f.expect.startsWith('refused '), `line ${f.line}: unknown marker ${f.expect}`);
+  assert.ok(requests.length >= 6, `only ${requests.length} request examples`);
+  assert.equal(fences.filter(f => f.expect && f.expect.startsWith('refused ')).length, 1);
+  assert.ok(fences.some(f => f.expect === 'heavy'));
+  assert.ok(requests.some(f => f.expect === null), 'no light example');
+});
+
+for (const f of requests.filter(r => r.expect === null || r.expect === 'heavy')) {
+  test(`examples.md line ${f.line}: validates clean and ${f.expect ?? 'light'}`, () => {
+    assert.deepEqual(check(f.doc), {...check(f.doc), valid: true, violations: [], cost_class: f.expect ?? 'light'});
+  });
+}
+
+for (const f of fences.filter(r => r.expect && r.expect.startsWith('refused '))) {
+  const message = f.expect.slice('refused '.length);
+  test(`examples.md line ${f.line}: refused with exactly "${message}", and its fix validates clean`, () => {
+    assert.ok(isRequest(f.doc), 'a refusal example must be a request');
+    const result = check(f.doc);
+    assert.equal(result.valid, false);
+    assert.equal(result.violations.length, 1, JSON.stringify(result.violations));
+    const [{path, message: actual}] = result.violations;
+    assert.equal(actual, message);
+    assert.ok(examplesText.includes(`\`${path}: ${message}\``), `examples.md should quote the checker's output \`${path}: ${message}\``);
+    const fix = fences[f.index + 1];
+    assert.ok(fix, 'a refusal example needs a fix fence after it');
+    const target = nodePath(path);
+    const corrected = isRequest(fix.doc) ? fix.doc : replaceNode(f.doc, target, fix.doc);
+    assert.deepEqual(check(corrected), {...check(corrected), valid: true, violations: []});
+    if (isRequest(fix.doc)) {
+      // The corrected request changes only the node the refusal named.
+      let replacement = locateWhere(fix.doc).where;
+      for (const key of target) replacement = replacement[key];
+      assert.deepEqual(replaceNode(f.doc, target, replacement), fix.doc);
+    }
+  });
+}

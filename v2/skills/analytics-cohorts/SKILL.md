@@ -38,8 +38,10 @@ columns are in [tables](references/tables.md); what a leaf means is in
    `failed`. A light predicate on a 30-day window usually takes seconds. A
    heavy one can take minutes.
 6. **Report** `size`, `visible_size` and `truncated`, and say in words what
-   the predicate selected. The Conversations page opens the list by itself
-   once the cohort is ready. Never ask the user to reload or paste an id.
+   the predicate selected. In a connected dashboard session the
+   Conversations page opens the list by itself; never ask for a reload.
+   Standalone, there is no page: give `/dashboard/conversations?cohort=<id>`
+   and say nothing was opened.
 7. **Ids on request only.** Page `/v2/analytics/cohorts/<id>/ids` when the user
    wants the ids, for example to start a judge run
    ([evaluations](../evaluations/SKILL.md)).

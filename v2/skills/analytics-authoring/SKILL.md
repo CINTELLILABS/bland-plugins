@@ -1,6 +1,6 @@
 ---
 name: analytics-authoring
-description: Use when building, editing, simplifying or explaining an agent's analytics Sankey ("Where conversations go"): waypoint stages and groups, parallel branches, the unclassified share, what the Simplified and Detailed views draw, or why an end state cannot be split. Covers the customer waypoint-definition API (read, validate, save pending, preview, publish), its caps, and the boundary with dispositions.
+description: "Use when building, editing, simplifying or explaining an agent's analytics Sankey (\"Where conversations go\"): waypoint stages and groups, parallel branches, the unclassified share, what the Simplified and Detailed views draw, or why an end state cannot be split. Covers the customer waypoint-definition API (read, validate, save pending, preview, publish), its caps, and the boundary with dispositions."
 ---
 
 # Author an agent's analytics Sankey

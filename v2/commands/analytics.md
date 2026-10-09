@@ -44,8 +44,10 @@ follow its workflow exactly:
 4. `bland_api_get` the cohort until `ready` or `failed`: a few seconds apart
    at first, then about every 15 seconds.
 5. Report `size`, `visible_size`, `truncated`, and what the predicate means in
-   words. The Conversations page opens the list by itself. Read
-   `/ids` only when the user asks for the ids.
+   words. In a connected dashboard session the Conversations page opens the
+   list by itself. In a standalone session, give the link
+   `/dashboard/conversations?cohort=<id>` and say the page was not opened.
+   Read `/ids` only when the user asks for the ids.
 
 ## Sankey
 

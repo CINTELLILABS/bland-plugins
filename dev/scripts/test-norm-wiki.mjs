@@ -174,3 +174,67 @@ test('all new JSON examples parse without preprocessing', () => {
   }
   assert.ok(count >= 6, 'expected the documented API and report examples');
 });
+
+// A SKILL.md `description:` must survive a strict YAML frontmatter parser.
+// Plain (unquoted) values may not contain ": " or " #" (a mapping indicator
+// and a comment start) or end in ":"; quoted values must close their quote
+// on the same line with nothing but a comment after it. Block scalars (| or >)
+// are accepted as written.
+function descriptionProblem(text) {
+  const frontmatter = /^---\n([\s\S]*?)\n---\n/.exec(text);
+  if (!frontmatter) return 'missing frontmatter';
+  const line = frontmatter[1].split('\n').find((l) => l.startsWith('description:'));
+  if (line === undefined) return 'missing description';
+  const value = line.slice('description:'.length).trim();
+  if (value === '') return 'empty description';
+  if (/^[|>][-+0-9]*$/.test(value)) return null;
+  const quote = value[0];
+  if (quote === '"' || quote === "'") {
+    let i = 1;
+    for (; i < value.length; i++) {
+      if (quote === '"' && value[i] === '\\') { i++; continue; }
+      if (value[i] !== quote) continue;
+      if (quote === "'" && value[i + 1] === "'") { i++; continue; }
+      break;
+    }
+    if (i >= value.length) return `unclosed ${quote} quote`;
+    const rest = value.slice(i + 1);
+    return rest === '' || /^\s+#/.test(rest) ? null : `text after the closing quote: ${rest}`;
+  }
+  if (value.includes(': ')) return 'unquoted value contains ": "; quote it';
+  if (value.includes(' #')) return 'unquoted value contains " #"; quote it';
+  if (value.endsWith(':')) return 'unquoted value ends in ":"; quote it';
+  return null;
+}
+
+test('every SKILL.md description parses as YAML', () => {
+  const pluginRoot = resolve(root, '..');
+  const files = ['v2/skills', 'skills'].flatMap((dir) => {
+    const base = resolve(pluginRoot, dir);
+    if (!existsSync(base)) return [];
+    return readdirSync(base).map((name) => resolve(base, name, 'SKILL.md')).filter(existsSync);
+  });
+  assert.ok(files.length >= 12, `found only ${files.length} SKILL.md files`);
+  for (const file of files) {
+    assert.equal(descriptionProblem(readFileSync(file, 'utf8')), null, relative(pluginRoot, file));
+  }
+});
+
+test('the description check catches the YAML traps it names', () => {
+  const fm = (value) => `---\nname: x\ndescription: ${value}\n---\n`;
+  for (const ok of ['Use when a thing happens.', '"Use when: quoted"', '"escaped \\" quote"', "'it''s fine: yes'", '>-', '"quoted" # comment']) {
+    assert.equal(descriptionProblem(fm(ok)), null, ok);
+  }
+  for (const [bad, problem] of [
+    ['Use when building ("Where conversations go"): stages', /contains ": "/],
+    ['Use when tagging #1 issues', /contains " #"/],
+    ['Use when this:', /ends in ":"/],
+    ['"Use when unclosed', /unclosed " quote/],
+    ["'Use when unclosed", /unclosed ' quote/],
+    ['"closed" then more', /text after the closing quote/],
+    ['', /empty description/],
+  ]) {
+    assert.match(descriptionProblem(fm(bad)) ?? '', problem, bad);
+  }
+  assert.equal(descriptionProblem('no frontmatter'), 'missing frontmatter');
+});

@@ -10,7 +10,8 @@
 // Usage: node validate-predicate.cjs <predicate.json>
 //   predicate.json: a whole cohort request body, { "predicate": { ... } },
 //   { "where": ... }, or the bare `where` node. A request or predicate with
-//   no `where` is valid (light, 0 leaves): `where` is optional.
+//   no `where`, and a bare `{}`, mean "no where": valid, light, 0 leaves
+//   (`where` is optional; an empty predicate is every call in the window).
 // Prints { valid, cost_class, leaves, violations: [{ path, message }] } and
 // exits 1 when the predicate is refused, 2 on a usage or read error.
 'use strict';
@@ -265,20 +266,24 @@ function validatePredicate(raw, root = 'where') {
 }
 
 // "heavy" when any leaf reads a heavy table, else "light". A leaf whose
-// column does not resolve (or a node that is not a well-formed group) counts
-// as heavy, so an invalid predicate never reads as cheap.
+// column does not resolve, a node that is not a well-formed group, or a node
+// deeper than MAX_DEPTH counts as heavy, so an invalid predicate never reads
+// as cheap. The depth bound also keeps hostile input from exhausting the stack.
 function predicateCostClass(raw) {
-  if (!isPlainObject(raw)) return 'heavy';
-  for (const group of ['and', 'or']) {
-    if (hasOwn(raw, group)) {
-      const children = raw[group];
-      if (!Array.isArray(children) || children.length === 0) return 'heavy';
-      return children.some(child => predicateCostClass(child) === 'heavy') ? 'heavy' : 'light';
+  const cost = (node, depth) => {
+    if (depth > MAX_DEPTH || !isPlainObject(node)) return 'heavy';
+    for (const group of ['and', 'or']) {
+      if (hasOwn(node, group)) {
+        const children = node[group];
+        if (!Array.isArray(children) || children.length === 0) return 'heavy';
+        return children.some(child => cost(child, depth + 1) === 'heavy') ? 'heavy' : 'light';
+      }
     }
-  }
-  if (hasOwn(raw, 'not')) return predicateCostClass(raw.not);
-  const resolved = resolveColumn(raw.col);
-  return resolved.error ? 'heavy' : resolved.entry.cost;
+    if (hasOwn(node, 'not')) return cost(node.not, depth + 1);
+    const resolved = resolveColumn(node.col);
+    return resolved.error ? 'heavy' : resolved.entry.cost;
+  };
+  return cost(raw, 1);
 }
 
 // Keys of a cohort request body and of its `predicate` object. Neither set
@@ -287,15 +292,20 @@ function predicateCostClass(raw) {
 const REQUEST_KEYS = ['agent_key', 'window', 'predicate'];
 const PREDICATE_KEYS = ['metric', 'outcomes', 'hour_utc', 'day', 'waypoint', 'disposition', 'eligible_for_scoring', 'sampling', 'where'];
 
-// Find the `where` node inside whatever the file holds: a whole cohort
-// request, its { predicate } object, { where }, or the bare node. Returns
-// { where } when there is one to check, { absent: true } when the request or
-// predicate simply has none (valid: `where` is optional, and an empty
-// predicate means every conversation in the window), or { violation } when
-// `predicate` itself is not an object.
+// Find the `where` node inside whatever the file holds, in this order:
+//   1. a whole cohort request (any of REQUEST_KEYS): its `predicate.where`;
+//   2. a predicate object (any of PREDICATE_KEYS): its `where`;
+//   3. an empty object `{}`: an empty predicate, so no `where`;
+//   4. anything else: the bare `where` node itself.
+// Returns { where } when there is one to check, { absent: true } when there
+// is none (valid: `where` is optional, and an empty predicate means every
+// conversation in the window), or { violation } when `predicate` itself is
+// not an object. Only this file-level unwrapping treats `{}` as "no where":
+// validatePredicate({}) still refuses it, as the API refuses `where: {}`.
 function locateWhere(document) {
   if (!isPlainObject(document)) return {where: document};
   const keys = Object.keys(document);
+  if (keys.length === 0) return {absent: true};
   if (keys.some(key => REQUEST_KEYS.includes(key))) {
     if (!hasOwn(document, 'predicate')) return {absent: true};
     if (!isPlainObject(document.predicate)) return {violation: {path: 'predicate', message: 'must be an object'}};
@@ -312,7 +322,9 @@ function check(document) {
   if (located.absent) return {valid: true, cost_class: 'light', leaves: 0, violations: []};
   if (located.violation) return {valid: false, cost_class: 'heavy', leaves: 0, violations: [located.violation]};
   const {violations, leaves} = analyzePredicate(located.where);
-  return {valid: violations.length === 0, cost_class: predicateCostClass(located.where), leaves, violations};
+  // A refused predicate reports heavy without walking it again.
+  if (violations.length > 0) return {valid: false, cost_class: 'heavy', leaves, violations};
+  return {valid: true, cost_class: predicateCostClass(located.where), leaves, violations};
 }
 
 module.exports = {
@@ -337,7 +349,11 @@ module.exports = {
 if (require.main === module) {
   const [path] = process.argv.slice(2);
   if (!path) {
-    console.error('Usage: node validate-predicate.cjs <predicate.json>');
+    console.error([
+      'Usage: node validate-predicate.cjs <predicate.json>',
+      '  The file holds a cohort request body, { "predicate": { ... } }, { "where": ... }, or a bare where node.',
+      '  No where (a request or predicate without one, or a bare {}) is valid: light, 0 leaves.',
+    ].join('\n'));
     process.exit(2);
   }
   let document;
