@@ -56,6 +56,7 @@ The session discovers the pathway, proposes the scenario architecture for your a
 | `/norm:build` | Build a NEW v2 agent — starts with a human-in-the-loop gate (v1 pathway or v2 agent?); v1 answers route to the v1 plugin, v2 answers load the authoring doctrine and drive design → snapshot → push → verify. |
 | `/norm:migrate` | Full v1 pathway/persona → v2 agent hand migration: discover → architect → author verbatim → audit → push → simulate. One-shot oriented; every known trap is a pre-push check. |
 | `/norm:validate` | Mechanical audit of a snapshot JSON: structure, routing-crash checks, pin presence against the v1 source, exit-label discipline. |
+| `/norm:analytics` | Analytics page work for the agent in view: build, edit or simplify the Sankey through a waypoint definition, or build a conversation cohort ("show me the calls where…") and open it on the Conversations page. |
 | `/norm:simulate` | Simulation + test-chat verification loop with safety rails for live integrations and engine-trace grading. |
 
 ## The convergence loop (enforced)
@@ -90,6 +91,7 @@ Written for agents WITHOUT access to the Bland platform source — everything is
   attachments, simulation scoring, call-cohort runs, and execution versus verdict
   failures.
 - **[analytics-authoring](skills/analytics-authoring/SKILL.md)** — the agent's analytics Sankey: waypoint groups and stages, parallel branches, the customer waypoint-definition API (read, validate, pending, preview, publish), what each view draws, and the boundary with dispositions.
+- **[analytics-cohorts](skills/analytics-cohorts/SKILL.md)**: conversation cohorts. Covers the `where` predicate grammar over lake columns, an offline predicate validator, create, poll and ids routes, the Conversations page hand-off, what a predicate cannot express, and the customer-metric routes that are not live yet.
 - **call-analysis** — bounded call retrieval, offset pagination, reproducible
   cohorts, workspace analysis, evidence-linked categories, and report artifacts.
 

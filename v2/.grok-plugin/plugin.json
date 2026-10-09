@@ -1,6 +1,6 @@
 {
   "name": "norm",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Build, migrate, debug, and test Bland v2 agents; create evaluations and analyze calls through the Bland API and coding workspace, with a task-indexed product wiki. v2-only; v1 requests belong to the bland plugin.",
   "author": {
     "name": "Bland",
