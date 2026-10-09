@@ -81,6 +81,6 @@ searches or other API families.
 - Edits apply to the production version's structure. A promotion that changes
   the node or tool set changes the fingerprint; a published definition carries
   forward only when every member still exists.
-- Read-only instructions cover a pending save too.
+- Read-only instructions cover pending saves too.
 
-Worked prompts: [examples](references/examples.md).
+See [examples](references/examples.md).
