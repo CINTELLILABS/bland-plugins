@@ -23,6 +23,7 @@ dispositions, external resources and operational surfaces, read the
 | Simulate a caller or investigate a test result | [Testing](../../v2-testing/SKILL.md) |
 | Test actual audio, interruptions, recovery, or response latency | [Voice evidence](../../v2-testing/references/voice.md) |
 | Build, edit or simplify the analytics Sankey (waypoint groups, stages, parallel branches) | [Analytics authoring](../../analytics-authoring/SKILL.md) |
+| List or count the calls matching a condition (outcome, length, metadata, tools, webhooks); open them on the Conversations page | [Analytics cohorts](../../analytics-cohorts/SKILL.md), [predicate grammar](../../analytics-cohorts/references/grammar.md) |
 | Analyze hundreds or thousands of calls with code | [Call analysis skill](../../call-analysis/SKILL.md), [retrieval and pagination](../../call-analysis/references/retrieval.md), [analysis recipe](../../call-analysis/references/analysis.md) |
 | Save, publish, promote, rollback, branch, or select a version | [Lifecycle](../../v2-lifecycle/SKILL.md), [lifecycle API](../../v2-lifecycle/references/api.md) |
 | Migrate v1 content into v2 without changing its meaning | [Migration](../../v2-migration/SKILL.md) |

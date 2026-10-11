@@ -13,6 +13,10 @@ and [plugin packaging guidance](https://developers.openai.com/plugins/build/plug
 Keep the existing compatible `.codex-plugin/plugin.json` layout rather than
 migrating host configuration as part of a knowledge-only update.
 
+Writing a new skill: follow [the skill authoring guide](SKILL-AUTHORING.md)
+for triggers, progressive disclosure, offline validators, registration and
+release.
+
 ## Source and scope review
 
 - Validate endpoint facts against current product API contracts and
@@ -37,6 +41,7 @@ Run from the repository root:
 node --test dev/scripts/test-norm-wiki.mjs
 node --test dev/scripts/test-norm-materialize.mjs
 node --test tests/analytics-authoring.test.cjs
+node --test tests/analytics-cohorts.test.cjs
 git diff --check
 ```
 

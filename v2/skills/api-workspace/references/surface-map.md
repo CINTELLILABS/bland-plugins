@@ -21,6 +21,8 @@ not replaced with guessed routes, model names, or private platform code.
 | Scenarios, assertions, simulations, test chat | [Testing](../../v2-testing/SKILL.md) | Fixture, candidate, side effects, run and trace. |
 | Judges, calibration, evaluation cohorts/results | [Evaluations](../../evaluations/SKILL.md) | Judge identity/version, roster, evidence and denominator. |
 | Dispositions, extractors, post-call outputs | [Dispositions](../../evaluations/references/dispositions.md) | Draft revision, published dependencies, cohort and delivery mode. |
+| Analytics Sankey (waypoint definitions) | [Analytics authoring](../../analytics-authoring/SKILL.md) | Agent, production pin, fingerprint, published and pending definitions, window. |
+| Conversation cohorts (filtered call lists) | [Analytics cohorts](../../analytics-cohorts/SKILL.md), [contract](../../analytics-cohorts/references/contract.md) | Agent, window, predicate and cost class, cohort id, status, size and truncation, expiry. |
 | Call/conversation analysis and recordings | [Call analysis](../../call-analysis/SKILL.md) | Stable IDs, attribution, bounded cohort and accessible evidence. |
 | Alerts, automations, connected integrations | [Operational resources](../../v2-lifecycle/references/resources.md#operational-surfaces), [API discovery](api.md) | Their separate current API contract, agent scope and ongoing effects. |
 | Import/migrate from v1 | [Migration](../../v2-migration/SKILL.md), [lifecycle API](../../v2-lifecycle/references/api.md) | Source identity, preserved behavior, migration mode and run. |
