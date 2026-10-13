@@ -2,8 +2,9 @@
 
 ## norm 1.10.0 – 2026-10-13
 
-- Seven workflow skills for the dashboard pages that had no coverage:
-  `phone-numbers`, `knowledge-sources`, `agent-channels`, `outbound-calls`,
+- Eight workflow skills for the dashboard pages that had no coverage:
+  `agent-launch` (built to live, in order), `phone-numbers` (including
+  getting a number), `knowledge-sources`, `agent-channels`, `outbound-calls`,
   `automations`, `tool-library` and `triage-issues`. Each one reads the page
   context first, names its confirm-gated and dashboard-only actions, states
   its call budget, and says plainly when a write does not refresh the page.

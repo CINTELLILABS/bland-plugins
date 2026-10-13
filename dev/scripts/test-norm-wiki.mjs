@@ -7,7 +7,7 @@ import test from 'node:test';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../v2');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const entries = ['api-workspace', 'evaluations', 'call-analysis', 'analytics-authoring', 'analytics-cohorts',
-  'phone-numbers', 'knowledge-sources', 'agent-channels', 'outbound-calls', 'automations', 'tool-library', 'triage-issues'];
+  'phone-numbers', 'knowledge-sources', 'agent-channels', 'outbound-calls', 'automations', 'tool-library', 'triage-issues', 'agent-launch'];
 const surfaceReferences = [
   'skills/api-workspace/references/surface-map.md',
   'skills/v2-runtime/references/execution-order.md',

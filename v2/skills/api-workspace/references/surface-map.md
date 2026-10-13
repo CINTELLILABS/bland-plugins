@@ -27,6 +27,7 @@ not replaced with guessed routes, model names, or private platform code.
 | Alerts, automations, connected integrations | [Automations skill](../../automations/SKILL.md), [Tool library skill](../../tool-library/SKILL.md), [Operational resources](../../v2-lifecycle/references/resources.md#operational-surfaces), [API discovery](api.md) | Their separate current API contract, agent scope and ongoing effects. |
 | Import/migrate from v1 | [Migration](../../v2-migration/SKILL.md), [lifecycle API](../../v2-lifecycle/references/api.md) | Source identity, preserved behavior, migration mode and run. |
 | Browser page context and UI effects | [Workspace state](workspace.md) | Fresh page/draft revision; accepted changes versus displayed changes. |
+| Launch checklist (built to live, in order) | [Agent launch](../../agent-launch/SKILL.md) | Latest version, pins, attached knowledge and tools, numbers, channels; promote before attach. |
 | Web chat widget, API chat, texting on a number | [Agent channels](../../agent-channels/SKILL.md) | Which channel, production pin versus dev head, bound number, who gets texted. |
 | Outbound calls, scheduling, batches | [Outbound calls](../../outbound-calls/SKILL.md) | Agent version selector, caller id, recipients, rate limits, DNC. |
 | Issues (triage) | [Triage issues](../../triage-issues/SKILL.md) | Agent scope, evidence ids, open duplicates, who is assigned. |

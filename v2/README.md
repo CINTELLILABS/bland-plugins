@@ -113,6 +113,7 @@ Written for agents WITHOUT access to the Bland platform source — everything is
   number binding, identity, memory, library/history and migration endpoints.
   Includes an API map and separate-resource lifecycle guide.
   Rollouts (the Experiments page) and voice selection live in its references.
+- **[agent-launch](skills/agent-launch/SKILL.md)** — take an agent from built to live in the right order: knowledge, tools, voice, staging and simulations, promote, then number and channels, with a nine-item checklist and a read-only "what is left" pass.
 - **[phone-numbers](skills/phone-numbers/SKILL.md)** — who answers a number, putting an agent on a number safely (owner check, v1 cutover warning, `only_if_unassigned`), per-number live settings, blocked callers and DNC, SIP trunk diagnostics; buying, release, porting and carrier submissions are confirm-gated or handed to the dashboard.
 - **[knowledge-sources](skills/knowledge-sources/SKILL.md)** — teach the agent from a document or site (ingest, poll, verify, attach by scope), close the loop on unanswered questions, explain what was retrieved on a call, delete a source only after naming every agent that uses it.
 - **[agent-channels](skills/agent-channels/SKILL.md)** — publish a web chat widget, turn on API chat (it reads production, so promote), configure a number's texting, send or take over a text with a required confirm.
