@@ -27,6 +27,18 @@ dispositions, external resources and operational surfaces, read the
 | Analyze hundreds or thousands of calls with code | [Call analysis skill](../../call-analysis/SKILL.md), [retrieval and pagination](../../call-analysis/references/retrieval.md), [analysis recipe](../../call-analysis/references/analysis.md) |
 | Save, publish, promote, rollback, branch, or select a version | [Lifecycle](../../v2-lifecycle/SKILL.md), [lifecycle API](../../v2-lifecycle/references/api.md) |
 | Migrate v1 content into v2 without changing its meaning | [Migration](../../v2-migration/SKILL.md) |
+| Who answers a number; put an agent on a number; per-number settings; block a caller; SIP trunks | [Phone numbers](../../phone-numbers/SKILL.md), [endpoints](../../phone-numbers/references/endpoints.md) |
+| Teach the agent from a document or site; answer open questions; explain what it looked up on a call; delete a source safely | [Knowledge sources](../../knowledge-sources/SKILL.md), [knowledge API](../../knowledge-sources/references/api.md) |
+| Publish a web chat widget; turn on API chat; configure a number's texting; send or take over a text | [Agent channels](../../agent-channels/SKILL.md) |
+| Call a person or run a batch with a v2 agent; schedule, watch, stop; DNC and rate-limit pre-flight | [Outbound calls](../../outbound-calls/SKILL.md), [batches](../../outbound-calls/references/batches.md) |
+| Set up or diagnose a trigger, alert or post-call webhook; test without dialing | [Automations](../../automations/SKILL.md), [testing order](../../automations/references/testing.md) |
+| Create and prove a tool; change a shared tool safely; secrets by id; connect or disconnect an integration | [Tool library](../../tool-library/SKILL.md), [tool contract](../../v2-runtime/references/tool-library.md) |
+| File an issue from a bad call; work, link, close issues | [Triage issues](../../triage-issues/SKILL.md), [triage API](../../triage-issues/references/api.md) |
+| Run a staged or A/B rollout and decide; read experiment results | [Rollouts](../../v2-lifecycle/references/rollouts.md) |
+| Choose, set or debug an agent's voice and language | [Voices](../../v2-lifecycle/references/voices.md) |
+| Read text, chat and voice threads for one agent; export | [Conversations](../../call-analysis/references/conversations.md) |
+| How is the agent doing; add or edit a headline metric tile | [Measurement](../../analytics-cohorts/references/measurement.md), [metric tiles](../../analytics-cohorts/references/metrics.md) |
+| What the dashboard sends Norm, which writes refresh the page, OAuth versus API-key reach | [Workspace and page state](workspace.md), [connection modes](api.md#connection-modes) |
 
 ## What this package is—and is not
 

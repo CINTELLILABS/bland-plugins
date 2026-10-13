@@ -53,6 +53,10 @@ checks apply only when migrating; intentional requested edits are allowed.
    do not add cosmetic edges to silence it or call an unresolved check passed.
 10. Steps with no outgoing edge and no route onward must be intentional terminals (wrap-ups before the end pill count only via their exit edge).
 
+The audit script checks the next one mechanically.
+
+27. **Deterministic edge rows** (audit R5, needs no source): every row of a deterministic edge or entry has `operator` `AND` or `OR` (the join to the previous row) and `conditionOperator` one of `contains`, `does not contain`, `equals`, `not equals`, `greater than`, `less than`, `is`. A comparison written into `operator` saves cleanly and never matches. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/norm-migrate-audit.cjs" --snapshot <file>` and read R5's detail line.
+
 ## Content carriage (when the v1 source is provided)
 
 11. **Pin pairs**: every source snippet (id, version) PAIR appears in the snapshot as a pair — ids and versions checked independently would accept two snippets with swapped versions. `TL-` tool ids present. A missing or mispaired pin is a silent runtime no-op — release blocker.
@@ -66,6 +70,10 @@ checks apply only when migrating; intentional requested edits are allowed.
 16. Every attached tool has `toolType` `custom_tool` or `track`, and responsePathways rows use the field skew correctly (`label`=trigger, `variable`=operator, `condition`=value) with resolvable `targetId`s (empty target = continue, must be intentional).
 17. No unknown/extra keys on tool objects.
 
+The audit script checks the next one mechanically.
+
+28. **No hollow tools** (audit S9, needs no source): a tool with a `toolId` either has `byReference: true` (the library tool runs by id; node overrides go in `toolOverrides`) or embeds a full definition with a `description` and a `body`. A stand-in definition runs instead of the library tool and does nothing.
+
 ## v2 architecture (migration doctrine — FAIL, not warn)
 
 These six have a deterministic twin in `bin/norm-migrate-audit.cjs` (checks A0–A6: start code → initialization, Start scenario = connection gating + budget + exit, hub siblings, root end-call reachability, hold escapes, parking lots, tags). The migration Stop hook runs that audit on every stop attempt, so a snapshot that fails them cannot be released — read the audit's detail line and re-architect, do not argue with it.
@@ -76,6 +84,16 @@ These six have a deterministic twin in `bin/norm-migrate-audit.cjs` (checks A0�
 23. **Universal escapes on every hold.** Every `loopWhile` / hold condition lists, in addition to its own completion, each escape the source handles: opt-out / do-not-call, wrong person, not interested, callback requested, transfer requested, voicemail, IVR. An escape may instead be a step-level global (`settings.global.isGlobal`) whose label or description names it, provided the held step does not set `settings.advanced.conditionOverridesGlobalPathway` (that knob lets the hold outrank the global). Releasing the hold is half of it: the released step must also route past the rest of the sequence (an edge to the flow's End pill or a root sibling), or the script simply continues after the opt-out. A hold with neither its own escape nor a reachable global traps the call on that step — FAIL.
 24. **No parking lots.** No scenario whose name or entry says "legacy", "unreachable", "do not enter", "never enter". Dead v1 nodes are `dropped` in the report with reachability evidence. FAIL.
 25. **Tags carried.** Every v1 node `tag` appears as the corresponding step's `settings.tag` or is listed in the report's dropped-metadata section. Missing without a report line → FAIL.
+
+## Voice and language
+
+26. **The voice resolves and fits the language.** The save validator checks none of this. For `settings.voice` and each `settings.voicePool` entry, `bland_api_get` `/v1/voices/<id>`:
+    - It returns 200 with `voice`. A 400 `VOICE_NOT_FOUND` means the voice was deleted or this org cannot use it.
+    - `voice.is_live` is not `false`. A draft trained voice fails outbound calls and plays the default voice on inbound calls.
+    - `bland_api_get` `/v1/models` once. The `model_id` equal to `voice.service` lists the base code of `settings.languages[0]` (`en-GB` is `en`; a legacy name such as `english` is its code). Only the first language reaches calls. Mark `auto`, `fluent` and `babel` codes NOT VERIFIED.
+    - When `voicePool` is set, `voice` equals `voicePool[0]`.
+
+    An empty `voice` plays the platform default: report N/A and say so. Call budget: one voice read per distinct id plus one models read. Do not write fetch scripts and do not search the docs for these routes.
 
 ## Hygiene
 

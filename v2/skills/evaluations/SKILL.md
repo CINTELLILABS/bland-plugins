@@ -1,6 +1,6 @@
 ---
 name: evaluations
-description: Use when creating or calibrating Bland evaluation judges, configuring test cases and attached judges, running or interpreting evaluations and simulations, or investigating failed, partial, or inconclusive scores. Distinguishes voice agents, evaluation judges, test scenarios, saved call cohorts, and asynchronous run results.
+description: Use when creating or calibrating Bland evaluation judges ("align this judge", "correct this verdict"), configuring test cases and attached judges, building judge workbench panels, running or interpreting evaluations and simulations, applying verdicts as call tags, or investigating failed, partial, or inconclusive scores. Also covers disposition test runs, backfills and moving v1 citations and outcomes into dispositions. Distinguishes voice agents, evaluation judges, test scenarios, saved call cohorts, and asynchronous run results.
 ---
 
 # Evaluation work
@@ -9,6 +9,7 @@ Use API operations and workspace code, not dashboard clicks, to build and run
 evaluations. Read [workflow and evidence](references/workflows.md) and the
 [API map](references/api.md) for the chosen task. Follow
 [API identity and permission rules](../api-workspace/references/api.md).
+Do not write fetch scripts and do not search the docs for these routes.
 
 Choose the right object before writing:
 
@@ -22,13 +23,26 @@ Choose the right object before writing:
 Required loop:
 
 1. Define the observable pass condition and needed evidence.
-2. Fetch/create the judge, then edit its version—not the identity object.
-3. Calibrate on known examples, including a failure and an inconclusive case.
+2. Fetch/create the judge, then edit its version, not the identity object.
+3. Calibrate on known examples, including a failure and an inconclusive case,
+   with the [platform loop](references/workflows.md#calibrate-the-judge).
 4. Attach the intended judge version to the scenario or run.
 5. Estimate supported billed operations and stay within the user's scope.
 6. Persist the returned operation ID, follow status, fetch result details.
 7. Separate a valid failing verdict from execution failure or missing evidence.
 8. Read back changes and request UI synchronization if the host supports it.
+
+Where to look:
+
+- Evidence sources, model, levels, copies, templates and drafts from triage:
+  [judge configuration](references/api.md#judge-configuration).
+- Saved judge panels: [workbench panels](references/api.md#workbench-panels).
+- `agent_id`, `async`, judge-test markers and run lists:
+  [run fields](references/api.md#run-create-remaining-fields).
+- Corrections, alignment, analysis and tag apply:
+  [after a run](references/api.md#after-a-run). Apply writes tags onto
+  production calls; confirm first.
+- Test cases built from calls: [test cases from calls](references/api.md#test-cases-from-calls).
 
 Do not claim “passed” from a 202, a finished spinner, or `COMPLETE` alone. State
 which version was tested, which judge version scored it, the denominator, and
@@ -42,3 +56,6 @@ do not substitute one surface's status names or request fields for another's.
 For agent-scoped structured outputs, extractor versions, annotations and alignment,
 read [dispositions](references/dispositions.md). These have a separate
 draft/estimate/publish lifecycle and are not evaluation-judge configuration fields.
+Scoring past calls is a billed [backfill](references/dispositions.md#backfill);
+confirm the cost first. For v1 citations and outcomes, read
+[migrating into dispositions](references/dispositions.md#migrating-v1-citations-and-outcomes-into-dispositions).

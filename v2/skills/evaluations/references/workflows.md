@@ -1,5 +1,13 @@
 # Reliable evaluation workflow
 
+## Contents
+
+- [Define before generating](#define-before-generating)
+- [Calibrate the judge](#calibrate-the-judge)
+- [Simulate and score](#simulate-and-score)
+- [Existing-call batches](#existing-call-batches)
+- [Diagnose outcome, not just status](#diagnose-outcome-not-just-status)
+
 ## Define before generating
 
 - One judge = one observable dimension. A vague “good conversation” rubric is
@@ -14,15 +22,51 @@
 
 ## Calibrate the judge
 
-1. Choose a small known cohort with a clear pass, clear fail, and missing-evidence
-   case. Use authorized test data, not fabricated production-call results.
-2. Create identity and edit the judge version via the [API map](api.md).
-3. Estimate and run against those calls, retaining the actual judge version.
-4. Compare each verdict with the known evidence. Fix the rubric or evidence
-   selection when it disagrees; do not rewrite the reported score by hand.
-5. Repeat on the same cohort and record changes. Publish only within scope.
-   During calibration, inspect whether the selected API supports the current
-   draft; never assume a generic “drafts cannot run” rule across all surfaces.
+Use the platform loop, not a hand comparison. Routes and bodies are in the
+[API map](api.md#after-a-run). Call budget per round: one estimate, one run,
+its polls, one results read, one PUT per disagreement, one alignment, one
+version PATCH, then the same estimate, run and read again. Stop after three
+rounds or when no disagreement is left.
+
+```text
+test run -> annotate disagreements -> align -> review proposal
+   ^                                                  |
+   |                                                  v
+compare <- re-run on the same cohort <- PATCH the draft version
+   |
+   v
+publish (only when asked)
+```
+
+1. **Pick the cohort.** A small known set with a clear pass, a clear fail and a
+   missing-evidence case. Use authorized calls. Freeze the call IDs; save them
+   as a test config if the user will come back.
+2. **Test run.** Estimate, then `POST /v1/evals/runs` with exactly one judge
+   pinned to its draft (`current_version_id`), the judge-test markers and the
+   page's `agent_id` ([run fields](api.md#run-create-remaining-fields)). Keep
+   the run ID. Poll to a terminal status.
+3. **Find disagreements.** Read `call-results?include_agent_results=true`.
+   List each call where the verdict differs from the known answer. Keep
+   execution failures and insufficient evidence apart from wrong verdicts.
+4. **Annotate.** One `PUT …/annotations` per disagreement, with the corrected
+   level and a 40 to 4000 character explanation tied to the evidence. Never
+   annotate a verdict you have not checked against the call.
+5. **Align.** `POST …/versions/{version_id}/alignments` with the run ID and the
+   version that run graded with. Nothing is saved yet.
+6. **Review the proposal.** Show `rationale_md` and the changed prompts to the
+   user. Reject a proposal that names specific calls or callers, or that
+   widens the criterion beyond what the user asked.
+7. **PATCH the draft.** Apply the accepted `prompt_md`, `system_prompt_md` and
+   level prompts to the same draft version. If the run graded a published
+   version, fork it first (`POST …/versions` with `from_version_id`) and edit
+   the fork.
+8. **Re-run on the same cohort.** Same call IDs, run mode and markers, pinned
+   to the edited version.
+9. **Compare.** Diff the two runs call by call: fixed, regressed, unchanged.
+   Report each count and the scored denominator of both runs.
+10. **Publish only when asked.** `POST …/publications`, then read back
+    `active_version_id`. Test-case rosters, workbench panels and dispositions
+    that pin an older version keep it until they are re-pinned.
 
 ## Simulate and score
 

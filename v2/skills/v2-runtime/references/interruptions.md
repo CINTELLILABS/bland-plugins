@@ -23,11 +23,18 @@ resolved call settings before changing an unfamiliar value.
   not durations in milliseconds. A threshold is not a measured latency either.
 - Backchannels are short acknowledgments, not necessarily full agent turns or
   transitions. Test them separately from barge-in and end-of-turn detection.
-- Older snapshots can retain per-step `settings.advanced.interruptibility`,
-  `blockInterruptions`, `interruptionThreshold`, `agentBackchannelLevel`,
-  `agentBackchannelConfig`, and `backgroundTrack`. The current v2 compiler does
-  not emit those per-node audio overrides. Editing them can change the JSON
-  without changing the call or exposing any matching control in the builder.
+- Per-step turn-taking (`settings.advanced.interruptibility`,
+  `blockInterruptions`, `interruptionThreshold`) compiles only on a step, and
+  only when that step sets `advanced.turnTakingOverride: true` (the step
+  Settings tab writes it with Interruptibility and Interruption threshold) or
+  the agent sets `settings.nodeTurnTaking: true` (pathway imports). Then the
+  step overrides the call baseline: a level of 0 means blocked, 1 to 4 a
+  level. Without either marker the values stay in the JSON, inert, because
+  older builders wrote them on every step.
+- The per-step backchannel pair (`agentBackchannelLevel`,
+  `agentBackchannelConfig`) compiles only behind `advanced.backchannelOverride`,
+  which only imports set. Per-step `backgroundTrack` is not emitted. Editing an
+  inert field changes the JSON without changing the call.
 - On an older deployment, verify the actual supported scope. Do not invent an
   override based solely on a field's presence in historical JSON.
 

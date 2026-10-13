@@ -6,7 +6,8 @@ import test from 'node:test';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../v2');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
-const entries = ['api-workspace', 'evaluations', 'call-analysis', 'analytics-authoring', 'analytics-cohorts'];
+const entries = ['api-workspace', 'evaluations', 'call-analysis', 'analytics-authoring', 'analytics-cohorts',
+  'phone-numbers', 'knowledge-sources', 'agent-channels', 'outbound-calls', 'automations', 'tool-library', 'triage-issues'];
 const surfaceReferences = [
   'skills/api-workspace/references/surface-map.md',
   'skills/v2-runtime/references/execution-order.md',
@@ -59,6 +60,7 @@ function visitReferences(file, seen = new Set()) {
 
 const newPages = () => entries.flatMap((name) => {
   const dir = resolve(root, `skills/${name}/references`);
+  if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((file) => file.endsWith('.md')).map((file) => resolve(dir, file));
 }).concat(
   resolve(root, 'skills/v2-testing/references/voice.md'),

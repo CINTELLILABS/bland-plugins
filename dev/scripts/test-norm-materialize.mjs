@@ -675,3 +675,148 @@ test('A0: a missing initialization version does not satisfy a pinned source', ()
   assert.equal(auditOf(unversioned, SCREENER_SOURCE).A0.passed, true);
 });
 
+
+// ── voice/language carry, by-reference tools, hollow-tool and edge-condition audits ──
+
+// Builds one source (+ optional persona) with the given plan fields; returns
+// the snapshot, the builder's stdout report, and the audit's checks by id.
+function buildWith({ source, persona, plan = {} }) {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-materialize-test-'));
+  try {
+    writeFileSync(join(dir, 'source.json'), JSON.stringify(source));
+    if (persona) writeFileSync(join(dir, 'persona.json'), JSON.stringify(persona));
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify({
+      displayName: 'Synthetic', systemPrompt: 'Synthetic test only',
+      sources: [{ file: 'source.json' }],
+      ...(persona ? { persona: 'persona.json' } : {}),
+      scenarios: [{ name: 'Main', entry: { label: 'Main', description: 'The caller needs help' }, members: source.nodes.map((n) => n.id) }],
+      ...plan,
+    }));
+    const report = JSON.parse(execFileSync(process.execPath, [builder, '--plan', join(dir, 'plan.json'), '--out', join(dir, 'snapshot.json')]).toString());
+    const snapshot = JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8'));
+    return { snapshot, report, checks: auditOf(snapshot, source) };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+const ONE_STEP = { nodes: [{ id: 'hello', type: 'Default', data: { name: 'Hello', prompt: 'Greet the caller and ask how you can help.' } }], edges: [] };
+const PERSONA = (callConfig) => ({ personality_prompt: 'Synthetic test only', pathway_conditions: [], call_config: callConfig });
+
+test('the source voice and language carry into settings', () => {
+  const { snapshot } = buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>', language: 'en-GB' }) });
+  assert.equal(snapshot.settings.voice, '<voice-uuid>');
+  assert.deepEqual(snapshot.settings.languages, ['en-GB']);
+  assert.equal(snapshot.settings.importWarnings, undefined);
+});
+
+test('a legacy language code carries as the code it stands for', () => {
+  assert.deepEqual(buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>', language: 'ESP' }) }).snapshot.settings.languages, ['es']);
+  assert.deepEqual(buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>', language: 'en-BETA' }) }).snapshot.settings.languages, ['auto']);
+});
+
+test('a source with no voice or language keeps the defaults and says so in importWarnings', () => {
+  for (const persona of [undefined, PERSONA({ language: 'ENG' })]) {
+    const { snapshot, report } = buildWith({ source: ONE_STEP, persona });
+    assert.equal(snapshot.settings.voice, '');
+    assert.deepEqual(snapshot.settings.languages, ['english']);
+    const byField = Object.fromEntries(snapshot.settings.importWarnings.map((w) => [w.field, w]));
+    assert.equal(typeof byField.voice.code, 'string');
+    assert.match(byField.voice.message, /voice/);
+    assert.match(byField.languages.message, /language/);
+    assert.ok(report.warnings.some((w) => /voice/.test(w)));
+  }
+});
+
+test('a v1 tool that only names a library tool is attached by reference, with no embedded placeholder', () => {
+  const source = { nodes: [{ id: 'hello', type: 'Default', data: {
+    name: 'Hello', prompt: 'Look up the order.',
+    tools: [
+      { name: 'Order lookup', description: 'Find the order', type: 'custom_tool', config: { tool_id: 'TL-11111111-2222', tool_overrides: { 'body.store': '<store>' } } },
+      { name: 'Embedded', type: 'custom_tool', config: { tool_id: 'TL-33333333-4444', tool: { tool: { name: 'Embedded', description: 'Inline', integration: 'rest_api', action: 'post', body: { url: 'https://example.invalid' } } } } },
+    ],
+  } }], edges: [] };
+  const { snapshot, checks } = buildWith({ source });
+  const [ref, embedded] = flowOf(snapshot).nodes.find((n) => n.data && n.data.name === 'Hello').data.tools;
+  assert.equal(ref.byReference, true);
+  assert.equal(ref.toolId, 'TL-11111111-2222');
+  assert.deepEqual(ref.toolOverrides, { 'body.store': '<store>' });
+  assert.equal(ref.definition.integration, undefined);
+  assert.equal(ref.definition.action, undefined);
+  assert.equal(embedded.byReference, undefined);
+  assert.equal(embedded.toolOverrides, undefined);
+  assert.equal(embedded.definition.action, 'post');
+  assert.equal(checks.S9.passed, true, checks.S9.detail);
+});
+
+test('the audit flags a hollow attached tool (library id, not by reference, no real definition)', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.', tools: [{ name: 'Log outcome', type: 'custom_tool', config: { tool_id: 'TL-11111111-2222' } }] });
+  const tool = flowOf(snapshot).nodes.find((n) => n.type === 'end-call').data.tools[0];
+  delete tool.byReference;
+  tool.definition = { name: 'Log outcome', integration: 'rest_api', action: 'get' };
+  const s9 = runAudit(snapshot, { nodes: [], edges: [] }).S9;
+  assert.equal(s9.passed, false);
+  assert.match(s9.detail, /Log outcome/);
+});
+
+test('deterministic v1 edges carry operator AND/OR and a conditionOperator the audit accepts', () => {
+  const source = {
+    nodes: [
+      { id: 'a', type: 'Default', data: { name: 'Ask', prompt: 'Ask for the account status.' } },
+      { id: 'b', type: 'Default', data: { name: 'Active', prompt: 'Help the active account.' } },
+      { id: 'c', type: 'Default', data: { name: 'Closed', prompt: 'Explain the account is closed.' } },
+    ],
+    edges: [
+      { id: 'e1', source: 'a', target: 'b', data: { label: 'Active', condition: [
+        { field: 'status', operator: 'AND', conditionOperator: 'equals', value: 'active' },
+        { field: 'balance', operator: 'OR', conditionOperator: 'greater than', value: '0' },
+      ] } },
+      { id: 'e2', source: 'a', target: 'c', data: { label: 'Closed', condition: [{ field: 'status', operator: 'equals exact', value: 'closed' }] } },
+    ],
+  };
+  const { snapshot, checks } = buildWith({ source });
+  const flow = flowOf(snapshot);
+  const rows = (label) => flow.edges.find((e) => e.data.label === label).data.conditions.map(({ id, ...row }) => row);
+  assert.deepEqual(rows('Active'), [
+    { field: 'status', operator: 'AND', conditionOperator: 'equals', value: 'active' },
+    { field: 'balance', operator: 'OR', conditionOperator: 'greater than', value: '0' },
+  ]);
+  assert.deepEqual(rows('Closed'), [{ field: 'status', operator: 'AND', conditionOperator: 'equals', value: 'closed' }]);
+  assert.equal(checks.R5.passed, true, checks.R5.detail);
+});
+
+test('the audit flags an edge row with a comparison in operator or an unknown conditionOperator', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const flow = flowOf(snapshot);
+  const edge = flow.edges.find((e) => e.data && e.data.label === 'Caller confirmed the information.');
+  edge.data = { mode: 'deterministic', label: 'Confirmed', description: '', alwaysPick: false, conditions: [{ id: 'r1', field: 'confirmed', operator: 'equals', value: 'true' }] };
+  const r5 = runAudit(snapshot, { nodes: [], edges: [] }).R5;
+  assert.equal(r5.passed, false);
+  assert.match(r5.detail, /operator "equals"/);
+  edge.data.conditions = [{ id: 'r1', field: 'confirmed', operator: 'AND', conditionOperator: '==', value: 'true' }];
+  assert.match(runAudit(snapshot, { nodes: [], edges: [] }).R5.detail, /conditionOperator "=="/);
+  edge.data.conditions = [{ id: 'r1', field: 'confirmed', operator: 'AND', conditionOperator: 'is', value: 'true' }];
+  assert.equal(runAudit(snapshot, { nodes: [], edges: [] }).R5.passed, true);
+});
+
+// Optional consuming-repository check, as above: the save validator accepts
+// the carried voice/language and importWarnings, and a by-reference tool
+// compiles to the library id with nothing embedded.
+test('real v2 validator and compiler accept the carried settings and by-reference tools', {
+  skip: !process.env.NORM_V2_COMPILER_PATH && 'requires consuming SERVER compiler and TypeScript loader',
+}, async () => {
+  const imported = await import(pathToFileURL(process.env.NORM_V2_COMPILER_PATH).href);
+  const compile = imported.agentConfigToPathway ?? imported.default?.agentConfigToPathway;
+  const validationModule = await import(pathToFileURL(join(dirname(process.env.NORM_V2_COMPILER_PATH), 'validateSnapshot.ts')).href);
+  const validate = validationModule.validateSnapshot ?? validationModule.default?.validateSnapshot;
+  const source = { nodes: [{ id: 'hello', type: 'Default', data: { name: 'Hello', prompt: 'Look up the order.', tools: [
+    { name: 'Order lookup', type: 'custom_tool', config: { tool_id: 'TL-11111111-2222', tool_overrides: { 'body.store': '<store>' } } },
+  ] } }], edges: [] };
+  for (const persona of [undefined, PERSONA({ voice: '<voice-uuid>', language: 'en-GB' })]) {
+    const verdict = validate(buildWith({ source, persona }).snapshot);
+    assert.equal(verdict.ok, true, JSON.stringify(verdict));
+    const graph = compile(verdict.snapshot);
+    const tools = graph.nodes.flatMap((n) => (n.data && n.data.tools) || []);
+    const ref = tools.find((t) => t.name === 'Order lookup');
+    assert.deepEqual(ref.config.tool, { tool_id: 'TL-11111111-2222' });
+  }
+});

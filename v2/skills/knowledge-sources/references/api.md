@@ -1,0 +1,210 @@
+# Knowledge source API
+
+Base: `/v1/knowledge`. Reads go through `bland_api_get` (query values are
+strings), writes through `call_bland_api` with `{method, path, body}`.
+Responses use the `{data, errors}` envelope; an error row carries `error`
+and `message`. Every route is scoped to the caller's organization. Any org
+member can write; there is no role gate, so the confirm list in the skill is
+the only gate.
+
+Confirm column: **R** read. **T** writes telemetry; tell the user.
+**C** confirm, naming the object. **C!** confirm after the pre-delete scan.
+
+## Contents
+
+- [Sources](#sources)
+- [Content, versions and sync](#content-versions-and-sync)
+- [Retrieval tests](#retrieval-tests)
+- [Questions](#questions)
+- [Query logs](#query-logs)
+- [Pre-delete scan](#pre-delete-scan)
+- [Errors and fixes](#errors-and-fixes)
+- [Not this skill](#not-this-skill)
+
+## Sources
+
+| Method and path | Body or query | Returns, limits | Confirm |
+|---|---|---|---|
+| `GET /sources` | `search` (name fragment, at most 200 chars), `type` csv of `PDF,CSV,JSON,DOCX,XLSX,WEB,TEXT,INTEGRATION`, `status` csv of `ACTIVE,STALE,FAILED,PROCESSING`, `sort` (`name_asc`, `updated_desc`, `gaps_desc`, `coverage_asc`, and their opposites), `cursor`, `take` | `{sources[], total_filtered, total_unfiltered, total_queries_30d, pagination.nextCursor}`. Each row has `id, name, type, status, chunk_count, query_count, gap_count, coverage_pct, agent_count, node_count, persona_count, sync_enabled`. A cursor with a different explicit `sort` is a 400; drop the cursor. STALE means not updated in 7 days. | R |
+| `GET /sources/picker` | none | Light id and name list. | R |
+| `GET /:id` | none | Detail: `status` (`PROCESSING`, `COMPLETED`, `FAILED`), `type` (`FILE`, `WEB_SCRAPE`, `TEXT`, `INTEGRATION`), `error_message`, `processing` progress while converting, `current_version`, `source_urls`, 30-day `query_count_30d`, `gap_count_30d`, `coverage_pct_30d`, and `kb_item_scopes` (see the scan). 404 `KB not found` for another org's or a deleted id. | R |
+| `POST /crawl` | `{url, limit}`; `limit` 1 to 2000, default 100 | Sitemap discovery only. Persists nothing. | R |
+| `POST /learn` text | `{"type": "text", name, text, description?}`; `text` at most 1 MB | `{knowledge_base_id, version_id}`. Async: poll `GET /:id`. | C |
+| `POST /learn` web | `{"type": "web", name, urls[], description?}`; at most 100 URLs (2000 on enterprise), all on one domain | Same. Scrapes the listed pages. | C |
+| `POST /learn` file | multipart `file` | Not reachable through the API tools. Dashboard only. | n/a |
+| `POST /learn` integration | `{"type": "integration_file", integrationType, resourceId, itemId, name}` | Needs a connected Notion or Google Docs resource and its item id. Use the dashboard's Add source, Integration tab. | n/a |
+| `PUT /:id` | `{name?, description?}` | Rename or re-describe. On an agent-wide source the name and description are what the agent sees when it decides to look something up. | C |
+| `DELETE /:id` | none | Soft delete; the source disappears from lists. No reference check and no undo route. Agent versions keep listing the id. | C! |
+
+Text source:
+
+```json
+{
+  "method": "POST",
+  "path": "/v1/knowledge/learn",
+  "body": {
+    "type": "text",
+    "name": "<Returns policy FAQ>",
+    "description": "<Answers questions about returns, refunds and exchanges>",
+    "text": "<Q: How long do I have to return an item?\nA: 30 days from delivery.>"
+  }
+}
+```
+
+Web source, after `POST /crawl` with `{"url": "<https://example.com>", "limit": 50}`:
+
+```json
+{
+  "method": "POST",
+  "path": "/v1/knowledge/learn",
+  "body": {
+    "type": "web",
+    "name": "<Help center>",
+    "urls": ["<https://example.com/help/returns>", "<https://example.com/help/shipping>"]
+  }
+}
+```
+
+Polling: read `GET /:id` a few seconds apart at first, then about every 15
+seconds. Stop at `COMPLETED` or `FAILED`. Large files and many URLs take
+minutes.
+
+## Content, versions and sync
+
+Every write here starts a new version and a re-index. While a source is
+indexing, the next one is refused with 409 `Source is still indexing. Wait
+until it completes.` Sources have no dev and production split: once the new
+version reads `COMPLETED`, every agent that lists the source retrieves from it.
+
+| Method and path | Body or query | Returns, limits | Confirm |
+|---|---|---|---|
+| `GET /:id/content` | `version_id?` | `content_url` (and `source_url` for PDF, DOCX, JSON) are presigned links, not the text. A web source returns `source_urls` instead. Opening a link needs a host web fetch; the API tools cannot. While converting, both links are null and `processing` is set. | R |
+| `POST /:id/content` | `{content}`, at most 10 MB | Replaces the **whole** document: the text of a TEXT source, the CSV or TXT text of a file, or the converted Markdown of a PDF, DOCX or JSON file. For web sources use `replace_urls`. | C |
+| `POST /:id/replace_urls` | `{urls[]}`, same caps as learn | Re-scrapes a `WEB_SCRAPE` source with the new list. | C |
+| `POST /:id/replace` | multipart `file`, same extension | Dashboard only. | n/a |
+| `POST /:id/reindex` | none | Re-embeds the current file. `FILE` sources only. | C |
+| `GET /:id/versions` | none | Version list. | R |
+| `GET /:id/versions/:versionId` | none | One version. | R |
+| `POST /:id/versions/:versionId/restore` | none | Makes an old version current and re-indexes it. | C |
+| `POST /:id/sync` | `{"manual_sync": true}` or `{"action": "enable"}` or `{"action": "disable"}` | Re-sync now, or turn scheduled re-sync on or off. `WEB_SCRAPE` and `INTEGRATION` only; other types answer 400. | C |
+| `GET /:id/download` | none | Original bytes. One download per org per 5 seconds (429). | R |
+
+## Retrieval tests
+
+Both routes are refused over OAuth with `oauth_path_not_allowed`. Both write a
+Query Logs row. See [verification](verification.md) for what to use instead
+and how to judge the result.
+
+| Method and path | Body | Returns | Confirm |
+|---|---|---|---|
+| `POST /answer` | `{query, knowledge_base_id \| knowledge_base_ids[], top_k?, alpha?, disable_cache?, skip_gap_evaluation?}` | `{results[{text, score, content_type}], formatted_context, generatedQuery}`. Raw retrieval, no synthesis. Logs a row with source `API`. A background gap check may add a Questions entry unless `skip_gap_evaluation` is true. A FAILED source answers nothing; null data means no query was run. | T |
+| `POST /chat` | `{query \| messages[], knowledge_base_id(s), top_k?, alpha?, source?}` | `{result, chunks[], generated_query, gap_evaluation{is_knowledge_gap, gap_id}}`. Synthesizes an answer and always runs the gap check, so a miss opens a Questions entry. `source: "playground"` logs it as Playground instead of API. | T |
+
+Low-side-effect check:
+
+```json
+{
+  "method": "POST",
+  "path": "/v1/knowledge/answer",
+  "body": {
+    "query": "<How long do I have to return an item?>",
+    "knowledge_base_id": "<source id>",
+    "top_k": 5,
+    "disable_cache": true,
+    "skip_gap_evaluation": true
+  }
+}
+```
+
+Do not pass `call_id` or `agent_id`: they attribute the test to a real call
+or agent in Query Logs.
+
+## Questions
+
+A question (a knowledge gap) is something a caller asked that the attached
+sources could not answer. Paths are under `/v1/knowledge/gaps`.
+
+| Method and path | Body or query | Returns, rules | Confirm |
+|---|---|---|---|
+| `GET /gaps` | `status` csv of `OPEN,RESOLVED,DISMISSED`; `kb_id` or `kb_ids` csv; `page`; `limit` (at most 100); `sort_by` (`occurrences_desc`, `occurrences_asc`, `created_at_desc` default, `created_at_asc`) | `{gaps[], total, page, limit, has_more}`. Each gap has `id, question, search_query, kb_ids, kbs[{id, name}], occurrences[{call_id, conversation_id, timestamp}], status, answer?, linked_gaps_count?`. An unknown `kb_id` is a 404. | R |
+| `GET /gaps/counts` | `kb_id?` | Per-status counts. | R |
+| `GET /gaps/:id` | none | One gap. | R |
+| `POST /gaps/:id/resolve` | `{answer, target_kb_id}` | Writes the question and answer into the target source and marks the gap RESOLVED. `answer` at least 10 characters. `target_kb_id` must be one of the gap's `kb_ids`. Live for every agent using that source. | C |
+| `POST /gaps/:id` | `{question?, answer?}` | Edits a RESOLVED gap's answer. | C |
+| `POST /gaps/:id/duplicate` | `{target_gap_id}` | Copies a RESOLVED gap's answer onto an OPEN gap. They must share a source. | C |
+| `POST /gaps/:id/sync` | none | Pushes a RESOLVED gap's answer to its linked gaps. | C |
+| `POST /gaps/:id/dismiss` | none | OPEN to DISMISSED. Reversible with `/reopen`. | R |
+| `POST /gaps/:id/reopen` | none | DISMISSED to OPEN. | R |
+| `DELETE /gaps/:id` | none | Soft delete. | C |
+
+```json
+{
+  "method": "POST",
+  "path": "/v1/knowledge/gaps/<gap id>/resolve",
+  "body": {
+    "answer": "<Returns are accepted for 30 days from delivery with a receipt.>",
+    "target_kb_id": "<one of the gap's kb_ids>"
+  }
+}
+```
+
+## Query logs
+
+Every retrieval: calls, tests, the Source testing tab and API use.
+
+| Method and path | Query | Returns | Confirm |
+|---|---|---|---|
+| `GET /queries` | `start_date`, `end_date` (ISO; the window defaults to the **last 7 days**), `call_id`, `agent_id`, `state` (`ANSWERED`, `QUESTION_OPEN`, `QUESTION_ANSWERED`), `query_source` (`PATHWAY`, `PLAYGROUND`, `API`, `BLANDCODE`, `PERSONA`, `AGENT`), `q` (at most 500 chars), `take` (at most 100), `cursor`, `onlyCount=true` | `{queries[{id, created_at, query_text, state, is_gap, gap_id, query_source, call_id, agent_id, node_id, kb_ids}], pagination.nextCursor}` | R |
+| `GET /queries/:id` | `created_at` **required**, copied from the list row | The row plus `results[]` (the chunks retrieved, with `score`) and `gap`. | R |
+
+For a call older than 7 days, set `start_date` and `end_date` around the
+call, or the list is empty.
+
+## Pre-delete scan
+
+`kb_item_scopes` on `GET /:id` is incomplete for v2. It lists:
+
+- `agents[]` `{agent_id, agent_name, environments, used, query_count_30d}`:
+  agents whose current environment version lists the id in
+  `knowledge.kbIds`, plus agents that retrieved from it in the last 30 days;
+- `personas[]` and `pathway_nodes[]`: v1 consumers.
+
+It does not index a `knowledge` step's `kbIds` or a prompt mention. Scan
+those yourself:
+
+1. Page `bland_api_get` `/v2/agents`.
+2. Per agent, read `/v2/agents/<id>/versions/latest`, then `/environments`
+   and each pinned staging or production version by its semver
+   ([lifecycle API](../../v2-lifecycle/references/api.md)). Production can
+   be older than dev.
+3. In each snapshot match the source id in `knowledge.kbIds`, in any
+   `knowledge` step's `kbIds` (inside `flow.nodes`, at any depth), and in
+   any `mentions[]` row with `kind: "knowledge"`. A `{{variable}}` in `kbIds`
+   cannot be resolved here; list it as "may use".
+4. Report every agent, environment and node by name, plus the v1 personas
+   and pathway nodes, plus the 30-day query counts.
+
+## Errors and fixes
+
+| Status and message | Fix |
+|---|---|
+| 423 `KB_UPLOAD_RATE_LIMITED` | Another upload is running. Wait about 10 seconds, retry once. |
+| 400 `KB_UPLOAD_LIMIT_EXCEEDED` | The plan's source cap. Report it; extend an existing source or delete one with the user's consent. |
+| 400 `All URLs must be from the same domain: …` | Split into one source per domain. |
+| 400 `Maximum 100 URLs allowed per KB` | Trim the list or split it. |
+| 400 `text content is too large (max 1MB)` | Split into several text sources. |
+| 409 `Source is still indexing. Wait until it completes.` | Poll `GET /:id` until COMPLETED or FAILED, then write once. |
+| 400 `Answer must be at least 10 characters` | Write a full answer. |
+| 400 `Target KB must be one of the KBs that were queried when this gap was created` | Pick `target_kb_id` from the gap's `kb_ids`. |
+| 400 `Gap is already resolved` | Edit it with `POST /gaps/:id` instead. |
+| 400 `Can only link OPEN gaps…`, `Target gap must be RESOLVED` | Resolve the representative first, then link the open ones. |
+| 400 `created_at query param is required…` | Copy `created_at` from the list row. |
+| `oauth_path_not_allowed` | The connection cannot run that route. See [verification](verification.md). Stop; do not route around it. |
+
+## Not this skill
+
+- `/v1/knowledgebases` is a legacy adapter, `/v1/notes` holds call notes,
+  and `/v1/memory/*` is caller memory. See
+  [resources](../../v2-lifecycle/references/resources.md) for memory.
+- `POST /v1/knowledge/:id/improve`, `/anchor-suggestions`, `/feedback` and
+  `/migrate/*` are not part of these workflows.

@@ -143,6 +143,29 @@ mode the page hides its own filters.
   opens. Give the relative link `/dashboard/conversations?cohort=<id>` and say
   the page was not opened.
 
+### Other deep-link parameters
+
+`/dashboard/conversations` reads these query parameters too. Give a link
+built from them when the user wants a filtered list that is not a cohort:
+"open the WhatsApp threads", "open this conversation", "show the active
+calls". Unknown or invalid values are dropped.
+
+| Parameter | Values | Opens |
+| -- | -- | -- |
+| `channel` | `phone`, `web_voice`, `web_chat`, `sms`, `rcs`, `imessage`, `whatsapp`, `api_chat` | the list narrowed to one channel |
+| `focus` | a call id or a messaging conversation id | that one conversation, with its detail panel open |
+| `batchId` | a batch id | the calls of that batch |
+| `simulation` | `live` (default), `simulated`, `all` | live calls, simulated calls, or both |
+| `tab` | `conversations` (default), `contacts`, `active` | the list, the Contacts tab, or the live calls in progress |
+| `sequence` | an automation sequence id | the conversations of that sequence; dropped when `cohort` is set |
+| `callFilter` | URL-encoded JSON `{ "filters": [{ "field": "<field>", "operator": "<op>", "value": <v> }], "mode": "AND" }` | the list with the page's call filters applied; ignored when `cohort` is set |
+
+- `cohort` wins: in cohort mode the page ignores `callFilter` and `sequence`.
+- `callFilter` uses the page's filter fields and operators (for example
+  `status` with `equals`, `call_length` with `gte`). An unreadable value shows
+  an error instead of the list, so prefer a cohort for anything a predicate
+  can say.
+
 ## Window rules
 
 - `end` after `start`.
@@ -184,5 +207,6 @@ Attached target: cohort "Contained, Oct 3" id=<cohort id> context={"request":{"a
   user is looking at. Build the new cohort from that request plus the user's
   extra condition as `predicate.where`; never widen the window or drop a key
   the request had.
+- `metric`: a headline tile; see [metrics](metrics.md#attached-target).
 - `pathway` and `stage` targets belong to the Sankey skill
   (analytics-authoring).

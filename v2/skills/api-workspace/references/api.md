@@ -36,6 +36,22 @@ appear as files: verify a saved file exists and parses. If the host truncates a
 response, request smaller pages or individual records; never analyze a truncated
 blob as a complete dataset. Do not build a new export service for this workflow.
 
+## Connection modes
+
+| Mode | What it reaches |
+|---|---|
+| API-key install (the host holds an org API key) | Every route the generic caller allows |
+| OAuth-connected host (keyless install, app connector) | An allowlist of everyday families: agents, calls (read), knowledge, evaluations, agent testing, analytics, dispositions, contacts, memory. Everything else is refused, including tools, messaging, web chat, exports, settings, credentials and purchases |
+
+- On `oauth_path_not_allowed` say "this connection cannot reach <route
+  family>; do it on <dashboard path>" and stop. Do not try another path, the
+  browser, or a key pasted into chat.
+- On `insufficient_scope` the message names the scope. Tell the user to
+  reconnect and approve it, or use the dedicated tool it names.
+- The passthrough sends JSON bodies only. Multipart bodies (file uploads)
+  and `text/plain` bodies (raw code) never go through it, on either
+  connection. Name the dashboard page that does the upload instead.
+
 ## Credentials and privacy
 
 - Authentication belongs to the connection/host. Never request keys in chat,

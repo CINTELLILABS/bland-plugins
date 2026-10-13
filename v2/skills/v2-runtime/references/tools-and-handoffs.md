@@ -13,6 +13,8 @@
 Use the existing generic MCP/API primitive and documented endpoints. Do not
 introduce another service or expose API keys to make an integration work. Stored
 tool, snippet, knowledge and secret identifiers remain org-scoped references.
+Routes, the definition schema, the HTTP-0 trap and attach modes are in the
+[tool library reference](tool-library.md).
 
 ## Author and debug a tool safely
 
@@ -30,10 +32,32 @@ tool, snippet, knowledge and secret identifiers remain org-scoped references.
    does not guarantee exactly-once effects. After an ambiguous write, inspect
    downstream state before retrying. Use idempotency only where documented.
 
-Code snippets are separately saved executable resources. Use the current snippet
-API through the authenticated connection, capture the returned id/version, update
-the node's pair and test its declared inputs and output keys. Never execute an
-arbitrary code buffer merely because it is displayed in the builder.
+## Code steps and snippets
+
+Code snippets are separately saved executable resources. Snippet create and
+update take the raw script as `text/plain`, so they are not reachable through
+the API passthrough, which sends JSON only. The user saves code in the builder.
+What works here: read `GET /v1/snippets/list` or `GET /v1/snippets/get/:id`,
+re-pin the step's `snippetId` and `snippetVersion` (or a code tool's
+`snippet_id` and `snippet_version`) to the version they saved, then test its
+declared inputs and output keys. Never execute an arbitrary code buffer merely
+because it is displayed in the builder.
+
+A `customCode` step at runtime:
+
+- Runs its pinned snippet (`snippetId` + `snippetVersion`) **before dialogue**,
+  with the step marked non-conversational. The step adds no dead turn itself.
+- **Input**: only the step's `variables` rows, resolved against call
+  variables. Map the snippet's complete read-set; an unresolved placeholder
+  arrives as the literal text `{{name}}`.
+- **Output**: a returned object's keys merge into call variables under their
+  own names. Route on them in the next step.
+- A snippet id that does not resolve in the owning org silently no-ops. Check
+  org scope first when "the code didn't run".
+
+A snippet can also run mid-turn as an attached `custom-code` / `run_snippet`
+tool (see [definition kinds](tool-library.md#definition-kinds)). The step
+fires on traversal; the tool fires when the model calls it.
 
 ## Phone handoff versus pathway handoff
 

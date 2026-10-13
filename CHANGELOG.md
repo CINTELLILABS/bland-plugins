@@ -1,5 +1,47 @@
 # Changelog
 
+## norm 1.10.0 – 2026-10-13
+
+- Seven workflow skills for the dashboard pages that had no coverage:
+  `phone-numbers`, `knowledge-sources`, `agent-channels`, `outbound-calls`,
+  `automations`, `tool-library` and `triage-issues`. Each one reads the page
+  context first, names its confirm-gated and dashboard-only actions, states
+  its call budget, and says plainly when a write does not refresh the page.
+  Benchmarks for each under `dev/benchmarks`.
+- Rollouts (the Experiments page) in `v2-lifecycle`: staged and A/B plans,
+  guardrails, every action's traffic effect, finish as promote, metrics
+  routes, and the promote refusal codes. Standalone experiments reframed as
+  the low-level primitive.
+- Voice and language selection as a lifecycle reference: resolve the voice,
+  refuse a draft, match the service to `languages[0]`, `voicePool` rules,
+  what stays dashboard-only.
+- Corrections to the snapshot dialect: the deterministic edge-condition row
+  shape (`operator` is `AND` or `OR`, the comparison is `conditionOperator`),
+  the mid-turn custom-code tool beside the `customCode` step, language codes,
+  `initialization` and `hub.entryScenarioId`, per-step turn-taking that
+  compiles behind an override, and the attached-tool fields. `knobs.md` now
+  states which calls-channel fields are inert and which messaging and API
+  chat fields are read from production.
+- Per-channel versions corrected: a published widget and API chat run the
+  production twin with no pin; the builder socket runs the dev head; a number
+  attach recompiles the twin from the dev head until the next promote.
+- Evaluations: judge configuration and seeds, workbench panels, the run
+  fields that place a run on the agent's pages, the annotate, align, analyze
+  and apply loop, disposition backfills (500 call ids, billed, confirm),
+  rollback and draft field edits.
+- Analytics: `metrics.md` replaces the roadmap now that headline metric
+  tiles are live; `measurement.md` orders summary tiles, `query_analytics`
+  and cohorts; the Conversations page deep-link parameters.
+- Call analysis: threads by agent for texts, web chat and API chat, server
+  export, and per-call evidence (tool logs, knowledge retrievals, SIP ladder,
+  scores). Workspace reference now describes the real page bridge, the
+  writes that refresh the page, and OAuth versus API-key reach.
+- Migration builder: carries the source voice and language (or warns), emits
+  reference-only v1 tools as `byReference` instead of a hollow copy, and
+  writes deterministic edges in the shape the runtime reads. Audit gains
+  hollow-tool and edge-vocabulary checks; `/norm:validate` gains a voice check.
+- `dev/SKILL-AUTHORING.md`: a section on working with the dashboard bridge.
+
 ## norm 1.9.0 – 2026-10-08
 
 - Add the analytics-cohorts skill for conversation cohorts: the `where`

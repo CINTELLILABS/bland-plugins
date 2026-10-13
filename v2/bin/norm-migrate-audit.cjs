@@ -12,6 +12,17 @@
  *   norm-migrate-audit.cjs --snapshot snap.json [--source v1.json]... \
  *     [--persona persona.json] [--allow-missing-fallback <routeName>]... \
  *     [--dropped-tags .norm/dropped-tags.json]   (rows: "tag" | {tag} | {node: id|name, reason}) [--json]
+ *
+ * Check families: S (structure), R (routing crashes), P (parity with the v1
+ * source), A (v2 architecture). Two checks need no source:
+ *   S9  no hollow attached tool. A tool with a toolId that is not byReference
+ *       runs its embedded definition, so that definition needs a description
+ *       and a body. Fix: set byReference true (the library tool runs by id) or
+ *       embed the full definition.
+ *   R5  every deterministic edge row (flow edges and entries) has operator
+ *       AND or OR (the join to the previous row) and a conditionOperator of
+ *       contains, does not contain, equals, not equals, greater than, less
+ *       than or is. A comparison put in operator saves but never matches.
  */
 
 const fs = require("node:fs");
@@ -259,10 +270,65 @@ function main() {
 		}
 		check("S8", "webhook headers are {key,value} rows (not v1 tuples)", badHeaders.length === 0, badHeaders.join(", "));
 	}
+	// S9: an attached tool that names a library tool but is not byReference runs
+	// its embedded definition, never the library tool. A definition without a
+	// description or a body is a stand-in that runs nothing.
+	{
+		const hollow = [];
+		(function walkTools(o, owner) {
+			if (Array.isArray(o)) return o.forEach((x) => walkTools(x, owner));
+			if (!o || typeof o !== "object") return;
+			const here = o.data && typeof o.data.name === "string" ? o.data.name : owner;
+			if (Array.isArray(o.tools)) {
+				for (const t of o.tools) {
+					if (!t || typeof t !== "object" || t.toolType === "track") continue;
+					const def = t.definition && typeof t.definition === "object" ? t.definition : {};
+					if (t.toolId && t.byReference !== true && (typeof def.description !== "string" || def.body === undefined)) {
+						hollow.push(`${here || "?"}/${t.name || t.toolId}`);
+					}
+				}
+			}
+			Object.values(o).forEach((x) => walkTools(x, here));
+		})(behavior, "");
+		check("S9", "no hollow attached tool (a library toolId is byReference, or the embedded definition has a description and body)", hollow.length === 0, hollow.slice(0, 5).join(", "));
+	}
 	check("R1", "route fallbacks present", routeNoFallback.length === 0, routeNoFallback.join(", "));
 	check("R2", "no OR-collapse", orCollapse.length === 0, orCollapse.slice(0, 5).join("; "));
 	check("R3", "flow steps reachable", unreachable.length === 0, unreachable.slice(0, 6).join(", "));
 	check("R4", "no merged exit labels", mergedLabels.length === 0, mergedLabels.slice(0, 4).join("; "));
+	// R5: deterministic edge rows in the v2 shape. The compiler copies operator
+	// and conditionOperator through unchecked, and the save validator does not
+	// look at them, so a wrong spelling saves and then never matches.
+	{
+		const JOINS = new Set(["AND", "OR"]);
+		const COMPARISONS = new Set(["contains", "does not contain", "equals", "not equals", "greater than", "less than", "is"]);
+		const badRows = [];
+		const checkEdgeData = (ed, where) => {
+			if (!ed || typeof ed !== "object" || !Array.isArray(ed.conditions)) return;
+			if (ed.mode !== "deterministic" && ed.conditions.length === 0) return;
+			ed.conditions.forEach((c, i) => {
+				const row = c || {};
+				const at = `${where} row ${i + 1}`;
+				if (!JOINS.has(row.operator)) badRows.push(`${at}: operator "${row.operator ?? ""}" (want AND or OR)`);
+				if (!COMPARISONS.has(row.conditionOperator)) badRows.push(`${at}: conditionOperator "${row.conditionOperator ?? ""}"`);
+			});
+		};
+		(function walkEdges(flow, where) {
+			const fnodes = Array.isArray((flow || {}).nodes) ? flow.nodes : [];
+			const fedges = Array.isArray((flow || {}).edges) ? flow.edges : [];
+			const nameOf = (id) => {
+				const n = fnodes.find((x) => x.id === id);
+				return String(((n || {}).data || {}).name || (n || {}).type || id);
+			};
+			for (const e of fedges) checkEdgeData(e.data, `${where}edge ${nameOf(e.source)} -> ${nameOf(e.target)}`);
+			for (const n of fnodes) {
+				const nd = n.data || {};
+				checkEdgeData(nd.entry, `${where}${nd.name || n.id} entry`);
+				if (nd.flow) walkEdges(nd.flow, `${where}${nd.name || n.id}/`);
+			}
+		})(behavior, "");
+		check("R5", "deterministic edge rows use operator AND|OR and a known conditionOperator", badRows.length === 0, badRows.slice(0, 5).join("; "));
+	}
 
 	// ── Parity vs v1 source(s) — SHAPE-ANCHORED, not substring greps ──
 	// Collect what the snapshot actually carries, field-by-field: snippet

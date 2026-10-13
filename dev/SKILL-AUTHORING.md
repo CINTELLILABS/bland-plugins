@@ -66,7 +66,7 @@ condition cannot be expressed. Covers …
   ├─ numbered workflow             ├─ semantics.md  what results mean
   ├─ refusal loop                  ├─ examples.md   worked prompts
   ├─ limits                        ├─ tables.md     generated column list
-  └─ what it cannot express        └─ metrics-roadmap.md  not-yet-live routes
+  └─ what it cannot express        └─ metrics.md     headline metric tiles
 ```
 
 - `SKILL.md` stays under about 650 words. The wiki test enforces this for the
@@ -94,6 +94,52 @@ Write it as numbered steps with the exact tool and route at each step.
 - Say what the page does by itself. Both analytics skills tell the agent the
   page refreshes or opens the list itself, so it never asks the user to reload.
 - Split questions from changes. A question is answered from reads alone.
+
+## Working with the dashboard bridge
+
+In the dashboard, Norm runs the same plugin, attached to the page the user is
+on. Write every skill so it works there as well as in a terminal.
+
+```text
+  page ──(every second)──► page-context snapshot ──► get_dashboard_page_context
+         route {pathname, search, routeIds, params}, visible text, tables, fields
+  chip ──► "Attached target: <kind> …" preface line on the turn
+         kinds: pathway, stage, cohort, metric, visualization. Nothing else.
+  write ──► API receipt refreshes the page for a short list of routes;
+         every other write leaves the page as it was.
+```
+
+- **Read the page first.** Call `get_dashboard_page_context` with
+  `mode: "synced"`. Take the agent id from `route.params`, query values such
+  as `phoneNumber` or `widgetId` from `route.search`, and the page from the
+  pathname. A skill's "Page context" section lists the pathnames it maps and
+  what each one yields.
+- **Do not wait for a chip.** Only the analytics pages attach a target. On
+  every other page the route is the context.
+- **Say what the page does by itself.** After a write to a metric definition,
+  the waypoint definition, a cohort, an agent-testing run or scenario, an
+  agent, a version, a judge or an eval run, the page refreshes on the receipt.
+  After any other write say: "Saved through the API. The page shows it after
+  a refresh." Never claim the page updated.
+- **Mutate through the API, not the form.** `inspect_dashboard_page` and
+  `inspect_dashboard_element` read the page. Do not fill the page's forms to
+  make a change. `control_dashboard_ui` lists the typed actions a page
+  registered; list before you call, and expect none on most pages.
+- **Confirmation is skill text.** The dashboard asks the user only before
+  `create_call`, `create_eval_run` and `save_agent_version`. Every other
+  write is gated by the skill's "Confirm before" list. Use one template:
+
+  ```text
+  About to <verb> <object>: <what changes, who is affected, cost or count>.
+  This <reaches the carrier | texts +1… | places N calls | cannot be undone>.
+  Reply "yes" to proceed.
+  ```
+
+- **Name the connection limit.** An OAuth-connected host cannot reach most
+  org-resource routes. On `oauth_path_not_allowed` say "this connection
+  cannot reach <route family>; do it on <dashboard path>" and stop.
+- **Name the body limit.** File uploads and text bodies do not go through
+  the API tools. Point to the dashboard page instead.
 
 ## Offline validators
 
@@ -137,7 +183,7 @@ Rules for a validator:
 
 ## Contracts that are not live yet
 
-Put them in their own reference, as `metrics-roadmap.md` does:
+Put them in their own reference, as the former `metrics-roadmap.md` did (now `metrics.md`, since the routes went live):
 
 - Name the stack step each route lands in.
 - Give the agent a probe ("if `GET /v2/analytics/org/metrics` answers 404, the

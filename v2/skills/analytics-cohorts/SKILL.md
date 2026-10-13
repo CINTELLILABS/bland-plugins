@@ -1,6 +1,6 @@
 ---
 name: analytics-cohorts
-description: Use when building a list or cohort of conversations that match a condition ("show me the calls where…", "which calls…", "how many calls…"), counting calls by lake columns, filtering by outcome, call length, metadata, tools, webhooks or disposition values, opening a filtered list on the Conversations page, feeding a set of calls to a judge run, or explaining why a condition cannot be expressed. Covers the predicate grammar, offline validation, and the create, poll and ids routes.
+description: Use when building a list or cohort of conversations that match a condition ("show me the calls where…", "which calls…", "how many calls…"), counting calls by lake columns, filtering by outcome, call length, metadata, tools, webhooks or disposition values, opening a filtered list on the Conversations page, feeding a set of calls to a judge run, reading, adding, editing, deleting or backfilling a headline metric tile on the Analytics page ("add a metric", "what's my containment", "how is the agent doing"), or explaining why a condition cannot be expressed.
 ---
 
 # Build a conversation cohort
@@ -20,9 +20,10 @@ columns in [tables](references/tables.md), and what a leaf means in
 
 ## Attached target
 
-An `Attached target:` preface line with a `cohort` target carries the request
-that built the selection on screen; build from it plus the user's condition
-([contract](references/contract.md#attached-target)).
+A `cohort` target carries the request that built the selection on screen;
+build from it plus the user's condition
+([contract](references/contract.md#attached-target)). A `metric` target is a
+headline tile: follow [metrics](references/metrics.md#attached-target).
 
 ## Workflow
 
@@ -34,14 +35,13 @@ that built the selection on screen; build from it plus the user's condition
    [tables](references/tables.md).
 3. **Validate offline** with `node scripts/validate-predicate.cjs <request.json>`
    (resolve `scripts/` from this skill's directory). It checks only `where`,
-   with the API's rules and messages, and reports `cost_class`. The API
-   checks the rest of the body.
+   with the API's messages, and reports `cost_class`.
 4. **Create** with `call_bland_api` POST `/v2/analytics/cohorts`, body
    `{ "agent_key": "<agent>", "window": { "start": "…", "end": "…" }, "predicate": { … } }`.
    A 202 returns `{ id, status: "building" }`.
-5. **Poll** `bland_api_get` on `/v2/analytics/cohorts/<id>`: a few seconds
-   between the first reads, then about 15. Stop at `ready` or `failed`. Light
-   predicates take seconds; heavy ones can take minutes.
+5. **Poll** `bland_api_get` on `/v2/analytics/cohorts/<id>`
+   ([polling](references/contract.md#polling)) until `ready` or `failed`.
+   Heavy predicates can take minutes.
 6. **Report** `size`, `visible_size` and `truncated`, and say in words what
    the predicate selected. In a connected dashboard session the Conversations
    page opens the list itself; never ask for a reload. Standalone, give
@@ -80,9 +80,9 @@ Say the rule and hand off; never approximate with a lookalike predicate.
 - **Text search inside denied columns** (transcripts, summaries, payloads,
   phone numbers). "Calls where the caller asked for a human" is a
   classification. Define a disposition, then filter on its value.
-- **Aggregates across calls** (averages, rates, top-N, per-day series). Use
-  `query_analytics`.
+- **Aggregates across calls** (averages, rates, top-N, per-day series). Climb
+  the [measurement](references/measurement.md) ladder: tiles, then
+  `query_analytics`, then a cohort.
 
-Worked prompts are in [examples](references/examples.md). Customer metric
-routes are not live yet; read the [metrics roadmap](references/metrics-roadmap.md)
-before answering a metric request.
+Worked prompts are in [examples](references/examples.md). For a headline tile
+(read, add, edit, delete, backfill) follow [metrics](references/metrics.md).
