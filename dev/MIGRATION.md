@@ -180,7 +180,7 @@ Then tag `v2.0.0` and publish.
 
 ## Out of scope
 
-- OAuth on the hosted MCP server. It would remove the key step for humans entirely, as ElevenLabs and Cartesia do, but it is a server project and the bridge design above does not depend on it. When it lands, the bridge becomes optional for hosts that support OAuth natively.
+- OAuth on the hosted MCP server. It would remove the key step for humans entirely, as other voice platforms do, but it is a server project and the bridge design above does not depend on it. When it lands, the bridge becomes optional for hosts that support OAuth natively.
 - Folding in the CLI's tool set. Its tool vocabulary differs from the hosted server's, and the hosted server's REST passthrough already reaches every documented endpoint.
 - Rewriting the skill bodies for quality. This plan moves and reframes them. Editing the guidance is separate work.
 

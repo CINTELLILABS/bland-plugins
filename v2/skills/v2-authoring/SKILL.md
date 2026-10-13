@@ -39,7 +39,7 @@ Boundary rule: **draw scenario boundaries only at one-way seams.**
   vehicle" jumps) → ONE scenario containing all of them. Ordinary wrapper entry
   follows the configured Start edge; splitting a loop across scenarios does not
   preserve an arbitrary mid-flow resume point.
-- Scenario count is not a quality metric. A single-scenario agent with a thin hub is correct when the call is one continuous task. The hub still buys you: root end-call semantics, entry re-pointing for pre-speech bootstraps, and additive growth (new lanes later = new scenarios, no surgery).
+- Scenario count is not a quality metric. A single-scenario agent with a thin hub is correct when the call is one continuous task. The hub still buys you: root end-call semantics, a fixed entry pathway when every call opens the same way, and additive growth (new lanes later = new scenarios, no surgery).
 
 Entries are routing contracts for eligible generated routes from the hub and
 root siblings. Write concrete, mutually-distinguishing criteria, not marketing
@@ -48,10 +48,19 @@ intent per exit edge on the way out.
 
 ## Standard skeleton for a new agent
 
-1. **Bootstrap** (only if per-call config must load before anyone speaks): a `customCode` first step in the entry scenario + re-point the `inbound` edge at that scenario. The hub never speaks first in this pattern.
+1. **Start** (only if something must happen before the hub routes): pick one row from the table below. Most agents need none.
 2. **Hub**: thin. Greeting/persona live in systemPrompt or the entry flow; hub prompt = routing rules only ("route between turns; the scenarios own all lookups/transfers/closes; never handle content at the hub") + hard rules SCOPED to what they protect.
 3. **Scenarios** per the boundary rule, each: entry description → steps → one exit edge per distinct outcome.
 4. **Root end-calls**: "End call — goodbye" + "End call — silent" (for after a flow already spoke its close). In-flow goodbyes can be wrap-up steps; verify continuation reaches a real termination action instead of assuming a fixed extra turn.
+
+| Need | Use |
+|---|---|
+| Run code before anyone speaks | `initialization`: a pinned snippet; optional `routes` open a root scenario on a returned value |
+| Always open in one pathway | `entryScenarioId` on the hub (a root `complex-scenario`); it returns to the hub when done |
+| Gate the connection (screener, IVR) | Start's slot: point the `inbound` edge at that node |
+
+They run in that order. Never ask the hub to stay silent by prompt. Rules are
+in the [snapshot skill](../v2-snapshot/SKILL.md#where-a-call-starts).
 
 ## The standard conduct-rule set (systemPrompt)
 

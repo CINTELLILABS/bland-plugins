@@ -1,7 +1,8 @@
 # What a predicate means
 
 Read this before you tell the user what a cohort selected. The words you use
-must match what the lake build does.
+must match what the build does. For how a call reaches a cohort at all, and how
+fresh the data is, see [how it works](how-it-works.md).
 
 ## Leaves on calls
 
@@ -97,7 +98,7 @@ checker prints `cost_class`.
 
 | Light | Heavy |
 | -- | -- |
-| `calls`, `agent_messages`, `logs`, `call_citations`, `call_metadata` | `call_webhook_logs`, `context_data`, `disposition_runs`, `pathway_events`, `call_utterances`, `llm_invocations`, `transcription_messages` |
+| `calls`, `logs`, `call_citations`, `call_metadata` | `call_webhook_logs`, `context_data`, `disposition_runs`, `pathway_events`, `call_utterances` |
 
 Heavy builds read more data and take longer, often minutes. To keep a
 predicate light or cheap:

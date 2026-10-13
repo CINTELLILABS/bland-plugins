@@ -675,3 +675,291 @@ test('A0: a missing initialization version does not satisfy a pinned source', ()
   assert.equal(auditOf(unversioned, SCREENER_SOURCE).A0.passed, true);
 });
 
+
+// ── voice/language carry, by-reference tools, hollow-tool and edge-condition audits ──
+
+// Builds one source (+ optional persona) with the given plan fields; returns
+// the snapshot, the builder's stdout report, and the audit's checks by id.
+function buildWith({ source, persona, plan = {} }) {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-materialize-test-'));
+  try {
+    writeFileSync(join(dir, 'source.json'), JSON.stringify(source));
+    if (persona) writeFileSync(join(dir, 'persona.json'), JSON.stringify(persona));
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify({
+      displayName: 'Synthetic', systemPrompt: 'Synthetic test only',
+      sources: [{ file: 'source.json' }],
+      ...(persona ? { persona: 'persona.json' } : {}),
+      scenarios: [{ name: 'Main', entry: { label: 'Main', description: 'The caller needs help' }, members: source.nodes.map((n) => n.id) }],
+      ...plan,
+    }));
+    const report = JSON.parse(execFileSync(process.execPath, [builder, '--plan', join(dir, 'plan.json'), '--out', join(dir, 'snapshot.json')]).toString());
+    const snapshot = JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8'));
+    return { snapshot, report, checks: auditOf(snapshot, source) };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+const ONE_STEP = { nodes: [{ id: 'hello', type: 'Default', data: { name: 'Hello', prompt: 'Greet the caller and ask how you can help.' } }], edges: [] };
+const PERSONA = (callConfig) => ({ personality_prompt: 'Synthetic test only', pathway_conditions: [], call_config: callConfig });
+
+test('the source voice and language carry into settings', () => {
+  const { snapshot } = buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>', language: 'en-GB' }) });
+  assert.equal(snapshot.settings.voice, '<voice-uuid>');
+  assert.deepEqual(snapshot.settings.languages, ['en-GB']);
+  assert.equal(snapshot.settings.importWarnings, undefined);
+});
+
+test('a legacy language code carries as the code it stands for', () => {
+  assert.deepEqual(buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>', language: 'ESP' }) }).snapshot.settings.languages, ['es']);
+  assert.deepEqual(buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>', language: 'en-BETA' }) }).snapshot.settings.languages, ['auto']);
+});
+
+test('a source with no voice or language keeps the defaults and says so in importWarnings', () => {
+  for (const persona of [undefined, PERSONA({ language: 'ENG' })]) {
+    const { snapshot, report } = buildWith({ source: ONE_STEP, persona });
+    assert.equal(snapshot.settings.voice, '');
+    assert.deepEqual(snapshot.settings.languages, ['english']);
+    const byField = Object.fromEntries(snapshot.settings.importWarnings.map((w) => [w.field, w]));
+    assert.equal(typeof byField.voice.code, 'string');
+    assert.match(byField.voice.message, /voice/);
+    assert.match(byField.languages.message, /language/);
+    assert.ok(report.warnings.some((w) => /voice/.test(w)));
+  }
+});
+
+test('a v1 tool that only names a library tool is attached by reference, with no embedded placeholder', () => {
+  const source = { nodes: [{ id: 'hello', type: 'Default', data: {
+    name: 'Hello', prompt: 'Look up the order.',
+    tools: [
+      { name: 'Order lookup', description: 'Find the order', type: 'custom_tool', config: { tool_id: 'TL-11111111-2222', tool_overrides: { 'body.store': '<store>' } } },
+      { name: 'Embedded', type: 'custom_tool', config: { tool_id: 'TL-33333333-4444', tool: { tool: { name: 'Embedded', description: 'Inline', integration: 'rest_api', action: 'post', body: { url: 'https://example.invalid' } } } } },
+    ],
+  } }], edges: [] };
+  const { snapshot, checks } = buildWith({ source });
+  const [ref, embedded] = flowOf(snapshot).nodes.find((n) => n.data && n.data.name === 'Hello').data.tools;
+  assert.equal(ref.byReference, true);
+  assert.equal(ref.toolId, 'TL-11111111-2222');
+  assert.deepEqual(ref.toolOverrides, { 'body.store': '<store>' });
+  assert.equal(ref.definition.integration, undefined);
+  assert.equal(ref.definition.action, undefined);
+  assert.equal(embedded.byReference, undefined);
+  assert.equal(embedded.toolOverrides, undefined);
+  assert.equal(embedded.definition.action, 'post');
+  assert.equal(checks.S9.passed, true, checks.S9.detail);
+});
+
+test('the audit flags a hollow attached tool (library id, not by reference, no real definition)', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.', tools: [{ name: 'Log outcome', type: 'custom_tool', config: { tool_id: 'TL-11111111-2222' } }] });
+  const tool = flowOf(snapshot).nodes.find((n) => n.type === 'end-call').data.tools[0];
+  delete tool.byReference;
+  tool.definition = { name: 'Log outcome', integration: 'rest_api', action: 'get' };
+  const s9 = runAudit(snapshot, { nodes: [], edges: [] }).S9;
+  assert.equal(s9.passed, false);
+  assert.match(s9.detail, /Log outcome/);
+});
+
+test('deterministic v1 edges carry operator AND/OR and a conditionOperator the audit accepts', () => {
+  const source = {
+    nodes: [
+      { id: 'a', type: 'Default', data: { name: 'Ask', prompt: 'Ask for the account status.' } },
+      { id: 'b', type: 'Default', data: { name: 'Active', prompt: 'Help the active account.' } },
+      { id: 'c', type: 'Default', data: { name: 'Closed', prompt: 'Explain the account is closed.' } },
+    ],
+    edges: [
+      { id: 'e1', source: 'a', target: 'b', data: { label: 'Active', condition: [
+        { field: 'status', operator: 'AND', conditionOperator: 'equals', value: 'active' },
+        { field: 'balance', operator: 'OR', conditionOperator: 'greater than', value: '0' },
+      ] } },
+      { id: 'e2', source: 'a', target: 'c', data: { label: 'Closed', condition: [{ field: 'status', operator: 'equals exact', value: 'closed' }] } },
+    ],
+  };
+  const { snapshot, checks } = buildWith({ source });
+  const flow = flowOf(snapshot);
+  const rows = (label) => flow.edges.find((e) => e.data.label === label).data.conditions.map(({ id, ...row }) => row);
+  assert.deepEqual(rows('Active'), [
+    { field: 'status', operator: 'AND', conditionOperator: 'equals', value: 'active' },
+    { field: 'balance', operator: 'OR', conditionOperator: 'greater than', value: '0' },
+  ]);
+  assert.deepEqual(rows('Closed'), [{ field: 'status', operator: 'AND', conditionOperator: 'equals', value: 'closed' }]);
+  assert.equal(checks.R5.passed, true, checks.R5.detail);
+});
+
+test('the audit flags an edge row with a comparison in operator or an unknown conditionOperator', () => {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const flow = flowOf(snapshot);
+  const edge = flow.edges.find((e) => e.data && e.data.label === 'Caller confirmed the information.');
+  edge.data = { mode: 'deterministic', label: 'Confirmed', description: '', alwaysPick: false, conditions: [{ id: 'r1', field: 'confirmed', operator: 'equals', value: 'true' }] };
+  const r5 = runAudit(snapshot, { nodes: [], edges: [] }).R5;
+  assert.equal(r5.passed, false);
+  assert.match(r5.detail, /operator "equals"/);
+  edge.data.conditions = [{ id: 'r1', field: 'confirmed', operator: 'AND', conditionOperator: '==', value: 'true' }];
+  assert.match(runAudit(snapshot, { nodes: [], edges: [] }).R5.detail, /conditionOperator "=="/);
+  edge.data.conditions = [{ id: 'r1', field: 'confirmed', operator: 'AND', conditionOperator: 'is', value: 'true' }];
+  assert.equal(runAudit(snapshot, { nodes: [], edges: [] }).R5.passed, true);
+});
+
+test('an explicit empty plan.voice picks the default voice over the persona voice', () => {
+  const { snapshot } = buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>', language: 'en-GB' }), plan: { voice: '' } });
+  assert.equal(snapshot.settings.voice, '');
+  assert.equal(snapshot.settings.importWarnings.find((w) => w.field === 'voice').code, 'voice_not_carried');
+  assert.equal(buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>' }), plan: { voice: '<other-voice>' } }).snapshot.settings.voice, '<other-voice>');
+  assert.equal(buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>' }) }).snapshot.settings.voice, '<voice-uuid>');
+});
+
+// v1 ANDs a group's rows; an empty group is an AND over nothing, so it is
+// always true, and v1 ORs it with the edge's other rows.
+const ALWAYS_TRUE = [
+  { field: 'v1_empty_group', operator: 'AND', conditionOperator: 'is', value: 'undefined' },
+  { field: 'v1_empty_group', operator: 'OR', conditionOperator: 'is', value: 'not undefined' },
+];
+function emptyGroupSource(condition) {
+  return {
+    nodes: [
+      { id: 'a', type: 'Default', data: { name: 'Ask', prompt: 'Ask for the account status.' } },
+      { id: 'b', type: 'Default', data: { name: 'Next', prompt: 'Carry on.' } },
+    ],
+    edges: [{ id: 'e1', source: 'a', target: 'b', data: { label: 'Go on', condition } }],
+  };
+}
+
+test('a v1 edge with an empty condition group always matches, alone or ORed with other rows', () => {
+  for (const condition of [
+    [{ isGroup: true, conditions: [] }],
+    [{ field: 'status', operator: 'equals', value: 'active' }, { isGroup: true, conditions: [] }],
+    [{ isGroup: true, conditions: [{ field: 'a', operator: 'equals', value: '1' }, { field: 'b', operator: 'equals', value: '2' }] }, { isGroup: true, conditions: [] }],
+  ]) {
+    const { snapshot, report, checks } = buildWith({ source: emptyGroupSource(condition) });
+    const edges = flowOf(snapshot).edges.filter((e) => e.data && e.data.label === 'Go on');
+    assert.equal(edges.length, 1);
+    assert.equal(edges[0].data.mode, 'deterministic');
+    assert.deepEqual(edges[0].data.conditions.map(({ id, ...row }) => row), ALWAYS_TRUE);
+    assert.ok(report.warnings.some((w) => /empty condition group is always true/.test(w)));
+    assert.equal(checks.R5.passed, true, checks.R5.detail);
+  }
+});
+
+// Rule 2 holds an empty group, so v1 never gets past it: rules 3 and 4 and the
+// old fallback never fire. Other (and Other follow-up, reached only from
+// Other) are dead in v1; Gold stays, as rule 1 still reaches it.
+const EMPTY_GROUP_ROUTE = {
+  nodes: [
+    { id: 'r', type: 'Route', data: { name: 'Branch', fallbackNodeId: 'z', routes: [
+      { targetNodeId: 'x', conditions: [{ field: 'tier', operator: 'equals', value: 'gold' }] },
+      { targetNodeId: 'y', conditions: [{ field: 'tier', operator: 'equals', value: 'silver' }, { isGroup: true, conditions: [] }, { field: 'tier', operator: 'equals', value: 'bronze' }] },
+      { targetNodeId: 'z', conditions: [{ field: 'tier', operator: 'equals', value: 'lead' }] },
+      { targetNodeId: 'x', conditions: [{ field: 'tier', operator: 'equals', value: 'platinum' }] },
+    ] } },
+    { id: 'x', type: 'Default', data: { name: 'Gold', prompt: 'Thank the caller for being a gold member.' } },
+    { id: 'y', type: 'Default', data: { name: 'Silver', prompt: 'Thank the caller for being a silver member.' } },
+    { id: 'z', type: 'Default', data: { name: 'Other', prompt: 'Tell the caller about the other membership tiers.', tag: { name: 'other-tier', color: '#888888' } } },
+    { id: 'w', type: 'Default', data: { name: 'Other follow-up', prompt: 'Ask which other tier interests the caller.' } },
+    { id: 'bye', type: 'End Call', data: { name: 'Goodbye', prompt: 'Say goodbye to the caller and end the call.' } },
+    { id: 'h', type: 'Default', data: { name: 'Hours', prompt: 'Tell the caller the office hours.' } },
+  ],
+  edges: [
+    { id: 'e1', source: 'x', target: 'bye', data: { label: 'Done', description: 'The caller has nothing else.' } },
+    { id: 'e2', source: 'y', target: 'bye', data: { label: 'Done', description: 'The caller has nothing else.' } },
+    { id: 'e3', source: 'z', target: 'w', data: { label: 'Interested', description: 'The caller wants another tier.' } },
+  ],
+};
+const EMPTY_GROUP_PLAN = { scenarios: [
+  { name: 'Membership', entry: { label: 'Membership', description: 'The caller asks about their membership' }, members: ['r', 'x', 'y', 'z', 'w', 'bye'] },
+  { name: 'Hours', entry: { label: 'Hours', description: 'The caller asks about office hours' }, members: ['h'] },
+] };
+test('a v1 route rule with an empty condition group becomes the fallback; later rules drop', () => {
+  const { snapshot, report } = buildWith({ source: EMPTY_GROUP_ROUTE, plan: EMPTY_GROUP_PLAN });
+  const flow = flowOf(snapshot);
+  const idOf = (name) => flow.nodes.find((n) => n.data && n.data.name === name).id;
+  const route = flow.nodes.find((n) => n.type === 'route').data;
+  assert.deepEqual(route.rules.map((r) => [r.targetNodeId, r.conditions.map((c) => c.value)]), [
+    [idOf('Gold'), ['gold']],
+    [idOf('Silver'), ['silver']],
+  ]);
+  assert.equal(route.fallbackNodeId, idOf('Silver'));
+  assert.ok(report.warnings.some((w) => /route "Branch": an empty condition group is always true/.test(w)));
+});
+
+test('steps only the cut-off rules reached are dropped and recorded, and the full audit passes', () => {
+  const { snapshot, report, checks } = buildWith({ source: EMPTY_GROUP_ROUTE, plan: EMPTY_GROUP_PLAN });
+  const names = flowOf(snapshot).nodes.map((n) => n.data && n.data.name).filter(Boolean);
+  assert.deepEqual(names.sort(), ['Branch', 'Gold', 'Goodbye', 'Silver']);
+  assert.deepEqual(report.dropped.map((d) => [d.node, d.name]).sort(), [['w', 'Other follow-up'], ['z', 'Other']]);
+  for (const d of report.dropped) assert.match(d.reason, /unreachable in v1: route "Branch" has an always-true empty condition group/);
+  assert.equal(report.warnings.some((w) => /NOT covered by any scenario/.test(w)), false);
+  const failed = Object.values(checks).filter((c) => !c.passed);
+  assert.deepEqual(failed, [], JSON.stringify(failed));
+  assert.match(checks.P11.detail, /dropped, unreachable in v1.*Other \(behind route "Branch"\)/);
+  // The audit does not excuse a node the source still reaches: drop Gold too
+  // and P11 fails, since rule 1 still leads there.
+  const flow = flowOf(snapshot);
+  const gold = flow.nodes.find((n) => n.data && n.data.name === 'Gold');
+  flow.nodes = flow.nodes.filter((n) => n !== gold);
+  flow.edges = flow.edges.filter((e) => e.source !== gold.id && e.target !== gold.id);
+  const route = flow.nodes.find((n) => n.type === 'route').data;
+  route.rules = route.rules.filter((r) => r.targetNodeId !== gold.id);
+  const p11 = runAudit(snapshot, EMPTY_GROUP_ROUTE).P11;
+  assert.equal(p11.passed, false);
+  assert.match(p11.detail, /Gold — node not carried and not declared dropped/);
+});
+
+test('a cut-off target that something else still reaches is kept', () => {
+  const source = structuredClone(EMPTY_GROUP_ROUTE);
+  source.edges.push({ id: 'e4', source: 'y', target: 'z', data: { label: 'Other tiers', description: 'The caller asks about other tiers.' } });
+  const { snapshot, report, checks } = buildWith({ source, plan: EMPTY_GROUP_PLAN });
+  const names = flowOf(snapshot).nodes.map((n) => n.data && n.data.name).filter(Boolean);
+  assert.ok(names.includes('Other') && names.includes('Other follow-up'));
+  assert.deepEqual(report.dropped, []);
+  assert.equal(checks.R3.passed, true, checks.R3.detail);
+});
+
+// Optional consuming-repository check: the compiled always-true rows match
+// under the real evaluator whatever the call's variables hold, and the route's
+// fallback compiles to the empty group's target.
+test('real v2 compiler and evaluator keep a v1 empty condition group always true', {
+  skip: !process.env.NORM_V2_COMPILER_PATH && 'requires consuming SERVER compiler and TypeScript loader',
+}, async () => {
+  const imported = await import(pathToFileURL(process.env.NORM_V2_COMPILER_PATH).href);
+  const compile = imported.agentConfigToPathway ?? imported.default?.agentConfigToPathway;
+  const compilerDir = dirname(process.env.NORM_V2_COMPILER_PATH);
+  const validationModule = await import(pathToFileURL(join(compilerDir, 'validateSnapshot.ts')).href);
+  const validate = validationModule.validateSnapshot ?? validationModule.default?.validateSnapshot;
+  const evaluatorModule = await import(pathToFileURL(resolve(compilerDir, '../pathways/variableComparison/variableComparison.ts')).href);
+  const evaluate = evaluatorModule.evaluateConditions ?? evaluatorModule.default?.evaluateConditions;
+  const verdict = validate(buildWith({ source: emptyGroupSource([{ field: 'status', operator: 'equals', value: 'active' }, { isGroup: true, conditions: [] }]) }).snapshot);
+  assert.equal(verdict.ok, true, JSON.stringify(verdict));
+  const graph = compile(verdict.snapshot);
+  const edge = graph.edges.find((e) => e.data && e.data.label === 'Go on');
+  for (const vars of [{}, { v1_empty_group: null }, { v1_empty_group: 'x' }, { status: 'closed' }]) {
+    assert.equal(evaluate(edge.data.condition, () => vars), true, JSON.stringify(vars));
+  }
+  const routeVerdict = validate(buildWith({ source: EMPTY_GROUP_ROUTE }).snapshot);
+  assert.equal(routeVerdict.ok, true, JSON.stringify(routeVerdict));
+  const routeGraph = compile(routeVerdict.snapshot);
+  const routeNode = routeGraph.nodes.find((n) => n.type === 'Route');
+  const silver = routeGraph.nodes.find((n) => n.data && n.data.name === 'Silver');
+  assert.equal(routeNode.data.fallbackNodeId, silver.id);
+  assert.deepEqual(routeNode.data.routes.map((r) => r.targetNodeId), [routeGraph.nodes.find((n) => n.data && n.data.name === 'Gold').id, silver.id]);
+});
+
+// Optional consuming-repository check, as above: the save validator accepts
+// the carried voice/language and importWarnings, and a by-reference tool
+// compiles to the library id with nothing embedded.
+test('real v2 validator and compiler accept the carried settings and by-reference tools', {
+  skip: !process.env.NORM_V2_COMPILER_PATH && 'requires consuming SERVER compiler and TypeScript loader',
+}, async () => {
+  const imported = await import(pathToFileURL(process.env.NORM_V2_COMPILER_PATH).href);
+  const compile = imported.agentConfigToPathway ?? imported.default?.agentConfigToPathway;
+  const validationModule = await import(pathToFileURL(join(dirname(process.env.NORM_V2_COMPILER_PATH), 'validateSnapshot.ts')).href);
+  const validate = validationModule.validateSnapshot ?? validationModule.default?.validateSnapshot;
+  const source = { nodes: [{ id: 'hello', type: 'Default', data: { name: 'Hello', prompt: 'Look up the order.', tools: [
+    { name: 'Order lookup', type: 'custom_tool', config: { tool_id: 'TL-11111111-2222', tool_overrides: { 'body.store': '<store>' } } },
+  ] } }], edges: [] };
+  for (const persona of [undefined, PERSONA({ voice: '<voice-uuid>', language: 'en-GB' })]) {
+    const verdict = validate(buildWith({ source, persona }).snapshot);
+    assert.equal(verdict.ok, true, JSON.stringify(verdict));
+    const graph = compile(verdict.snapshot);
+    const tools = graph.nodes.flatMap((n) => (n.data && n.data.tools) || []);
+    const ref = tools.find((t) => t.name === 'Order lookup');
+    assert.deepEqual(ref.config.tool, { tool_id: 'TL-11111111-2222' });
+  }
+});

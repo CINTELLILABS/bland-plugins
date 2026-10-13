@@ -4,9 +4,12 @@
 > Do not edit by hand. Re-cut both files when the API's predicate allowlist
 > changes; the plugin tests fail when this page and the data disagree.
 
-Every table and column a cohort `where` leaf may name. A table not listed here
-is refused as `unknown or unallowlisted table`; a listed column under
-"Denied columns" is refused as `denied column`. The API is the authority if
+The tables and columns a cohort `where` leaf may name. A table not listed here
+is refused as `unknown or unallowlisted table`, a column not listed as
+`unknown column`. Columns that hold conversation content or personal data
+(transcript text, summaries, payloads, phone numbers, prompts, variables) are
+refused as `denied column`: classify those with a disposition instead. The
+offline checker refuses anything not listed here; the API is the authority if
 it has moved ahead of this copy.
 
 ## Type classes
@@ -37,7 +40,6 @@ Virtual columns read `calls` and are light.
 ## calls
 
 - Call id column: `c_id`
-- Tenant column: `user_id`
 - Date column: `created_at`
 - Cost: light
 - Availability: available
@@ -66,7 +68,6 @@ Computed per call, not stored. Bare names only: `calls.outcome` does not resolve
 | `answered_by_enabled` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `available_tags` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `batch_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `billing_target` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `block_auto_terminate` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `c_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `call_ended_by` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
@@ -80,24 +81,18 @@ Computed per call, not stored. Bare names only: `calls.outcome` does not resolve
 | `dispatch_hours` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `disposition_ids` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `disposition_tag` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `dms_ingest_ts` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `event_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `id` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `inbound` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `is_proxy_agent_call` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `is_simulation` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `is_web` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
-| `latency_metrics` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `local_dialing` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `max_duration` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `memory_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `model_code` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `noise_cancellation` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
-| `org_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `pathway_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `pathway_tags` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `persona_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `placement_group` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `platform` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `price` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `proxy_agent_call_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
@@ -116,42 +111,13 @@ Computed per call, not stored. Bare names only: `calls.outcome` does not resolve
 | `timezone` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `transferred_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `updated_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `user_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `version_number` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `voicemail_action` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `webhook_events` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 
-### Denied columns
-
-`analysis`, `analysis_prompt`, `analysis_schema`, `api_key`, `caller_id`, `endpoint_url`, `error_message`, `external_id`, `from`, `initial_memory_context`, `memory_changes`, `metadata`, `objective`, `pathway_logs`, `post_call_actions`, `query_string`, `recording_url`, `request_data`, `summary`, `summary_prompt`, `to`, `transferred_to`, `twilio_account_sid`, `variables`
-
-## agent_messages
-
-- Call id column: `call_id`
-- Tenant column: none
-- Date column: `created_at`
-- Cost: light
-- Availability: available
-- Reference as: `agent_messages.<column>`
-
-### Usable columns
-
-| Column | Class | Ops |
-| --- | --- | --- |
-| `call_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `created_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `dms_ingest_ts` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `id` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `model` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-
-### Denied columns
-
-`messages`
-
 ## call_citations
 
 - Call id column: `call_id`
-- Tenant column: none
 - Date column: `created_at`
 - Cost: light
 - Availability: available
@@ -169,14 +135,9 @@ Computed per call, not stored. Bare names only: `calls.outcome` does not resolve
 | `variable_name` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `variable_type` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 
-### Denied columns
-
-`value`
-
 ## call_metadata
 
 - Call id column: `call_id`
-- Tenant column: none
 - Date column: `created_at`
 - Cost: light
 - Availability: available
@@ -191,7 +152,6 @@ Computed per call, not stored. Bare names only: `calls.outcome` does not resolve
 | `created_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `customer_speaker_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `direction` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `feature_flags` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `objective_met_score` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `objective_status` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `primary_agent_speaker_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
@@ -202,14 +162,9 @@ Computed per call, not stored. Bare names only: `calls.outcome` does not resolve
 | `slow_agent_responses_score` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `wer_score` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 
-### Denied columns
-
-`objective`, `objective_not_met_reason`
-
 ## call_outcomes
 
 - Call id column: `call_id`
-- Tenant column: `user_id`
 - Date column: `closed_at`
 - Cost: light
 - Availability: not yet in the lake: refused (any predicate on this table is rejected)
@@ -229,19 +184,11 @@ Computed per call, not stored. Bare names only: `calls.outcome` does not resolve
 | `ended_by` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `pathway_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `persona_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `placement_group` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `platform` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `user_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `websocket_closed` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
-
-### Denied columns
-
-None.
 
 ## call_utterances
 
 - Call id column: `call_id`
-- Tenant column: none
 - Date column: `created_at`
 - Cost: heavy
 - Availability: available
@@ -264,14 +211,9 @@ None.
 | `utterance_type` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `words` | complex | `is_null`, `is_not_null` |
 
-### Denied columns
-
-`speaker_description`, `speaker_name`, `topics`, `transcript`, `transcription_meta`
-
 ## call_webhook_logs
 
 - Call id column: `call_id`
-- Tenant column: `user_id`
 - Date column: `created_at`
 - Cost: heavy
 - Availability: available
@@ -283,17 +225,10 @@ None.
 | --- | --- | --- |
 | `call_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `created_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `dms_ingest_ts` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `user_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-
-### Denied columns
-
-`metadata`, `payload`, `url`
 
 ## context_data
 
 - Call id column: `c_id`
-- Tenant column: none
 - Date column: `created_at`
 - Cost: heavy
 - Availability: available
@@ -308,9 +243,7 @@ None.
 | `block_interruptions` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `c_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `created_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `dms_ingest_ts` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `enable_pathway` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
-| `feature_flag` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `id` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `ignore_button_press` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `improve_accuracy` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
@@ -319,36 +252,24 @@ None.
 | `interruption_threshold` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `language_detection_options` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `language_detection_period` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `model` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `model_code` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `new_voice_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `noise_cancellation` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `pathway_ids` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `pathway_model` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `pathway_version_id` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `prompt_model` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `reduce_latency` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `resumption_speed` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `sensitive_voicemail_detection` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
-| `service` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `start_node_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `temperature` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `timezone` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `use_candidate_model` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `version_number` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `voice_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `wait_for_greeting` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 
-### Denied columns
-
-`agent_backchannel_config`, `background_track`, `dtmf_sequence`, `edges`, `fallback_transfer_number`, `first_sentence`, `guard_rails`, `keywords`, `nodes`, `personas`, `precall_dtmf_sequence`, `pronunciation_guide`, `request_data`, `retry`, `silence_end_message`, `task`, `to`, `transfer_list`, `transfer_phone_number`, `voice_settings`, `voicemail_message`, `voicemail_sms`, `warm_transfer_proxy_agent`, `webhook`
-
 ## disposition_runs
 
 - Call id column: `conversation_id`
-- Tenant column: `org_id`
 - Date column: `created_at`
-- Row filter: only rows where `reference_type` = `CALL`
 - Cost: heavy
 - Availability: available
 - Reference as: `disposition_runs.<column>`
@@ -360,23 +281,16 @@ None.
 | `conversation_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `created_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `disposition_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `dms_ingest_ts` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `exec_time` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `finished_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `org_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `reference_type` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `snippet_version` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `status` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 
-### Denied columns
-
-`console`, `error`, `input`, `result`
-
 ## disposition_value_facts
 
 - Call id column: `call_id`
-- Tenant column: `org_id`
 - Date column: `call_day`
 - Cost: light
 - Availability: not yet in the lake: refused (any predicate on this table is rejected)
@@ -390,74 +304,19 @@ None.
 | `agent_key` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `call_day` | date | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `call_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `cohort_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `content_hash` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `correction_revision` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `disposition_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `disposition_key` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `executed_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `ingest_ts` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `is_backfill` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
-| `is_test` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
-| `job_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `job_kind` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `model_ref` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `org_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `region` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `result_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `schema_kind` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `state` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `value_bool` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
 | `value_enum` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `value_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `value_key` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `value_len` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `value_num` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `version_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `version_number` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 
-### Denied columns
-
-`value_hash`
-
-## llm_invocations
-
-- Call id column: `call_id`
-- Tenant column: none
-- Date column: `created_at`
-- Cost: heavy
-- Availability: available
-- Reference as: `llm_invocations.<column>`
-
-### Usable columns
-
-| Column | Class | Ops |
-| --- | --- | --- |
-| `approximate_output_tokens_per_second` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `attempt_number` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `call_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `common_name` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `created_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `logical_request_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `model` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `request_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `stream` | boolean | `=`, `!=`, `is_null`, `is_not_null` |
-| `tag` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `temperature` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `ttft` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `ttr` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `usage_completion_tokens` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `usage_prompt_tokens` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `usage_total_tokens` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-
-### Denied columns
-
-`error`, `input_messages`, `output`
-
 ## logs
 
 - Call id column: `c_id`
-- Tenant column: none
 - Date column: `created_at`
 - Cost: light
 - Availability: available
@@ -469,20 +328,14 @@ None.
 | --- | --- | --- |
 | `c_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `created_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `dms_ingest_ts` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `id` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `status` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `transcript_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `user` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 
-### Denied columns
-
-`text`
-
 ## pathway_events
 
 - Call id column: `conversation_id`
-- Tenant column: none
 - Date column: `created_at`
 - Cost: heavy
 - Availability: available
@@ -495,37 +348,8 @@ None.
 | `conversation_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `created_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `created_date` | date | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `dms_ingest_ts` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `event_type` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `id` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `node_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
 | `operation_id` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
 | `sequence` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-
-### Denied columns
-
-`payload`
-
-## transcription_messages
-
-- Call id column: `call_id`
-- Tenant column: none
-- Date column: `created_at`
-- Cost: heavy
-- Availability: available
-- Reference as: `transcription_messages.<column>`
-
-### Usable columns
-
-| Column | Class | Ops |
-| --- | --- | --- |
-| `call_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `created_at` | timestamp | `=`, `!=`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `current_service_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `elapsed_ms` | number | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null` |
-| `event_type` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-| `service_id` | string | `=`, `!=`, `in`, `not_in`, `<`, `<=`, `>`, `>=`, `is_null`, `is_not_null`, `contains` |
-
-### Denied columns
-
-`message`, `metadata`

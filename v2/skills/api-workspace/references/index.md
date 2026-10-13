@@ -25,8 +25,56 @@ dispositions, external resources and operational surfaces, read the
 | Build, edit or simplify the analytics Sankey (waypoint groups, stages, parallel branches) | [Analytics authoring](../../analytics-authoring/SKILL.md) |
 | List or count the calls matching a condition (outcome, length, metadata, tools, webhooks); open them on the Conversations page | [Analytics cohorts](../../analytics-cohorts/SKILL.md), [predicate grammar](../../analytics-cohorts/references/grammar.md) |
 | Analyze hundreds or thousands of calls with code | [Call analysis skill](../../call-analysis/SKILL.md), [retrieval and pagination](../../call-analysis/references/retrieval.md), [analysis recipe](../../call-analysis/references/analysis.md) |
-| Save, publish, promote, rollback, branch, or select a version | [Lifecycle](../../v2-lifecycle/SKILL.md), [lifecycle API](../../v2-lifecycle/references/api.md) |
+| Save, publish, promote, rollback, or select a version | [Lifecycle](../../v2-lifecycle/SKILL.md), [lifecycle API](../../v2-lifecycle/references/api.md) |
+| Set `{{env.KEY}}` variables and find unresolved ones before a promote; configure and run promotion checks; branch, test, rebase and merge | [Agent environments](../../agent-environments/SKILL.md), [procedures and errors](../../agent-environments/references/environments.md) |
 | Migrate v1 content into v2 without changing its meaning | [Migration](../../v2-migration/SKILL.md) |
+| Take an agent from built to live: knowledge, tools, voice, staging, promote, number, channels, in order | [Agent launch](../../agent-launch/SKILL.md) |
+| Who answers a number; put an agent on a number; per-number settings; block a caller; SIP trunks | [Phone numbers](../../phone-numbers/SKILL.md), [endpoints](../../phone-numbers/references/endpoints.md) |
+| Teach the agent from a document, site or file link; test a source; update a source; answer open questions; explain what it looked up on a call; delete a source safely | [Knowledge sources](../../knowledge-sources/SKILL.md), [knowledge API](../../knowledge-sources/references/api.md) |
+| Publish a web chat widget; turn on API chat; configure a number's texting; send or take over a text | [Agent channels](../../agent-channels/SKILL.md) |
+| Call a person or run a batch with a v2 agent; schedule, watch, stop; DNC and rate-limit pre-flight | [Outbound calls](../../outbound-calls/SKILL.md), [batches](../../outbound-calls/references/batches.md) |
+| Set up or diagnose a trigger, alert or post-call webhook; test without dialing | [Automations](../../automations/SKILL.md), [testing order](../../automations/references/testing.md) |
+| Create and prove a tool, including custom code; change a shared tool safely; debug a tool run; delete a tool safely; secrets by id; connect or disconnect an integration | [Tool library](../../tool-library/SKILL.md), [procedures](../../tool-library/references/workflows.md), [tool contract](../../v2-runtime/references/tool-library.md) |
+| Set up post-call outputs on every call (outcome categories, fields, verdicts); test and publish them; calibrate; backfill past calls; diagnose blank or missing results; migrate v1 citations and outcomes | [Dispositions](../../dispositions/SKILL.md), [API](../../dispositions/references/api.md) |
+| Who is on a call now; end or transfer a live call; everything about a caller; merge contacts | [Live calls and contacts](../../call-analysis/references/live-calls-and-contacts.md) |
+| Set up branded caller ID, the contact card or an RCS sender | [Identity](../../agent-channels/references/identity.md) |
+| Pathways page: reuse or copy a pathway across agents, pathway versions, folders | [Pathway library](../../v2-lifecycle/references/pathway-library.md) |
+| File an issue from a bad call; work, link, close issues | [Triage issues](../../triage-issues/SKILL.md), [triage API](../../triage-issues/references/api.md) |
+| Run a staged or A/B rollout and decide; read experiment results | [Rollouts](../../v2-lifecycle/references/rollouts.md) |
+| Choose, set or debug an agent's voice and language | [Voices](../../v2-lifecycle/references/voices.md) |
+| Read text, chat and voice threads for one agent; export | [Conversations](../../call-analysis/references/conversations.md) |
+| How is the agent doing; add or edit a headline metric tile | [Measurement](../../analytics-cohorts/references/measurement.md), [metric tiles](../../analytics-cohorts/references/metrics.md) |
+| What the dashboard sends Norm, which writes refresh the page, OAuth versus API-key reach | [Workspace and page state](workspace.md), [connection modes](api.md#connection-modes) |
+
+## How each feature works
+
+Open the matching page when the question is "how does X work" or "why did X
+happen". Each explains the objects, their states, how the feature reaches a
+live call or conversation, what the dashboard shows, the limits, and a cause
+map.
+
+| Feature | How it works |
+|---|---|
+| A v2 call from connect to hang-up: version, opening, per-turn routing, globals, interruptions, setting scopes, canvas versus runtime | [Runtime](../../v2-runtime/references/how-it-works.md) |
+| Which version answers and why a change did not take: environments, pins, variables, checks, branches, rollouts | [Environments](../../agent-environments/references/how-it-works.md) |
+| How voice and language are chosen for each call | [Voices](../../v2-lifecycle/references/voices.md#how-voice-and-language-work) |
+| From a ring to the agent picking up: number ownership, caller screening, caller ID, SIP | [Phone numbers](../../phone-numbers/references/how-it-works.md) |
+| From an uploaded source to the answer a caller hears; open questions; the Knowledge map; agent memory | [Knowledge](../../knowledge-sources/references/how-it-works.md) |
+| How a tool call runs mid-conversation, what the caller hears, why it failed | [Tools](../../tool-library/references/how-it-works.md) |
+| Which version answers texts, web chat and API chat; session lifetime; why a channel is silent | [Channels](../../agent-channels/references/how-it-works.md) |
+| Why a call or batch behaved as it did: version, voicemail, statuses, batch states | [Outbound calls](../../outbound-calls/references/how-it-works.md) |
+| Why an automation, alert or post-call webhook fired, failed or did not fire | [Automations](../../automations/references/how-it-works.md) |
+| Post-call outputs: which calls are scored, which version, when results arrive, where they go | [Dispositions](../../dispositions/references/how-it-works.md) |
+| Judges, eval runs, verdicts, scores, PARTIAL, verdict tags | [Evaluations](../../evaluations/references/how-it-works.md) |
+| What a simulation, test chat, browser voice test or phone test actually runs | [Agent testing](../../v2-testing/references/how-it-works.md) |
+| How a call becomes a Sankey path; why today's calls are not on the chart | [Analytics Sankey](../../analytics-authoring/references/how-it-works.md) |
+| Why a call is missing from analytics; how fresh tiles, cohorts and metrics are | [Cohorts and metrics](../../analytics-cohorts/references/how-it-works.md) |
+| What evidence a call leaves and when each piece appears | [Call evidence](../../call-analysis/references/how-it-works.md) |
+| What Active calls shows and what a contact is | [Active calls](../../call-analysis/references/how-it-works.md#active-calls), [contacts](../../call-analysis/references/how-it-works.md#contacts) |
+| Branded caller ID, contact card and RCS states; why texts show no logo | [Identity](../../agent-channels/references/how-it-works.md#identity) |
+| What a pathway in the library is and why copies do not update | [Pathway library](../../v2-lifecycle/references/pathway-library.md) |
+| What the Overview pages show and why they differ from Analytics | [Overview pages](../../analytics-cohorts/references/how-it-works.md#overview-pages) |
+| How an issue moves from filed to closed | [Issues](../../triage-issues/references/how-it-works.md) |
 
 ## What this package is—and is not
 

@@ -63,7 +63,7 @@ Never game the gates: recording `--passed true` for a sweep you didn't run, or a
 
 1. **Discover.** Census the export(s): node-type counts, orphans, dangling edge targets, the synthetic `global-prompt` node. Build the integration catalog (webhooks + auth, snippets + pinned versions, transfers, SMS, KBs, secrets, terminals) and classify each integration read vs write. Derive the request-data contract (consumed-never-produced variables, including any typo'd keys — carry them bug-for-bug). For personas: capture `personality_prompt`, `pathway_conditions`, `call_config`.
 2. **Architect.** Region map → scenario list (every node in exactly one region; a tight loop lives in ONE flow). Hub source (triage node verbatim, or persona prompt = natural entry). Entry descriptions VERBATIM from source routing conditions. Each End Call becomes an `end-call` step in the flow of the node that routes to it (the builder does this); add a root end-call only for a hang-up the hub decides. A disposition for every legacy node id. Present this architecture to the user briefly before authoring.
-3. **Author.** You author only JUDGMENT — a small `plan.json` (scenario membership, entry descriptions, hub prompt, system prompt assembled verbatim from the sources). The builder does ALL mechanical carriage:
+3. **Author.** You author only JUDGMENT — a small `plan.json` (scenario membership, entry descriptions, hub prompt, system prompt assembled verbatim from the sources, and optional `voice` / `language` when the source persona does not carry them). The builder does ALL mechanical carriage:
 
    ```bash
    node "${CLAUDE_PLUGIN_ROOT}/bin/norm-materialize.cjs" --plan plan.json --out snapshot.json

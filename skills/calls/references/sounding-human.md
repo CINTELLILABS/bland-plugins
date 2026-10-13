@@ -68,11 +68,11 @@ Texture taken from production global prompts:
 
 The default is still calm efficiency. Reach for a human moment when something genuinely warrants one, then move on.
 
-## 4. Performance tags: BTTS v3 voices only
+## 4. Performance tags: V3 voices only
 
 Bracketed tags shift delivery. A tag colors the words from its position until the next tag or the end of the line: `I know, I know. [say angrily] But this is the THIRD time!`
 
-**Only BTTS v3 voices support them**, which is the set `list_voices` returns. The PlayHT and ElevenLabs paths strip bracketed text before it reaches the model, so a tag written for those voices is silently lost. Check the voice before you use a tag.
+**Only V3 voices support them**, which is the set `list_voices` returns. Older voices strip bracketed text before speaking, so a tag written for one of them is silently lost. Check the voice before you use a tag.
 
 Use the canonical strings verbatim. These were acoustically verified in training. Invented variants like `[say sarcastically]` or `[sound amused]` were stripped from the training data, and the model ignores or garbles them. Convey sarcasm through wording instead.
 

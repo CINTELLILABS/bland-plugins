@@ -12,6 +12,17 @@
  *   norm-migrate-audit.cjs --snapshot snap.json [--source v1.json]... \
  *     [--persona persona.json] [--allow-missing-fallback <routeName>]... \
  *     [--dropped-tags .norm/dropped-tags.json]   (rows: "tag" | {tag} | {node: id|name, reason}) [--json]
+ *
+ * Check families: S (structure), R (routing crashes), P (parity with the v1
+ * source), A (v2 architecture). Two checks need no source:
+ *   S9  no hollow attached tool. A tool with a toolId that is not byReference
+ *       runs its embedded definition, so that definition needs a description
+ *       and a body. Fix: set byReference true (the library tool runs by id) or
+ *       embed the full definition.
+ *   R5  every deterministic edge row (flow edges and entries) has operator
+ *       AND or OR (the join to the previous row) and a conditionOperator of
+ *       contains, does not contain, equals, not equals, greater than, less
+ *       than or is. A comparison put in operator saves but never matches.
  */
 
 const fs = require("node:fs");
@@ -49,6 +60,75 @@ function sameVersion(got, want) {
 function loadJson(p) {
 	const raw = JSON.parse(fs.readFileSync(p, "utf8"));
 	return raw && raw.data && typeof raw.data === "object" ? raw.data : raw;
+}
+
+// v1 Route rules run in order and the first match wins. An empty isGroup
+// block is an AND over no rows, so it is always true: the rule holding it is
+// taken whenever it is reached, and the rules after it and the fallback are
+// never reached. Returns the index of that rule, or -1.
+const isEmptyGroup = (row) => Boolean(row) && row.isGroup === true && Array.isArray(row.conditions) && row.conditions.length === 0;
+function emptyGroupRouteIndex(routes) {
+	return (Array.isArray(routes) ? routes : []).findIndex((r) => r && Array.isArray(r.conditions) && r.conditions.some(isEmptyGroup));
+}
+
+// The v1 nodes that nothing can reach because a Route's empty condition group
+// cuts off every way in: the targets of the rules after it and of its old
+// fallback, and whatever only those lead to. A node stays when it is a start
+// or global node, one of `roots`, or something else leads to it (an edge, a
+// rule or fallback on another route, a response pathway; any node id named in
+// a node's data counts). Returns Map(node id -> name of the cutting route).
+function unreachableBehindEmptyGroups(nodes, edges, roots = []) {
+	const list = (Array.isArray(nodes) ? nodes : []).filter((n) => n && typeof n.id === "string");
+	const ids = new Set(list.map((n) => n.id));
+	const next = new Map();
+	const link = (from, to) => {
+		if (from === to || !ids.has(to)) return;
+		if (!next.has(from)) next.set(from, new Set());
+		next.get(from).add(to);
+	};
+	for (const e of Array.isArray(edges) ? edges : []) if (e) link(e.source, e.target);
+	const cutBy = new Map();
+	for (const n of list) {
+		let data = n.data || {};
+		const routes = Array.isArray(data.routes) ? data.routes : [];
+		const cut = n.type === "Route" ? emptyGroupRouteIndex(routes) : -1;
+		if (cut >= 0) {
+			const routeName = typeof data.name === "string" && data.name ? data.name : n.id;
+			for (const target of [...routes.slice(cut + 1).map((r) => (r || {}).targetNodeId), data.fallbackNodeId]) {
+				if (ids.has(target) && !cutBy.has(target)) cutBy.set(target, routeName);
+			}
+			data = { ...data, routes: routes.slice(0, cut + 1), fallbackNodeId: routes[cut].targetNodeId };
+		}
+		(function walk(o) {
+			if (typeof o === "string") link(n.id, o);
+			else if (Array.isArray(o)) o.forEach(walk);
+			else if (o && typeof o === "object") Object.values(o).forEach(walk);
+		})(data);
+	}
+	// Candidates: the cut-off targets and everything they lead to.
+	const candidates = new Map();
+	const stack = [...cutBy.keys()].map((id) => [id, cutBy.get(id)]);
+	while (stack.length) {
+		const [id, routeName] = stack.pop();
+		if (candidates.has(id)) continue;
+		candidates.set(id, routeName);
+		for (const to of next.get(id) || []) stack.push([to, routeName]);
+	}
+	const rootSet = new Set(roots);
+	for (const n of list) if (n.data && (n.data.isStart === true || n.data.isGlobal === true)) rootSet.add(n.id);
+	const live = new Set([...candidates.keys()].filter((id) => rootSet.has(id)));
+	for (const [from, tos] of next) if (!candidates.has(from)) for (const to of tos) if (candidates.has(to)) live.add(to);
+	const queue = [...live];
+	while (queue.length) {
+		for (const to of next.get(queue.pop()) || []) {
+			if (candidates.has(to) && !live.has(to)) {
+				live.add(to);
+				queue.push(to);
+			}
+		}
+	}
+	for (const id of live) candidates.delete(id);
+	return candidates;
 }
 
 function main() {
@@ -259,10 +339,65 @@ function main() {
 		}
 		check("S8", "webhook headers are {key,value} rows (not v1 tuples)", badHeaders.length === 0, badHeaders.join(", "));
 	}
+	// S9: an attached tool that names a library tool but is not byReference runs
+	// its embedded definition, never the library tool. A definition without a
+	// description or a body is a stand-in that runs nothing.
+	{
+		const hollow = [];
+		(function walkTools(o, owner) {
+			if (Array.isArray(o)) return o.forEach((x) => walkTools(x, owner));
+			if (!o || typeof o !== "object") return;
+			const here = o.data && typeof o.data.name === "string" ? o.data.name : owner;
+			if (Array.isArray(o.tools)) {
+				for (const t of o.tools) {
+					if (!t || typeof t !== "object" || t.toolType === "track") continue;
+					const def = t.definition && typeof t.definition === "object" ? t.definition : {};
+					if (t.toolId && t.byReference !== true && (typeof def.description !== "string" || def.body === undefined)) {
+						hollow.push(`${here || "?"}/${t.name || t.toolId}`);
+					}
+				}
+			}
+			Object.values(o).forEach((x) => walkTools(x, here));
+		})(behavior, "");
+		check("S9", "no hollow attached tool (a library toolId is byReference, or the embedded definition has a description and body)", hollow.length === 0, hollow.slice(0, 5).join(", "));
+	}
 	check("R1", "route fallbacks present", routeNoFallback.length === 0, routeNoFallback.join(", "));
 	check("R2", "no OR-collapse", orCollapse.length === 0, orCollapse.slice(0, 5).join("; "));
 	check("R3", "flow steps reachable", unreachable.length === 0, unreachable.slice(0, 6).join(", "));
 	check("R4", "no merged exit labels", mergedLabels.length === 0, mergedLabels.slice(0, 4).join("; "));
+	// R5: deterministic edge rows in the v2 shape. The compiler copies operator
+	// and conditionOperator through unchecked, and the save validator does not
+	// look at them, so a wrong spelling saves and then never matches.
+	{
+		const JOINS = new Set(["AND", "OR"]);
+		const COMPARISONS = new Set(["contains", "does not contain", "equals", "not equals", "greater than", "less than", "is"]);
+		const badRows = [];
+		const checkEdgeData = (ed, where) => {
+			if (!ed || typeof ed !== "object" || !Array.isArray(ed.conditions)) return;
+			if (ed.mode !== "deterministic" && ed.conditions.length === 0) return;
+			ed.conditions.forEach((c, i) => {
+				const row = c || {};
+				const at = `${where} row ${i + 1}`;
+				if (!JOINS.has(row.operator)) badRows.push(`${at}: operator "${row.operator ?? ""}" (want AND or OR)`);
+				if (!COMPARISONS.has(row.conditionOperator)) badRows.push(`${at}: conditionOperator "${row.conditionOperator ?? ""}"`);
+			});
+		};
+		(function walkEdges(flow, where) {
+			const fnodes = Array.isArray((flow || {}).nodes) ? flow.nodes : [];
+			const fedges = Array.isArray((flow || {}).edges) ? flow.edges : [];
+			const nameOf = (id) => {
+				const n = fnodes.find((x) => x.id === id);
+				return String(((n || {}).data || {}).name || (n || {}).type || id);
+			};
+			for (const e of fedges) checkEdgeData(e.data, `${where}edge ${nameOf(e.source)} -> ${nameOf(e.target)}`);
+			for (const n of fnodes) {
+				const nd = n.data || {};
+				checkEdgeData(nd.entry, `${where}${nd.name || n.id} entry`);
+				if (nd.flow) walkEdges(nd.flow, `${where}${nd.name || n.id}/`);
+			}
+		})(behavior, "");
+		check("R5", "deterministic edge rows use operator AND|OR and a known conditionOperator", badRows.length === 0, badRows.slice(0, 5).join("; "));
+	}
 
 	// ── Parity vs v1 source(s) — SHAPE-ANCHORED, not substring greps ──
 	// Collect what the snapshot actually carries, field-by-field: snippet
@@ -453,9 +588,14 @@ function main() {
 		const missVar = [];
 		const missKb = [];
 		const missGlobal = [];
+		// Nodes v1 itself never reaches (behind a route's always-true empty
+		// condition group) are dropped by the builder; the source proves it, so
+		// no declaration is needed, and P11's detail names them.
+		const deadInV1 = [];
 		for (const sp of sourcePaths) {
 			const src = loadJson(sp);
 			const nodes = (src.nodes || []).filter((n) => n && n.id !== "global-prompt" && n.data);
+			const unreachable = unreachableBehindEmptyGroups(src.nodes, src.edges);
 			const carriedNode = new Map();
 			// Several v1 nodes often share a name ("End Call"); for those, the
 			// node is carried when its OWN speech is present somewhere, and a
@@ -479,7 +619,8 @@ function main() {
 				const absent = (steps.length === 0 && !(speech && carried(speech))) || (duplicateName && speech && !carried(speech) && !steps.some(isSilenced));
 				if (absent) {
 					carriedNode.set(n.id, false);
-					if (!isDeclaredDrop(n)) missPrompt.push(`${d.name || n.id} — node not carried and not declared dropped (--dropped-tags {"node":"${String(n.id).slice(0, 8)}…"})`);
+					if (unreachable.has(n.id)) deadInV1.push(`${d.name || n.id} (behind route "${unreachable.get(n.id)}")`);
+					else if (!isDeclaredDrop(n)) missPrompt.push(`${d.name || n.id} — node not carried and not declared dropped (--dropped-tags {"node":"${String(n.id).slice(0, 8)}…"})`);
 					continue;
 				}
 				// A DECLARED node drop excuses the whole node — its words may still
@@ -526,7 +667,7 @@ function main() {
 				if (desc && !carried(desc)) missEdge.push(`${String(e.source).slice(0, 8)}→${String(e.target).slice(0, 8)} "${String(e.data.label || "").slice(0, 30)}"`);
 			}
 		}
-		check("P11", "every v1 node carried verbatim or explicitly declared dropped (silenced pills excluded)", missPrompt.length === 0, missPrompt.slice(0, 6).join(", "));
+		check("P11", "every v1 node carried verbatim or explicitly declared dropped (silenced pills excluded)", missPrompt.length === 0, missPrompt.length ? missPrompt.slice(0, 6).join(", ") : deadInV1.length ? `dropped, unreachable in v1 (an empty condition group is always true, so v1 never gets past it): ${deadInV1.slice(0, 6).join(", ")}` : "");
 		check("P12", "every v1 hold condition carried verbatim (escapes may be appended)", missCondition.length === 0, missCondition.slice(0, 6).join(", "));
 		check("P13", "every LLM-routed v1 edge description carried verbatim (deterministic edges route on conditions)", missEdge.length === 0, missEdge.slice(0, 5).join("; "));
 		check("P14", "every v1 extraction variable carried on the same step", missVar.length === 0, missVar.slice(0, 6).join(", "));
@@ -736,7 +877,12 @@ function main() {
 		if (sourcePaths.length) {
 			const srcTags = new Set();
 			for (const sp of sourcePaths) {
-				for (const n of loadJson(sp).nodes || []) {
+				const src = loadJson(sp);
+				// A node v1 never reaches (behind an empty condition group) is dropped
+				// with its tag.
+				const unreachable = unreachableBehindEmptyGroups(src.nodes, src.edges);
+				for (const n of src.nodes || []) {
+					if (n && unreachable.has(n.id)) continue;
 					const t = ((n && n.data) || {}).tag;
 					if (t && typeof t.name === "string" && t.name.trim()) srcTags.add(t.name.trim());
 				}
@@ -760,9 +906,13 @@ function main() {
 	process.stdout.write(`${JSON.stringify({ passed, checks }, null, 2)}\n`);
 }
 
-try {
-	main();
-} catch (e) {
-	process.stdout.write(JSON.stringify({ passed: false, error: String(e && e.message) }));
-	process.exitCode = 2;
+module.exports = { unreachableBehindEmptyGroups };
+
+if (require.main === module) {
+	try {
+		main();
+	} catch (e) {
+		process.stdout.write(JSON.stringify({ passed: false, error: String(e && e.message) }));
+		process.exitCode = 2;
+	}
 }
