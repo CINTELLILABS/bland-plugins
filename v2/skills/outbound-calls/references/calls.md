@@ -72,14 +72,19 @@ The selector grammar and the per-channel table live in
 
 - Accepted selectors: `production`, `staging`, `dev`, `latest`, a minted
   semver `X.Y.Z`, `branch:<name>`.
-- **An unrecognised selector is not an error.** A typo such as `prod`, or a
-  bare number, is ignored and the call runs the production pin. Echo the exact
-  selector back before dialing.
+- **An unrecognised selector is refused.** A typo such as `prod`, or a bare
+  number, returns a 400 that lists the accepted forms, and nothing dials. Echo
+  the exact selector back before dialing anyway.
+- `dev` and `latest` both mean the newest save on the main line, not a branch
+  and not a pin.
 - A call with no selector runs the production pin, and it can be routed into
   a running A/B experiment arm. Pass `agent_version: "production"` to pin it
   and skip the experiment.
-- The selector also picks which environment's variables resolve. `dev`, a
-  semver and `branch:` resolve dev variables.
+- The selector also picks which environment's variables resolve. `dev`,
+  `latest`, a semver and `branch:` resolve dev variables, even when that
+  semver is the production pin.
+- The version is fixed when the call is created. A scheduled call keeps it
+  even if the pin moves before the call dials.
 
 Read the pins with `bland_api_get` on `/v2/agents/<agent id>/environments`:
 three rows, each with `env_type` and `current_version` (`name`, `semver`) or
@@ -95,10 +100,11 @@ number the person will see, or that the system will pick one. Do not invent a
 
 ## request_data and metadata
 
-- `request_data` is what the agent can read during the call as variables.
+- `request_data` is what the agent reads during the call, as `{{key}}`.
 - `metadata` is stored on the call. It comes back in the call log and in the
   post-call webhook payload, so downstream systems can match the call to their
-  own record. The agent does not need it.
+  own record. The agent can also read it, as `{{metadata.<key>}}`; a
+  `request_data` key named `metadata` is replaced by it.
 - Both are **whole-object replacements**. If the agent version has default
   `request_data` and you send `request_data`, the default is dropped, not
   merged. Read the version's defaults first if the call depends on them, and
@@ -122,14 +128,22 @@ Leave `voicemail` out to keep the version's behavior. To override:
 `ignore` (keep talking through the greeting). Decide this before a cold
 campaign: many calls reach voicemail.
 
+- Any `voicemail` object replaces the version's whole voicemail setting.
+- A `message` forces `leave_message` (or `leave_message_and_sms` with `sms`),
+  whatever `action` says. Leave `message` out for `hangup` or `leave_sms`.
+- The message may use `{{variables}}` from `request_data`. An empty message on
+  a leave action hangs up instead.
+- What each action does on the line: [how it works](how-it-works.md#how-it-reaches-a-live-call).
+
 ## Webhooks
 
 - `webhook` receives the post-call payload when the call ends.
 - `webhook_events` adds event types to the same URL. Accepted values:
   `latency`, `queue`, `call`, `dynamic_data`, `webhook`, `tool`, `citations`,
   `evals`, `post_transfer_transcript`.
-- `post_transfer_transcript` needs `record: true`; without it the call is
-  refused with a 400 that says so.
+- `post_transfer_transcript` needs recording. It turns recording on when
+  `record` is left out, and the call is refused with a 400 when `record` is
+  set to anything but `true`.
 - Setting up org-wide webhooks or resending a payload is not this skill's
   job.
 
@@ -137,11 +151,16 @@ campaign: many calls reach voicemail.
 
 - `start_time` is an ISO 8601 timestamp. Always include the offset or `Z`
   (`2026-01-15T17:30:00-05:00`). Confirm the time back in the user's own
-  timezone.
-- The response returns a `call_id` at once; the call waits in the queue until
-  the time. `stop_call` on that id cancels it.
-- `dispatch_hours` and `timezone` restrict when a call may start. A call
-  outside the window is held until the next opening.
+  timezone. It must be at least 5 minutes and at most 30 days ahead.
+- The response returns a `call_id` at once; the call waits until the time.
+  `stop_call` on that id cancels it.
+- While it waits, the call reads `completed: true` with an empty `status`, so
+  `wait_for_call` returns at once. That is not an outcome; check again after
+  the start time.
+- `dispatch_hours` (`{ "start": "9:00am", "end": "5:00pm" }`) and `timezone`
+  (an IANA name, or `auto` for US area codes) restrict when a call may start.
+  A call outside the window is held until the next opening. **Without
+  `timezone` the window is ignored** and the call dials at once.
 
 ## Your own carrier account
 
@@ -157,9 +176,9 @@ A 200 returns `{ status: "success", call_id, message }`, sometimes with a
 `max_duration_notice` when a plan cap shortened the call. The call is queued,
 not finished. State the `call_id` in your reply at once.
 
-1. `wait_for_call` with `{ "id": "<call id>" }` holds up to 45 seconds and
-   returns at a terminal status: `completed`, `failed`, `error`, `no-answer`,
-   `busy`, `canceled`. Call it again while the call runs. Where the host has
+1. `wait_for_call` with `{ "id": "<call id>" }` holds 30 seconds by default
+   (`timeoutSeconds` up to 45) and returns at a terminal status:
+   `completed`, `failed`, `error`, `no-answer`, `busy`, `canceled`. Call it again while the call runs. Where the host has
    no `wait_for_call`, poll `bland_api_get` on `/v1/calls/<call id>` every
    15 seconds or so.
 2. `get_call_log` with `{ "id": "<call id>" }` for the transcript, summary,
@@ -181,10 +200,12 @@ Why a finished call went wrong is [call analysis](../../call-analysis/SKILL.md).
 
 `call_bland_api` `POST /v1/org_dnc/search` with
 `{ "phone_number": "<E.164>" }` returns `{ entries[], total_count }`. Any
-entry means the number is on the org's list. Dispatch enforces the list
-anyway (a 400 naming the do-not-call list), but checking first avoids a
-confirm for a call that cannot happen. The lookup takes the number in the
-body on purpose; do not put numbers in query strings. Adding or removing
+entry means the number is on the org's list. Call creation enforces the list
+anyway, for the destination and for every transfer target (a 400 naming the
+do-not-call list, or a 503 when the list cannot be checked), but checking
+first avoids a confirm for a call that cannot happen. After a number is added
+to the list, stop any call to it that is already scheduled. The lookup takes
+the number in the body on purpose; do not put numbers in query strings. Adding or removing
 entries is owner or admin work in a signed-in session, not this skill.
 
 ## Errors
@@ -193,6 +214,8 @@ Never retry a 4xx unchanged. Fix the cause or tell the user what unlocks it.
 
 | Code or status | Meaning | Fix |
 |---|---|---|
+| 400 naming `agent_version` | The selector is not one of the accepted forms. | Use `production`, `staging`, `dev`, `latest`, `X.Y.Z` or `branch:<name>`. |
+| 400 "Invalid 'from' …" | The caller id is not a number on the account. | Pick one from `/v1/inbound`, or omit `from`. |
 | `AGENT_PARAM_CONFLICT` | `agent_id` sent with `pathway_id` or `persona_id`. | Remove the other two. |
 | `AGENT_ORG_REQUIRED` | The key is not an organization key. | Use an org key or session; do not switch orgs. |
 | `AGENT_ID_INVALID` | `agent_id` is not a UUID. | Read the id from the page or `/v2/agents`. |
@@ -206,5 +229,6 @@ Never retry a 4xx unchanged. Fix the cause or tell the user what unlocks it.
 | `CALL_UNPAID_INTL_BLOCK` | International calling needs a completed purchase. A saved card alone does not unlock it. | Buy credits or turn on auto-recharge under Billing; it unlocks once the payment settles. |
 | 400 naming the do-not-call list | The number is on the org's list. | Do not dial. |
 | 429 with `limit_type`, `retry_after_seconds`, `reset_at` | Hourly or daily call limit. | Wait until `reset_at`; do not loop. |
+| 429 "Calls can only be sent every 10 seconds to the same number." | A second call to the same number too soon. | Wait a few seconds; retry once. |
 | Timeout or connection loss | The call may have been placed. | Read `GET /v1/calls?to_number=<E.164>` for a fresh call before sending again. |
 | `oauth_path_not_allowed` | This connection cannot reach the route. | Say so and name the dashboard page. Do not route around it. |

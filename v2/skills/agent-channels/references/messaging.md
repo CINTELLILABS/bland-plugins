@@ -43,8 +43,8 @@ keep their values.
 | Field | Meaning |
 |---|---|
 | `webhook` | URL for message and status events on this number. |
-| `time_out` | Idle seconds before a thread ends. A positive value under 30 is raised to 30. `0` or `null` turns it off. |
-| `warning_time`, `warning_message` | Reminder before the end. `warning_time` must be less than `time_out`, else 400. |
+| `time_out` | Idle seconds before a thread ends, counted from the agent's last reply. A positive value under 30 is raised to 30. `0` or `null` turns it off. A thread started by `/v1/sms/send` with its own `time_out` uses that instead. |
+| `warning_time`, `warning_message` | Reminder before the end. `warning_time` must be less than `time_out`; otherwise the update fails with 500 `ERROR_UPDATING_SMS_CONFIG`. |
 | `timeout_message` | Sent when the thread ends on idle. |
 | `request_data` | Variables every thread on this number starts with. |
 | `messaging_service_sid` | Bring-your-own-carrier numbers only. Saving it starts a registration with the carrier service. Confirm it with the user character by character. |
@@ -54,7 +54,12 @@ temperature fields are ignored: the agent version wins. Change the agent,
 never the number.
 
 Errors: 400 `INVALID_CHANNEL`, 400 `PHONE_NUMBER_REQUIRED`, 404
-`INBOUND_NUMBER_NOT_FOUND`, 403 `ENTERPRISE_REQUIRED`.
+`INBOUND_NUMBER_NOT_FOUND`, 403 `ENTERPRISE_REQUIRED`. The update is open to
+enterprise orgs and to orgs on an active phone plan that includes texting;
+the plan covers `channel: "sms"` only.
+
+Re-saving a bound number's SMS config also repairs its texting setup when an
+attach left the number unable to receive texts.
 
 ## WhatsApp
 
@@ -112,9 +117,13 @@ One thread: `GET /v1/sms/conversations/<id>` returns the messages with
 ## Send, take over, hand back
 
 All of these text a real person. Use the REQUIRED confirm and quote the from
-number, the recipient and the exact text. All need an enterprise plan (403
-`ENTERPRISE_REQUIRED`). They apply to text threads; an API chat thread is
-answered through the customer's app.
+number, the recipient and the exact text. Takeover, reply, hand back, end and
+`trigger` need an enterprise org (403 `ENTERPRISE_REQUIRED`); `/v1/sms/send`
+also accepts an active phone plan with texting, for SMS to US and Canada
+numbers. A reply, or a hand back that sends, can answer 402
+`BILLING_RECORD_REQUIRED` or `INSUFFICIENT_CREDITS`. The takeover routes work
+on API chat threads too: the reply reaches the customer's app with role
+`human`.
 
 | Step | Route | Body |
 |---|---|---|
@@ -124,6 +133,9 @@ answered through the customer's app.
 | Close | `POST /v1/sms/conversations/<id>/end` | `{reason?, actor?}` |
 
 Take over before replying, so the agent does not answer over the person.
+While taken over, the idle timer is paused and inbound texts still reach the
+webhook. Taking over an ended or timed-out thread reopens it. After an end,
+the person's next text starts a new thread.
 
 Start a new thread: `POST /v1/sms/send` with `user_number`, `agent_number`
 (the bound number) and optionally `agent_message`, `request_data`,
@@ -141,8 +153,17 @@ on `/dashboard/batches`. Never loop `/v1/sms/send`.
 
 ## How a text turn runs
 
-Texts run the agent's compiled production version, refreshed on attach and on
-each promote. A publish to staging does not reach texts.
+Texts run the agent's compiled copy of production, refreshed on each promote
+and rollback. A publish to staging does not reach texts. Two exceptions:
+
+- A production number attach compiles the latest save into the copy, so
+  texts can run unpromoted edits until the next promote (unless a widget is
+  bound, which pulls the copy back to production at once).
+- A number attached in the staging environment answers calls on staging but
+  texts on production.
+
+Each turn reads the current copy, so a promote reaches open threads on their
+next message. [How it works](how-it-works.md) has the full picture.
 
 `settings.messaging.mode` picks the runtime for texts and API chat (not voice,
 not web chat):
@@ -155,6 +176,7 @@ not web chat):
   tool chains, verification), that channel runs the pathway node by node
   instead.
 - `pathway`: always node by node, as voice does.
+- A reasoning turn that fails is answered node by node for that message.
 
 So a text can behave differently from a voice call on the same version. Read
 the brief before blaming the graph.

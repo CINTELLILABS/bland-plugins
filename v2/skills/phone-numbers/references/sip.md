@@ -21,7 +21,7 @@ stop.
 ## Facts to get right
 
 - Signaling is TLS on port 5061 only. There is no plaintext listener on 5060.
-  Media is RTP over UDP 16384 to 32768. GET `/v1/sip/firewall-ips` returns
+  Media is SRTP over UDP 16384 to 32768. GET `/v1/sip/firewall-ips` returns
   the addresses the customer must allow, with these ports.
 - Identity: only a value sent with a leading `+` is normalised to E.164.
   DIDs and extensions are stored exactly as sent. Never add a `+`, a country
@@ -34,6 +34,13 @@ stop.
   it changes. Hand it to the user for their PBX; never write it to a file
   or repeat it later.
 - Deleting a trunk keeps its numbers' config and leaves them unbound.
+- A trunk carries numbers on the customer's own carrier. A number bought
+  from Bland is refused (`... is provisioned on Bland's carrier, so it
+  cannot be attached to a SIP trunk.`). A SIP attach adds the number to the
+  inventory unassigned; give it an owner like any number.
+- Attaching a direction the number already has is refused (`Direction
+  "<type>" already exists on this number ...`). Use `/v1/sip/update`, or
+  detach that direction first.
 
 ## Diagnose
 

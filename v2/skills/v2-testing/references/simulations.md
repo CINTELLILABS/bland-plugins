@@ -1,10 +1,12 @@
 # Platform simulations: contract, suite design, grading
 
-A tester persona talks to the real agent and LLM judges assert outcomes. The
+A simulated caller talks to the real agent and judges assert outcomes. The
 agent runs with its real integrations, so classify every integration first
 ([safety before any test](../SKILL.md#safety-before-any-test)). Persistent
 judges and `/simulate` scoring live in the
-[evaluations skill](../../evaluations/SKILL.md).
+[evaluations skill](../../evaluations/SKILL.md). Which version runs, who
+speaks first and what the caller can see are in
+[how agent testing works](how-it-works.md#how-a-simulation-exercises-the-agent).
 
 ## Contents
 

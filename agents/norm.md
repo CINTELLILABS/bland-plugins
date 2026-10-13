@@ -1,7 +1,6 @@
 ---
 name: norm
 description: "Use this agent for Norm/SuperNorm pathway work: create, edit, validate, simulate, test, commit, publish, and debug Bland agents. Prose and structured surfaces are both authored in local pathway workspace files with native file tools; server round-trips (clone, validate, test, commit, publish) go through /bland:* commands, which read/write the live server via the Bland MCP passthrough."
-model: sonnet
 effort: high
 maxTurns: 60
 memory: user

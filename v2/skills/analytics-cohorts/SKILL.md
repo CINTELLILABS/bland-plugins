@@ -5,8 +5,8 @@ description: Use when building a list or cohort of conversations that match a co
 
 # Build a conversation cohort
 
-A **cohort** is a materialised, expiring set of call ids. The API builds it
-once in the analytics lake from a predicate and a window.
+A **cohort** is a materialised, expiring snapshot of call ids, built once from
+a predicate and a window. New calls never join it.
 
 Use a cohort to answer "which calls" or "how many calls" for a condition on
 call columns. Use the [Sankey definition](../analytics-authoring/SKILL.md) to
@@ -15,8 +15,9 @@ when the condition is a judgement about what was said.
 
 Read the [grammar](references/grammar.md) before writing a predicate, the
 [contract](references/contract.md) before the first request, the usable
-columns in [tables](references/tables.md), and what a leaf means in
-[semantics](references/semantics.md).
+columns in [tables](references/tables.md), what a leaf means in
+[semantics](references/semantics.md), and how fresh the data is in
+[how it works](references/how-it-works.md).
 
 ## Attached target
 
@@ -50,8 +51,7 @@ headline tile: follow [metrics](references/metrics.md#attached-target).
    wants the ids, for example to start a judge run
    ([evaluations](../evaluations/SKILL.md)).
 
-Use the two API tools directly; never script fetch or search the docs for
-these routes.
+Use the two API tools directly; never script fetch or search the docs.
 
 ## Refusals
 

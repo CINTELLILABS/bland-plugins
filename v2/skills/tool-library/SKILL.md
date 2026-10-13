@@ -1,15 +1,17 @@
 ---
 name: tool-library
-description: Use when someone wants to "create a tool", "call my API from the agent", "wire up a webhook", says "the tool returns HTTP 0", wants to "update the shared tool" or asks "which agents use this tool", wants to "add a secret", "connect HubSpot / Salesforce" or "disconnect" an integration, or wants "custom code" in a tool, on the Tools, Secrets or Connections pages, org scoped or under an agent's Tools tab.
+description: Use when someone wants to "create a tool", "call my API from the agent", "wire up a webhook", says "the tool returns HTTP 0" or "why did the tool fail on this call", asks "how do tools work" or "what does the caller hear while it runs", wants to "update the shared tool", "delete this tool" or asks "which agents use this tool", wants to "add a secret", "connect HubSpot / Salesforce" or "disconnect" an integration, or wants "custom code" in a tool, on the Tools, Secrets or Connections pages.
 ---
 
 # Tools, secrets and connections
 
-A library tool is an org row agents call mid-conversation. Read the
-[tool library reference](../v2-runtime/references/tool-library.md) (routes,
-definition schema, attach modes) before the first write. Attaching edits a
-snapshot ([v2-snapshot](../v2-snapshot/SKILL.md)); test-chat turns follow
-[v2-testing](../v2-testing/SKILL.md).
+A library tool is an org row agents call mid-conversation. Answer "how does
+it work" and "why did it happen" from [how tools work](references/how-it-works.md).
+Read the [tool library reference](../v2-runtime/references/tool-library.md)
+before the first write; steps are in [procedures](references/workflows.md).
+Attaching edits a snapshot ([v2-snapshot](../v2-snapshot/SKILL.md)); test
+chats follow [v2-testing](../v2-testing/SKILL.md). Do not write fetch scripts
+or search the docs for these routes.
 
 ## Page context
 
@@ -18,8 +20,7 @@ exists here.
 
 - `/dashboard/tools`, `/dashboard/tools/create`: org scope.
 - `/dashboard/tools/$toolId`: tool id.
-- `/dashboard/tools/secrets`, `/dashboard/tools/connections`: lists.
-- `/dashboard/tools/resources/$resourceId`: resource id.
+- `/dashboard/tools/secrets`, `/connections`: lists; `/resources/$resourceId`.
 - `/dashboard/agent/$agentId/tools/**`: agent id, plus tool id on `$toolId`.
 
 Mutate through the API, never the page's forms. After every write say:
@@ -30,59 +31,62 @@ Mutate through the API, never the page's forms. After every write say:
 Budget: search, create, run, one test-chat turn, attach save.
 
 1. `bland_api_get` `/v1/tools?search=<name>`; reuse a match.
-2. Write the definition per the reference. Never put `url` or `method` at the
-   top level of an integration definition; `input_schema` must be an object
-   schema. Both save cleanly, then fail every call with HTTP 0.
+2. Write the definition per the reference: no top-level `url` or `method` on
+   an integration definition, and an object `input_schema`. Both save
+   cleanly, then fail every call with HTTP 0.
 3. `call_bland_api` POST `/v2/tools`. Keep the id.
 4. POST `/v2/tools/<id>/run` with `{"inputs": {…}}`, synthetic values.
 5. One test-chat turn that makes the agent call it.
 6. Attach and say why this mode: embedded copy (frozen, this agent),
-   `byReference` or a `tool` step by `toolId` (both follow library edits).
+   `byReference` or a `tool` step (both follow library edits).
 
-"My tool says HTTP 0": check the definition against the reference. Do not
-retry the run.
+Custom code: `save_code_snippet`, then the tool pinned to the returned
+version ([custom code tools](references/workflows.md#custom-code-tools)).
 
 ## Workflow: change a shared tool safely
 
 Budget: read, agent scan, write, read-back, run.
 
 1. `bland_api_get` `/v1/tools/<id>`. Keep the original.
-2. Find consumers; no reverse index exists. Page `/v2/agents`. Per agent
-   read `/versions/latest`, then `/environments` and each pinned staging or
-   production `current_version.semver` via `/versions/<semver>` (production
-   may be older). Match the id (with or without `TL-`) on a
-   `byReference` tool or `tool` step. Embedded copies do not change.
+2. Run the [consumer scan](references/workflows.md#consumer-scan).
 3. Show the diff and the affected agents. Confirm.
-4. POST `/v2/tools/<id>` with only the changed keys (validated merge). Never
-   send a partial body to POST `/v1/tools/<id>`: it replaces the row unvalidated.
+4. POST `/v2/tools/<id>` with only the changed keys. Never send a partial
+   body to POST `/v1/tools/<id>`: it replaces the row unvalidated.
 5. Read back, then `/run`.
 
-## Workflow: secrets
+## Workflow: debug a tool run
 
-1. `bland_api_get` `/v1/secrets`; reuse a match.
-2. Prefer the user creating or rotating the value on Tools, Secrets, so it
-   never enters the chat. On request, POST `/v1/secrets` `{name, secret}`.
-3. Reference it by id: `{{secret.id.<secret id>}}`. Delete is UI-only.
+Budget: one log read for the call, one stats read, one definition read.
 
-## Workflow: connections
+1. `bland_api_get` `/v2/tools/logs?call_id=<call id>`, or by `tool_id` (raw
+   UUID) with `status=error`.
+2. `/v2/tools/logs/stats?tool_id=<uuid>&group_by=error_type&status=error&period=week`.
+3. Name one cause from the [cause table](references/workflows.md#debug-a-tool-run)
+   with the row (or its absence) as evidence. Change something before any
+   re-run.
 
-1. POST `/v1/integrations/<key>/connect` with `{"name": "<label>"}`.
-2. Give the user the `connect_link`. Poll `/v1/resources?integration=<key>`
-   until a new active row appears.
-3. Reconnect is UI-only.
-4. Before POST `/v1/resources/<id>/disconnect` or DELETE `/v1/resources/<id>`,
-   page `/v1/tools` and list the rows whose `resource_id` matches: they
-   deactivate. Confirm.
+## Workflow: delete a tool safely
 
-## Custom code
+Budget: read, consumer scan, one stats read, one delete.
 
-Snippet create and update take raw text the API tools cannot send: save code
-in the builder. Then read `/v1/snippets/get/<id>` and re-pin `snippetId` and
-`snippetVersion`.
+1. `bland_api_get` `/v1/tools/<id>`; run the
+   [consumer scan](references/workflows.md#consumer-scan).
+2. Name every agent and node; offer to detach first.
+3. Confirm, then DELETE `/v2/tools/<uuid>`. There is no reference check.
+
+## Secrets and connections
+
+- `/v1/secrets` first; prefer the user entering the value on Tools, Secrets.
+  Reference by id: `{{secret.id.<secret id>}}`. Delete is UI-only.
+- Connect: POST `/v1/integrations/<key>/connect` `{"name": "<label>"}`, hand
+  over `connect_link`, poll `/v1/resources?integration=<key>`.
+- Before a disconnect or DELETE `/v1/resources/<id>`, list the `/v1/tools`
+  rows with that `resource_id`: they deactivate. Reconnect is UI-only.
 
 ## Confirm before
 
-Any shared-tool write or delete (name the agents), any disconnect:
+Any shared-tool write or delete, a snippet save that unpinned consumers run,
+any disconnect:
 
 ```text
 About to <verb> <object>: <what changes, which agents or tools are affected>.
@@ -95,12 +99,8 @@ Reply "yes" to proceed.
 - `oauth_path_not_allowed`: say "this connection cannot reach tools; do it
   on /dashboard/tools" and stop.
 - `INVALID_TOOL_TYPE` from POST `/v2/tools/<id>`: a legacy tool. After the
-  confirm, POST the full original with the change to `/v1/tools/<id>`, with
-  `staging_tool`; omitting it wipes the staging version.
-
-## Do not
-
-- Show tool headers; redact them on every read.
-- Call `/nango/connection/*` or `/v2/tools/suggestions`.
-- Treat `/run`, `/v1/tools/run` or `/v1/resources/<id>/execute` as reads.
-- Write fetch scripts, search docs for these routes, or guess fields.
+  confirm, POST the full original with the change, including
+  `staging_tool`, to `/v1/tools/<id>`.
+- Redact tool headers. Never call the dashboard's connection sign-in routes or
+  `/v2/tools/suggestions`. `/run`, `/v1/tools/run` and
+  `/v1/resources/<id>/execute` are real executions, not reads.

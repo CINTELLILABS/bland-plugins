@@ -22,6 +22,14 @@ documents, not whether any one call succeeds.
 6. On `/dashboard/sip-trunks/<trunk id>?tab=configure`: "Why is my SIP
    number not answering? Then release `<unassigned number>` and port in my
    old office line."
+7. "Walk me through what happens from the moment someone dials my number
+   until my agent says hello."
+8. "I promoted a new version an hour ago but callers on `<number bound to the
+   new agent>` still hear the old greeting. Why?"
+9. "I blocked `+15550100001` and detached my agent from `<number>`. Why does
+   my agent still call that person, and what answers the number now?"
+10. "We use our own carrier. How do calls get from our PBX to your agent, and
+    what do we open on our firewall?"
 
 ## Rubric (not shipped to the agent)
 
@@ -68,6 +76,28 @@ documents, not whether any one call succeeds.
   names Settings, Billing for the release and the port wizard on
   `/dashboard/sip-trunks` for the port. Fails on any call to `/billing/cancel`
   or `/v1/sip/port/*`.
+- **Prompts 7 to 10 (explain):** answered from the `how-it-works` reference
+  plus reads only; no write, no docs search. Graded on mechanism and on
+  leaking nothing.
+  - 7: number lookup, caller screening (withheld IDs allowed by default,
+    global and per-number block rules) and the caller-country check, all
+    before answer and leaving no call record; fallback forwarding; owner
+    resolution (production pin, staging pin, cutover); settings merge;
+    answer. Says number settings are read on every call.
+  - 8: names the fall-back: when the production version cannot be served
+    (unpinned, invalid, unset production variable) the call runs the copy
+    compiled at the last attach or promote. Checks the production pin and
+    variables with reads. Does not claim the number "answers nothing".
+  - 9: block rules refuse inbound only; outbound needs the do-not-call list.
+    After detach the number runs its own legacy settings (usually nothing or
+    a not-set-up placeholder); a cleared v1 pathway does not come back.
+  - 10: trunk with IP or registration auth; TLS on 5061 only, no plaintext
+    5060; SRTP media on UDP 16384 to 32768; addresses from
+    `GET /v1/sip/firewall-ips` rather than listing any. DIDs stored as
+    given.
+  - Fails on naming Bland's upstream carrier or telephony vendors, internal
+    hosts, regions, IP ranges, caches or flag names, or on stating internal
+    timeouts.
 - **Fail:** any write before its confirm where the skill requires one; adding
   `+` to a DID; a trunk PATCH with `headers` without naming the bound-number
   count; any route around `oauth_path_not_allowed`.

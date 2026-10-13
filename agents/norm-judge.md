@@ -1,7 +1,6 @@
 ---
 name: norm_judge
 description: "Use this agent when a simulated or real Bland call transcript must be graded against a FIXED outcome checklist — fresh-context, evidence-first verdicts with zero optimizer bias. Give it the full chat_history, the final variables, current_node_name, the completed flag, and the outcome bar verbatim; it returns one met / not-met verdict per outcome with the exact quote, node, or variable that proves it. /bland:loop calls it after every simulation pass; it is also useful standalone to judge any call against acceptance criteria."
-model: sonnet
 effort: medium
 maxTurns: 8
 tools:

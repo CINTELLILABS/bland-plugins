@@ -50,7 +50,10 @@ blob as a complete dataset. Do not build a new export service for this workflow.
   reconnect and approve it, or use the dedicated tool it names.
 - The passthrough sends JSON bodies only. Multipart bodies (file uploads)
   and `text/plain` bodies (raw code) never go through it, on either
-  connection. Name the dashboard page that does the upload instead.
+  connection. Two dedicated tools cover the common cases:
+  `upload_knowledge_file` ingests a file from an https link, and
+  `save_code_snippet` saves code. A file only on the user's machine still
+  goes through the dashboard page that does the upload; name it.
 
 ## Credentials and privacy
 

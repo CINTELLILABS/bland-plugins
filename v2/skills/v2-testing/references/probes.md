@@ -71,9 +71,13 @@ opens a conversation, `POST /v1/chat/<conversation id>/messages`
 - Runs the production twin, not the dev head. It answers 403
   `CHANNEL_DISABLED` unless the production version has
   `settings.apiChat.enabled`.
-- Creates a real conversation record. Webhooks fire, tools with side effects
-  run, and summary and dispositions run on end. Confirm once before the first
-  message, and use a synthetic `end_user_id`.
+- Creates a real conversation record. Webhooks fire and tools with side
+  effects run. On end, the messaging post-conversation analysis runs (the
+  summary, plus any citations or legacy dispositions set on the messaging
+  configuration) and the ended webhook fires. The agent's
+  [dispositions](../../dispositions/SKILL.md) score completed calls, not
+  this conversation. Confirm once before the first message, and use a
+  synthetic `end_user_id`.
 
 ## Live text: a number the user owns
 

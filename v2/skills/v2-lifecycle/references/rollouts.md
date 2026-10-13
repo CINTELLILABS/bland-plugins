@@ -78,8 +78,8 @@ All under `/v2/agents/:agentId`. Envelope `{data, errors}`.
 | `POST /rollouts/:rolloutId/finish` | none | `{rollout}` |
 | `GET /experiments/:experimentId/metrics` | `?window_hours=` 1 to 336, default 24 | `{metrics}` for a standalone experiment |
 
-A rollout view carries `kind`, `status`, `traffic_percentage` (the share the
-splitter serves now), `current_step` (0-based; equal to the step count while
+A rollout view carries `kind`, `status`, `traffic_percentage` (the candidate share
+served now), `current_step` (0-based; equal to the step count while
 baking at 100%), `plan`, `guardrails`, `guardrail_verdicts`,
 `tripped_guardrail_id`, `limit_reached`, `scheduled_start_at`,
 `experiment_id` or `split_id`, and the baseline and candidate version ids.

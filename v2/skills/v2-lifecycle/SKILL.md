@@ -1,23 +1,22 @@
 ---
 name: v2-lifecycle
-description: Use when shipping a Bland v2 agent version to real traffic or asking which version answers ("publish to staging", "promote to production", "roll back", "which version is this call running", "my fix didn't take"), running an A/B test or staged rollout on the Experiments page ("start an experiment", "ramp the new version", "finish the rollout", "pick the winner"), branches, {{env.KEY}} variables, promotion checks, attaching inbound numbers, deleting an agent, or setting an agent's voice and language ("change my agent's voice", "make it speak Spanish").
+description: Use when shipping a Bland v2 agent version to real traffic or asking which version answers ("publish to staging", "promote to production", "roll back", "which version is this call running", "my fix didn't take"), running an A/B test or staged rollout on the Experiments page ("start an experiment", "ramp the new version", "finish the rollout", "pick the winner"), attaching inbound numbers, deleting an agent, or setting an agent's voice and language ("change my agent's voice", "make it speak Spanish").
 ---
 
 # v2 Agent Lifecycle
 
 > **Server binding:** use only this plugin's MCP server (`plugin_norm_bland`), never the v1 plugin's or a project `bland` server; they may hold another org.
 
-Which version runs where, and how a version reaches callers. The
-[lifecycle model](references/lifecycle.md) covers the twin, branches,
-variables and checks; read the [endpoint dictionary](references/api.md) before
-the first request; objects outside the snapshot are in
-[resource boundaries](references/resources.md). Do not write fetch scripts and
-do not search the docs for these routes.
+Which version runs where, and how it reaches callers. The
+[lifecycle model](references/lifecycle.md) is the full model; read the
+[endpoint dictionary](references/api.md) before the first request; objects
+outside the snapshot are in [resource boundaries](references/resources.md).
+Do not write fetch scripts or search the docs for these routes.
 
 ## Environments and the ship pipeline
 
 `dev` is the newest save. `staging` and `production` pin one version. No
-production pin means calls fail (`AGENT_ENV_UNPINNED`).
+production pin: outbound calls fail (`AGENT_ENV_UNPINNED`); inbound runs the twin.
 
 ```text
 save version ──► dev        (automatic)
@@ -28,8 +27,12 @@ rollback ──────► production (only a version production ran before)
 
 Promotion enforces the staging check policy (`409 CHECKS_BLOCKED`); never
 add `force: true` to pass it. Promote errors: [API map](references/api.md#lifecycle).
+Variables, checks and branches (the Environments page):
+[agent-environments](../agent-environments/SKILL.md).
 
 ## Which version answers
+
+The model and the "why": [how environments work](../agent-environments/references/how-it-works.md).
 
 | Channel | Runs | Override |
 |---|---|---|
@@ -41,9 +44,9 @@ add `force: true` to pass it. Promote errors: [API map](references/api.md#lifecy
 | SMS | the twin's stored graph | none |
 
 Selectors: `production`, `staging`, `dev`/`latest`, `X.Y.Z`, `branch:<name>`.
-The selector, not the version, picks which environment's variables resolve.
-A number attach recompiles the twin from the dev head until the next promote.
-Test chat proves the dev head, not what customers hear.
+The selector, not the version, picks whose variables resolve.
+A production number attach recompiles the twin from the latest save until the next promote, unless a widget is bound; a staging attach leaves it as is.
+Test chat proves only the dev head.
 
 ## Rollouts (the Experiments page)
 
@@ -60,19 +63,20 @@ only (`403 ENTERPRISE_REQUIRED`).
 - **Every action except reads moves live traffic.** `advance` approves a
   checkpoint; `rollback` returns all calls to the baseline. **`finish` on a
   version rollout promotes the candidate**: get explicit approval.
-- For A/B, prefer `POST …/rollouts` preset `ab`. `POST …/experiments` is the
-  low-level primitive the page labels "started through the API".
+- For A/B, prefer `POST …/rollouts` preset `ab` over the low-level
+  `POST …/experiments` ("started through the API" on the page).
 - A live migration rollout blocks promote (`409 ROLLOUT_IN_PROGRESS`).
 - After a write: "Saved through the API. The page shows it after a refresh."
 
 ## Other lifecycle work
 
-- **Voice and language**: [voices](references/voices.md).
+- **Voice and language**, how a call picks them and how to change them:
+  [voices](references/voices.md#how-voice-and-language-work).
 - **Inbound numbers**: attaching clears a v1 pathway on that number, which
   stops answering. Send `only_if_unassigned: true` unless asked to move a
   number ([attach](references/api.md#inbound-numbers-and-identity)); the
   [phone-numbers](../phone-numbers/SKILL.md) skill owns the workflow.
-- **Delete agent** unbinds every inbound number; list them first
+- **Delete agent** unbinds every inbound number; list them
   (`GET /v2/agents/:agentId/inbound`).
 - **Reuse and import**: [workflows](references/resources.md#reuse-and-import-workflows).
 

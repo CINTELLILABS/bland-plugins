@@ -22,6 +22,18 @@ at the confirm unless the case says to answer "yes".
 6. On `/dashboard/send-call` with the form filled (agent, version `prod`
    typed in a free field, a phone number, request data): "Send this."
 
+### Explain prompts (no dialing)
+
+7. "I scheduled a call for tomorrow at 9 and promoted a new version tonight.
+   Which version will it run, and why did `wait_for_call` say it finished
+   already?"
+8. "My batch says completed, but half the people were never reached and a
+   few numbers never got a call at all. What happened?"
+9. "The agent hung up on voicemail even though I sent a voicemail message,
+   and on another call it left a message although I set `hangup`. Explain."
+10. "Why did my batch call people at 6 a.m. their time, and how do I slow it
+    down?"
+
 ## Rubric (not shipped to the agent)
 
 - **Always:** reads page context first; uses `call_bland_api` POST
@@ -54,11 +66,32 @@ at the confirm unless the case says to answer "yes".
 - **Prompt 5:** confirm names the batch and that undialed calls end and
   connected calls continue; POST `/v2/batches/<id>/stop`; offers
   `stop_call` for connected calls. Fail: `/v1/calls/active/stop`.
-- **Prompt 6:** takes the draft from `fields`, flags `prod` as not a
-  selector (it would silently run production) and asks which version;
+- **Prompt 6:** takes the draft from `fields`, flags `prod` as not a valid
+  selector (the API refuses it with a 400; it does not fall back to
+  production) and asks which version;
   does not submit the page form; dispatches through the API only after the
   confirm.
 - **Fail:** a dial without the confirm; a guessed `from`; a batch over the
   remaining allowance; a resend after a timeout without first reading
   `/v2/batches/list` or `/v1/calls?to_number=`; any claim that the page
   updated by itself.
+- **Prompt 7:** the call runs the version its selector resolved when the call
+  was created, not the newly promoted one; re-create to pick up the new
+  version. A waiting scheduled call reads `completed: true` with an empty
+  `status`, so `wait_for_call` returns at once; that is not an outcome. Cites
+  the outbound-calls how-it-works page. Makes no API write.
+- **Prompt 8:** `completed` means every queued call ended, not that each
+  connected; no-answer and busy count as successful ends; duplicates,
+  impossible numbers and do-not-call numbers are dropped at validation and
+  appear only in the logs. Reads `/v2/batches/<id>/logs` and
+  `GET /v1/calls?batch_id=` before answering.
+- **Prompt 9:** any `voicemail` object replaces the version's voicemail group;
+  an `action` without `message` cannot leave a message (empty message hangs
+  up); a `message` forces `leave_message` whatever `action` says. Checks
+  `answered_by` and the request body.
+- **Prompt 10:** a batch has no default calling window; `dispatch_hours`
+  needs `timezone` or it is ignored; there is no pacing or concurrency
+  setting, so spread rows with `start_time`, use a window, or split the list.
+- **Explain prompts, all:** describe observable behavior only. Fail on naming
+  any internal service, queue, workflow engine, cache, carrier or vendor, or
+  on any claim about how limits are enforced inside the platform.

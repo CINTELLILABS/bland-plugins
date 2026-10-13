@@ -1,5 +1,47 @@
 # Changelog
 
+## norm 1.11.0 – 2026-10-13
+
+- New `agent-environments` skill for the Environments pages: set
+  `{{env.KEY}}` values per environment and pre-flight a candidate's
+  references against the environment that will resolve it (an unresolved
+  key is `AGENT_VARIABLE_UNRESOLVED`); configure the staging check policy,
+  run checks on the exact candidate and read the verdicts before promoting,
+  never forcing past `CHECKS_BLOCKED`; branch, test with `branch:<name>`,
+  rebase on `BRANCH_BEHIND` and merge. Notes that the check tools default to
+  production while promotion reads the staging policy. `v2-lifecycle` keeps
+  the doctrine and drops those triggers from its description.
+- `knowledge-sources`: "test a source" (Source testing, drafted answerable
+  and absent pairs, OAuth fallback) and "update a source" by type (whole
+  text replace with a diff, `replace_urls` or re-sync, reindex or replace,
+  integration sync). Files at an https link ingest through the new
+  `upload_knowledge_file` tool; a file only on the user's machine still goes
+  through the dashboard.
+- `tool-library`: "debug a tool run" from tool logs and stats with a cause
+  table, and "delete a tool safely" after the consumer scan. Custom code is
+  saved through the new `save_code_snippet` tool and pinned by
+  `snippet_version`; an unpinned consumer runs the newest version. Step
+  detail moved to `tool-library/references/workflows.md`.
+- `agent-launch` links the promote step to the variable pre-flight and the
+  staging checks.
+- Benchmarks for the new workflows under `dev/benchmarks`.
+- New `dispositions` skill for the Dispositions page: set one up from
+  scratch (draft, test on real calls, estimate, publish with a billing
+  acknowledgement, verify on the next call), change a live one safely,
+  calibrate, backfill, diagnose a blank or missing result, and migrate v1
+  citations and outcomes. `evaluations/references/dispositions.md` is now a
+  pointer.
+- A `how-it-works` page for every feature (runtime, environments, voices,
+  phone numbers, knowledge and memory, tools, channels, outbound calls,
+  automations, dispositions, evaluations, agent testing, analytics,
+  call evidence, issues), indexed under "How each feature works". Each
+  covers objects, states, how the feature reaches a live call, the
+  dashboard, limits and a cause map. Many existing claims corrected against
+  current behavior.
+- The cohort column list is cut to customer-facing columns.
+- New wiki check: shipped pages and benchmarks name no internal vendors,
+  models or infrastructure, and state no server weaknesses.
+
 ## norm 1.10.0 – 2026-10-13
 
 - Eight workflow skills for the dashboard pages that had no coverage:
@@ -259,7 +301,7 @@ New plugin: **norm** (`./v2`) — the v2-only plugin for migrating v1 pathways/p
 Agents were placing calls that sound robotic. `create_call` rejects every field outside its six, so nothing was setting noise cancellation, background ambience, or transcription hints, and nothing told the agent how to write a prompt that sounds like a person on a phone rather than written copy. Both halves now have a home.
 
 - **`calls`:** a new "Settings that decide how the call sounds" section. Send `noise_cancellation: true` explicitly (the server applies `true` when the field is omitted while the API reference documented `false`, so the field is safer sent than assumed), choose `background_track` deliberately rather than letting it default (the default is quiet phone static, while `office`, `cafe`, and `restaurant` put a room behind the voice), and route any call needing those through `POST /v1/calls` instead of `create_call`.
-- **`calls`:** new `references/sounding-human.md`, the single place both halves live: the dispatch table, Bland's own tone rubric (midwestern phone tone, fewest words that still land, back-channels, empathy in stride, no recontextualizing), transcript-style prompt writing (contractions, fillers, false starts, trailing off, CAPS on the punched word, and the written-English tells to cut), and the verified performance-tag grammar. Tags are scoped to BTTS v3 voices, which is what `list_voices` returns, because the PlayHT and ElevenLabs paths strip bracketed text before it reaches the model.
+- **`calls`:** new `references/sounding-human.md`, the single place both halves live: the dispatch table, Bland's own tone rubric (midwestern phone tone, fewest words that still land, back-channels, empathy in stride, no recontextualizing), transcript-style prompt writing (contractions, fillers, false starts, trailing off, CAPS on the punched word, and the written-English tells to cut), and the verified performance-tag grammar. Tags are scoped to V3 voices, which is what `list_voices` returns, because older voices strip bracketed text before it reaches the model.
 - **`persona`:** a new doctrine section sends the reader to the same reference before writing or editing a `personality_prompt`, and covers `call_config.background_track` plus explicit noise cancellation.
 
 
@@ -268,7 +310,7 @@ Agents were placing calls that sound robotic. `create_call` rejects every field 
 The hosted MCP gained `stop_call` and `list_voices`, and a call without a voice now uses Karen.
 
 - **`calls`:** stop a call with `stop_call` instead of the REST passthrough. A new Voice section says to omit `voice` for the default, suggest voices from `list_voices`, and pass the chosen voice's `id`. A voice the user names is used as given.
-- **`persona`:** choose a voice with `list_voices` first. The `GET /v1/voices` jq recipe now keeps only public curated voices whose `service` is `BTTS_V3`, the same set `list_voices` returns.
+- **`persona`:** choose a voice with `list_voices` first. The `GET /v1/voices` jq recipe now keeps only public curated voices whose `service` is V3, the same set `list_voices` returns.
 - **`calls`:** a new Blocked calls section covers `CALL_UNPAID_INTL_BLOCK` (buy credits or turn on auto-recharge to unlock international calling) and `CALL_PLAN_DESTINATION_BLOCKED`/`CALL_PLAN_TRANSFER_BLOCKED` (the Agent Phone Plan covers US and Canada only), and says not to retry a blocked call in a loop.
 
 
@@ -363,7 +405,7 @@ Closing the environment-dimension gaps (every field-reported bug came from a dim
 
 ## 1.11.0 — 2026-07-06
 
-- **New feature skill: `/norm:automations` (`norm_automations`)** — expert on the automations surface, sourced from the live route map: trigger → pipeline → execution mental model (event catalog with sample payloads + condition constraints, ordered pipeline nodes, AND/OR + change-detection filters, Temporal-backed executions), dry-run-first testing (`dryRun: true` condition evaluation before anything can dial; live tests confirm-gated with blast radius stated), pause-first diagnosis (toggle over delete; pipeline DELETE cascades triggers+executions), execution↔call correlation via `metadata.automation_execution_id`, and `/norm:review` handoff for call-level forensics.
+- **New feature skill: `/norm:automations` (`norm_automations`)** — expert on the automations surface, sourced from the live route map: trigger → pipeline → execution mental model (event catalog with sample payloads + condition constraints, ordered pipeline nodes, AND/OR + change-detection filters, asynchronous executions), dry-run-first testing (`dryRun: true` condition evaluation before anything can dial; live tests confirm-gated with blast radius stated), pause-first diagnosis (toggle over delete; pipeline DELETE cascades triggers+executions), execution↔call correlation via `metadata.automation_execution_id`, and `/norm:review` handoff for call-level forensics.
 
 ## 1.10.0 — 2026-07-01
 
@@ -406,10 +448,10 @@ Closing the environment-dimension gaps (every field-reported bug came from a dim
 
 ## 1.7.0 — 2026-07-01
 
-Best-practices pass over the remaining domain agents (Anthropic rubric/tool-design/verification doctrine):
+Best-practices pass over the remaining domain agents (rubric, tool-design and verification doctrine):
 
 - **norm_evals — "Designing judges" rubric doctrine**: one dimension per judge (no blended quality scores), binary/small-enum verdicts with explicit thresholds, quote-level evidence per dimension, pass^k for flaky behaviors, fresh-context grading; read-back verification for every eval-agent/run write.
-- **norm_tools — "Design the tool like Anthropic designs tools"**: verb-first names checked against the org's existing tools, trigger-style descriptions, caller-collected-only input schemas, minimum-payload `response_data` (bloat burns the voice agent's context), actionable error messages, phone-latency timeouts with `speech` always set; plus "Test before attach" — a tool that saved is not a tool that works.
+- **norm_tools — "Design the tool well"**: verb-first names checked against the org's existing tools, trigger-style descriptions, caller-collected-only input schemas, minimum-payload `response_data` (bloat burns the voice agent's context), actionable error messages, phone-latency timeouts with `speech` always set; plus "Test before attach" — a tool that saved is not a tool that works.
 - **norm_triage — "Issue quality bar"**: duplicate search before filing, mandatory evidence links (call/pathway/node ids) + repro + hypothesis history; `/norm:debug` triage packs accepted verbatim; read-back on every filed/updated issue.
 - **norm_knowledge — "Ingestion is not done until retrieval proves it"**: 2–3 verification questions only the new content can answer, retrieved passages quoted as proof; COMPLETED status ≠ retrievability; attachment verified by config read-back.
 - **norm_persona — "Verify before claiming"**: config read-back after every change, explicit DRAFT vs PRODUCTION statement, promote only on explicit confirmation, one-surface-at-a-time changes.
@@ -431,7 +473,7 @@ Best-practices pass over the remaining domain agents (Anthropic rubric/tool-desi
 
 ## 1.5.0 — 2026-07-01
 
-Best-practices hardening pass (sourced from the official Claude Code authoring docs + Anthropic agent-design engineering posts):
+Best-practices hardening pass (sourced from the official Claude Code authoring docs and published agent-design guidance):
 
 - **`norm_judge` (new agent) — judge separation for `/norm:loop`.** Simulation grading now runs in a fresh-context evaluator with zero optimizer bias: per-outcome met/not-met verdicts with mandatory evidence quotes, strict grounding rules (spoken text must match the variable; literal `{{var}}` = fail), and a ready-to-record `FAILING:` line the Stop-hook gate re-feeds verbatim. The optimizer no longer grades its own work.
 - **`norm_review` rebuilt as a call-forensics specialist**: `/v1/calls` discovery cookbook (full filter surface + recipes), field-by-field call-record anatomy, the `pathway_logs` classification key-map (webhook/error/custom_code/tool_call/kb/sms/scheduling/routing/variables/loop/decision) with `[!!!]` issue markers, local workspace materialization for heavy calls, symptom playbooks, and expected-vs-observed reconciliation via `get_pathway_context`.

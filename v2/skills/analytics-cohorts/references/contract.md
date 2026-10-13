@@ -174,9 +174,9 @@ calls". Unknown or invalid values are dropped.
 
 ## Access and rate
 
-- Creating a cohort needs the organisation role admin, owner or operator in a
-  dashboard session. An organisation API key is an organisation-level caller
-  and is admitted.
+- Creating a cohort needs the organisation role admin, owner or operator.
+  With an organisation API key, the role checked is the role of the person
+  who created the key.
 - Creates are rate limited per organisation. A 429 means wait; do not loop.
 - A cohort belongs to the organisation that created it. Another
   organisation's id reads as 404, the same as an expired one.

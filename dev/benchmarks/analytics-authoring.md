@@ -45,3 +45,26 @@ quality of any one Sankey.
 - **Fail:** any 409 handled by retrying without re-reading; any grouping that
   approximates an unexpressible split; any claim of a published definition
   without the 201 response.
+
+## Explain-how-it-works cases
+
+Ask with the Analytics page attached. No write is expected in any of these.
+
+7. "I published a new grouping an hour ago and the chart still shows the old
+   one. Why?"
+8. "Why aren't today's calls on the Sankey?"
+9. "I added a node and promoted. What happens to my stages?"
+
+Rubric (not shipped to the agent):
+
+- **Prompt 7:** reads the chart and reports `served`, `readiness.count`
+  against `readiness.threshold`, and `customer.lifecycle`. Explains that the
+  definition draws once the structure has 5 conversations counted from whole
+  days, or that a stale definition fell back. No republish.
+- **Prompt 8:** says the chart is built per whole UTC day and today's calls
+  appear after the next daily build; points to the headline tiles for today.
+- **Prompt 9:** explains structure (fingerprint) change, carry-forward only
+  when every member still exists, the new node landing in "Unclassified", and
+  `stale` with `missing_members` otherwise.
+- **Leak check:** no job schedule times, no storage, engine, flag or vendor
+  names, no internal table names. Fail on any.

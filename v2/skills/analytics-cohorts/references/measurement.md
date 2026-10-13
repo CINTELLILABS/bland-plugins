@@ -147,7 +147,7 @@ One row per hour per customer metric series and value bucket. Columns:
 | Message or code | Fix |
 | -- | -- |
 | `Column "<col>" is not a column of table "<table>"` | Use that table's columns. |
-| `Column "<col>" is reserved` | Remove `org_id` or `region`; the system scopes them. |
+| `Column "<col>" is reserved` | Remove that column; the system scopes the organisation itself. |
 | `Named metric "<name>" is only available on the "agent_hour_stats" table` | Switch table or use `fn`. |
 | `cohort_id is only valid with table "calls"` | Query `calls`. |
 | `Cohort is not ready yet` | Poll the cohort to `ready` first. |

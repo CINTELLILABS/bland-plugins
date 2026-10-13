@@ -57,7 +57,7 @@ a specific code only where the API sends one.
 | `GET /:agentId/publish-preview` | `?version_id=` | candidate comparison | Read-only planning, not a lock or proof that promotion will succeed. |
 | `POST /:agentId/rollback` | `{version_id}` | 200 `{semver, environments}` | `400 BAD_REQUEST` "Production is already pinned to this version" or "Cannot roll back to a version that was never deployed to production"; 404 `NOT_FOUND`. Production only; candidates = `is_rollback_eligible` deployment rows. Never blocked by a rollout. |
 | `GET /:agentId/environments` | none | 3 rows `{env_type, current_version_id, current_version: {name, semver}\|null}` | dev is always null. |
-| `GET /:agentId/deployments` | `?env=` (default production) `&limit=` (default 50, max 200) | newest first `{env_type, agent_version_id, version_name, semver, deployed_by, deployed_at, check_run\|null, is_rollback_eligible}` | Append-only; never written for dev. |
+| `GET /:agentId/deployments` | `?env=` (default production) `&limit=` (default 50, max 200) | newest first `{env_type, kind (publish\|promote\|rollback), agent_version_id, version_name, semver, deployed_by, deployed_at, check_run\|null, is_rollback_eligible}` | Append-only; never written for dev. `is_rollback_eligible` = a production row that is not the current pin. |
 
 Promote errors:
 
@@ -67,13 +67,14 @@ Promote errors:
 | 409 `ROLLOUT_IN_PROGRESS` | A migration rollout is ramping traffic onto production. Finish or roll back the rollout first. |
 | 400 `STAGING_UNPINNED` | Empty body and staging has no pin. Publish first, or promote an exact `version_id`. |
 | 400 `ALREADY_IN_PRODUCTION` | Production already runs this version. Nothing to do. |
-| 409 `PUBLISH_IN_PROGRESS` | Another publish or promote is running for this agent. Retry after it ends. |
+| 409 `PUBLISH_IN_PROGRESS` | Another publish or exact-version promote is running for this agent. Retry after it ends. |
+| 400 `INVALID_BRANCH` | `branch_id` was sent without `version_id`. |
 | 409 `BRANCH_CLOSED` | The candidate's branch was merged or archived. Promote from dev. |
 | 400 `INVALID_FORCE` | `force` was not a boolean. |
 | 400 `INVALID_BUMP`, 404 `VERSION_NOT_FOUND` | Bad `bump`, or the version is not on this agent. |
 
-`force: true` is an audited bypass of the check policy, not a retry. Use it only
-when the user explicitly asks to override a named failing check.
+`force: true` is a recorded override of the check policy, not a retry. This
+plugin never sends it; a request to ship does not authorize it.
 
 ## Branches
 
@@ -116,7 +117,7 @@ PATCH, and the actions `pause`, `resume`, `advance`, `traffic`, `step-back`,
 | Endpoint | Body | Notes |
 |---|---|---|
 | `GET /:agentId/environments/:env/variables` | none | `[{variable_key, value, updated_at}]`; secret values come back as their `{{SECRET.name}}` reference. |
-| `PUT …/variables/:key` | `{value!, is_secret?}` | Key must match `[A-Za-z0-9_]+` (no dots). `is_secret: true` stores the raw value in the org secret store; only the reference persists. Production writes invalidate the inbound route cache. |
+| `PUT …/variables/:key` | `{value!, is_secret?}` | Key must match `[A-Za-z0-9_]+` (no dots); start it with a letter or underscore, or no reference can reach it. `400 MISSING_VALUE` without `value`. `is_secret: true` stores the raw value in the org secret store; only the reference persists. A staging or production write reaches that environment's next inbound call; a production write also refreshes the twin when a widget is bound. |
 | `DELETE …/variables/:key` | none | `{deleted: true}`; backing secret cleaned up best-effort. |
 
 `:env` here is all three (dev, staging, production). A referenced but missing
@@ -126,8 +127,8 @@ PATCH, and the actions `pause`, `resume`, `advance`, `traffic`, `step-back`,
 
 | Endpoint | Body | Notes |
 |---|---|---|
-| `GET/PUT/DELETE /:agentId/environments/:env/checks` | PUT: `{enabled?, scenario_ids! (1 to 5, this agent's, non-pathway), simulations_count? (1 to 50, default 5), evals!: [{eval_agent_id, eval_agent_version_id, target_level_keys?, required? (default true)}]}` | `:env` = staging or production only. Full replace; GET returns `null` when unconfigured. Graded evals need `target_level_keys`; pass/fail must omit them. |
-| `POST /:agentId/environments/:env/check-runs` | `{version_id?}` | 202 PENDING run. Default candidate: staging pin (for production), dev head (for staging). `400 BAD_REQUEST` with a message when no checks are configured, checks are disabled, the config is invalid, or there is no candidate. `409 CONFLICT` "A check run is already in progress" (45-minute stale reaper). Config frozen into the run. |
+| `GET/PUT/DELETE /:agentId/environments/:env/checks` | PUT: `{enabled?, scenario_ids! (1 to 5, this agent's, non-pathway), simulations_count? (default 5, at most 50 and the org's per-scenario simulation limit), evals!: [{eval_agent_id, eval_agent_version_id, target_level_keys?, required? (default true)}]}` | `:env` = staging or production only. Full replace; GET returns `null` when unconfigured. Graded evals need `target_level_keys`; pass/fail must omit them. |
+| `POST /:agentId/environments/:env/check-runs` | `{version_id?}` | 202 PENDING run. Default candidate: staging pin (for production), dev head (for staging). `400 BAD_REQUEST` with a message when no checks are configured, checks are disabled, the config is invalid, or there is no candidate. `409 CONFLICT` "A check run is already in progress" (a stuck run is ended after 45 minutes). Config frozen into the run. |
 | `GET /:agentId/check-runs?env=&limit=` (default 25, max 100) · `GET …/check-runs/:runId` · `POST …/check-runs/:runId/cancel` | none | Candidate, environment, frozen judge roster and result links. Cancel on a finished run: `409 CONFLICT`. Promotion validates the saved staging policy; see [policy](lifecycle.md#checks-and-promotion-policy). |
 
 Check simulations use the check environment's variables. `DELETE …/checks/evals/:evalAgentId`
@@ -154,7 +155,7 @@ for failing results.
 |---|---|---|
 | `GET /:agentId/inbound` | none | `{agent_id, persona_id, pathway_id, numbers[], staging_attach_supported}`. The twin ids are null before the first attach. Each number carries `agent_env_type` (`"staging"`, or null for production). |
 | `POST /:agentId/inbound/attach` | `{inbound_numbers: string[], only_if_unassigned?: boolean, environment?: "production"\|"staging"}` | See the attach notes below. |
-| `POST /:agentId/inbound/detach` | `{inbound_numbers: string[]}` | Unbinds only rows bound to this agent's twin. The number then answers nothing. Repeat calls are safe. |
+| `POST /:agentId/inbound/detach` | `{inbound_numbers: string[]}` | Unbinds only rows bound to this agent's twin. The number then runs only its own remaining settings, if it has any. A v1 pathway cleared by an earlier attach is not restored. Repeat calls are safe. |
 | `POST /:agentId/widgets/:widgetId/bind` | none | Points a web chat widget at the agent's twin, compiled from production (or the latest save if never promoted). |
 | `GET/PUT /:agentId/identity` | PUT partial: `display_name (up to 80), tagline (up to 140), support_email, website, address, vcf_delivery_enabled, rcs_enabled, bcid_enabled` | Contact-card branding; not versioned. `vcf_delivery_enabled` makes the agent send a real contact card after a first reply. `POST …/identity/logo` is multipart (dashboard only); `GET …/identity/contact-card.vcf`. |
 | `GET /:agentId/identity/bcid` · `POST …/bcid/submit` | submit: `{display_name (up to 30), call_reason (up to 60), category, phone_numbers[], carriers ⊂ [tmobile, verizon], attest, resubmit?}` | Branded caller ID: submits to carrier review through the telecom registry. Reaches outside the org; get explicit approval. Status: not_submitted, submitted, pending_review, approved or rejected. |
@@ -185,8 +186,7 @@ Attach notes:
 Path `/v1/messaging/rcs/:phone`, where `:phone` is one of the org's numbers.
 This is a multi-step registration wizard on the dashboard's Identity page.
 **Every write registers something with an outside messaging provider or a
-carrier, and none can be undone from here.** The routes do not check the
-agent editor role, so the gate is this text: use the confirm template before
+carrier, and none can be undone from here.** Use the confirm template before
 each write and name what it registers.
 
 | Endpoint | Body | Effect |
@@ -208,7 +208,7 @@ Identity page.
 
 | Endpoint | Notes |
 |---|---|
-| `GET /:agentId/memory/schema` | `{entity_schemas, source: settings\|cached_version\|null}`. Resolution: dev head `settings.memorySchema`, then the inference cache, then the twin's production copy. |
+| `GET /:agentId/memory/schema` | `{entity_schemas, source: settings\|cached_version\|null}`. Resolution: dev head `settings.memorySchema`, then a previously inferred schema, then the twin's production copy. |
 | `POST /:agentId/memory/schema/infer` | `{snapshot?}`. Infers entity schemas from the compiled agent and persists nothing (save the result into `settings.memorySchema` yourself). 6 per minute. An OAuth connection cannot reach it. |
 | `GET /library/scenarios?exclude_agent_id=` | Reusable scenario nodes read live from the org's other agents' dev heads (50 most recent agents); full node payload inline. |
 | `GET /library/archived-nodes` · `POST /:agentId/archived-nodes {node}` · `DELETE /library/archived-nodes/:id` | Self-contained node copies (org-wide, 200 listed). Archiving never edits the canvas; delete is hard but removes only a copy. |

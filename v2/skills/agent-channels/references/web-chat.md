@@ -3,10 +3,10 @@
 A widget is an org record that puts a chat bubble on the customer's website.
 Bound to a v2 agent, it runs the agent's **production** version. It has no
 version pin and no per-request override, so a change reaches the widget only
-when it is promoted. A number attach or re-attach recompiles the shared twin
-from the dev head of that moment, so the widget can run dev-head behavior
-until the next promote. If the agent was never promoted, the widget runs the
-latest saved version.
+when it is promoted or rolled back. A number attach does not move it: while a
+widget is bound, the agent's compiled copy is rebuilt from production right
+after any attach. If the agent was never promoted, the widget runs the latest
+saved version. [How it works](how-it-works.md) explains the compiled copy.
 
 ## Contents
 
@@ -37,7 +37,7 @@ Body rules:
 - Exactly one of `pathway_id` and `agent_prompt` must be set. Both or neither
   fails the write.
 - `webhook_url` must be HTTPS, else 400 `INVALID_WEBHOOK_URL`.
-- `messages_per_minute` is a rate limit per visitor session, a number of 0 or more.
+- `messages_per_minute` is the widget's chat rate limit, a number of 0 or more.
 - `agent_id` on a widget is a legacy voice id, not the v2 agent. Leave it alone.
 
 ## Create an agent-backed widget
@@ -69,7 +69,9 @@ The bind replaces the prompt with the agent.
 - 422 `COMPILE_FAILED`: the production version does not compile. Fix the agent
   ([v2-lifecycle](../../v2-lifecycle/SKILL.md)), then bind again.
 - While a widget is bound, deleting the agent is refused. Unbind by a PATCH
-  that sets a `pathway_id` or `agent_prompt` of something else.
+  that keeps exactly one backing: `{"pathway_id": "<other pathway>"}`, or
+  `{"pathway_id": null, "agent_prompt": "<prompt>"}`. Setting only
+  `agent_prompt` leaves both set and the write fails.
 
 ## Publish and unpublish
 
@@ -131,8 +133,15 @@ The customer pastes this into every page that should show chat:
 - `GET /v1/widget/threads/<thread id>/messages`: one thread.
 - `POST /v1/widget/<widget id>/threads/<thread id>/webhook` with
   `{"type": "MESSAGE", "content": "<text>", "sender_id": "<rep name>"}` shows a
-  live reply to the visitor; `{"type": "END_CONVERSATION"}` ends it. This
-  speaks to a real person: use the confirm template first.
+  live reply to the visitor; `{"type": "END_CONVERSATION"}` ends it. A message
+  is translated into the thread's language when it is not English. An ended
+  thread answers 400 `THREAD_ENDED`. This speaks to a real person: use the
+  confirm template first.
+- Idle end: `config.timeoutSeconds` (24 hours when unset) counted from the
+  last message, with optional `config.timeoutWarningSeconds`,
+  `config.timeoutWarningMessage` and `config.timeoutMessage`. The timer does
+  not end a thread a live agent holds.
+- Deleting a widget keeps its past threads stored.
 
 ## Traps
 

@@ -10,14 +10,12 @@
    "schema_id": "string",
    "created_at": "timestamp_ntz"
   },
-  "tenant": null,
   "callId": "call_id",
   "dateColumn": "created_at",
   "cost": "light",
   "deny": [
    "value"
   ],
-  "callIdWhere": null,
   "available": true
  },
  "call_metadata": {
@@ -37,10 +35,8 @@
    "objective_met_score": "double",
    "silences_score": "double",
    "slow_agent_responses_score": "double",
-   "secondary_agent_speaker_id": "string",
-   "feature_flags": "string"
+   "secondary_agent_speaker_id": "string"
   },
-  "tenant": null,
   "callId": "call_id",
   "dateColumn": "created_at",
   "cost": "light",
@@ -48,32 +44,26 @@
    "objective",
    "objective_not_met_reason"
   ],
-  "callIdWhere": null,
   "available": true
  },
  "call_outcomes": {
   "columns": {
    "call_id": "string",
-   "user_id": "string",
    "agent_id": "string",
    "pathway_id": "string",
    "persona_id": "string",
    "platform": "string",
    "channel": "string",
-   "placement_group": "string",
    "closed_at": "timestamp",
    "close_reason": "string",
    "ended_by": "string",
-   "websocket_closed": "boolean",
    "agent_closed_at": "timestamp",
    "close_node_id": "string"
   },
-  "tenant": "user_id",
   "callId": "call_id",
   "dateColumn": "closed_at",
   "cost": "light",
   "deny": [],
-  "callIdWhere": null,
   "available": false
  },
  "call_utterances": {
@@ -96,7 +86,6 @@
    "utterance_type": "string",
    "speaker_description": "string"
   },
-  "tenant": null,
   "callId": "call_id",
   "dateColumn": "created_at",
   "cost": "heavy",
@@ -107,126 +96,29 @@
    "speaker_description",
    "topics"
   ],
-  "callIdWhere": null,
   "available": true
  },
  "disposition_value_facts": {
   "columns": {
-   "region": "string",
-   "org_id": "string",
    "agent_id": "string",
    "agent_key": "string",
    "call_id": "string",
    "call_day": "date",
-   "result_id": "string",
    "disposition_id": "string",
    "disposition_key": "string",
    "version_id": "string",
    "version_number": "int",
-   "content_hash": "string",
-   "value_id": "string",
    "value_key": "string",
-   "schema_kind": "string",
    "state": "string",
    "value_bool": "boolean",
    "value_num": "double",
-   "value_enum": "string",
-   "value_hash": "string",
-   "value_len": "int",
-   "correction_revision": "int",
-   "job_kind": "string",
-   "job_id": "string",
-   "cohort_id": "string",
-   "is_backfill": "boolean",
-   "is_test": "boolean",
-   "model_ref": "string",
-   "executed_at": "timestamp",
-   "ingest_ts": "timestamp"
+   "value_enum": "string"
   },
-  "tenant": "org_id",
   "callId": "call_id",
   "dateColumn": "call_day",
   "cost": "light",
-  "deny": [
-   "value_hash"
-  ],
-  "callIdWhere": null,
+  "deny": [],
   "available": false
- },
- "llm_invocations": {
-  "columns": {
-   "created_at": "timestamp",
-   "input_messages": "string",
-   "output": "string",
-   "ttr": "bigint",
-   "request_id": "string",
-   "logical_request_id": "string",
-   "model": "string",
-   "common_name": "string",
-   "usage_prompt_tokens": "bigint",
-   "usage_completion_tokens": "bigint",
-   "usage_total_tokens": "bigint",
-   "attempt_number": "bigint",
-   "tag": "string",
-   "stream": "boolean",
-   "approximate_output_tokens_per_second": "bigint",
-   "temperature": "double",
-   "ttft": "bigint",
-   "call_id": "string",
-   "error": "string"
-  },
-  "tenant": null,
-  "callId": "call_id",
-  "dateColumn": "created_at",
-  "cost": "heavy",
-  "deny": [
-   "input_messages",
-   "output",
-   "error"
-  ],
-  "callIdWhere": null,
-  "available": true
- },
- "transcription_messages": {
-  "columns": {
-   "service_id": "string",
-   "call_id": "string",
-   "elapsed_ms": "bigint",
-   "created_at": "timestamp_ntz",
-   "event_type": "string",
-   "current_service_id": "string",
-   "message": "string",
-   "metadata": "map<string, string>"
-  },
-  "tenant": null,
-  "callId": "call_id",
-  "dateColumn": "created_at",
-  "cost": "heavy",
-  "deny": [
-   "message",
-   "metadata"
-  ],
-  "callIdWhere": null,
-  "available": true
- },
- "agent_messages": {
-  "columns": {
-   "id": "bigint",
-   "call_id": "string",
-   "messages": "string",
-   "model": "string",
-   "created_at": "timestamp",
-   "dms_ingest_ts": "timestamp_ntz"
-  },
-  "tenant": null,
-  "callId": "call_id",
-  "dateColumn": "created_at",
-  "cost": "light",
-  "deny": [
-   "messages"
-  ],
-  "callIdWhere": null,
-  "available": true
  },
  "call_webhook_logs": {
   "columns": {
@@ -234,11 +126,8 @@
    "url": "string",
    "payload": "string",
    "created_at": "timestamp",
-   "user_id": "string",
-   "metadata": "string",
-   "dms_ingest_ts": "timestamp_ntz"
+   "metadata": "string"
   },
-  "tenant": "user_id",
   "callId": "call_id",
   "dateColumn": "created_at",
   "cost": "heavy",
@@ -247,7 +136,6 @@
    "payload",
    "metadata"
   ],
-  "callIdWhere": null,
   "available": true
  },
  "calls": {
@@ -258,7 +146,6 @@
    "from": "string",
    "objective": "string",
    "sid": "string",
-   "api_key": "string",
    "completed": "boolean",
    "request_data": "string",
    "c_id": "string",
@@ -273,12 +160,10 @@
    "amd": "boolean",
    "error_message": "string",
    "variables": "string",
-   "user_id": "string",
    "answered_by_enabled": "boolean",
    "answered_by": "string",
    "start_time": "timestamp",
    "recording_url": "string",
-   "twilio_account_sid": "string",
    "voicemail_action": "string",
    "caller_id": "string",
    "metadata": "string",
@@ -298,23 +183,17 @@
    "transferred_to": "string",
    "analysis_prompt": "string",
    "summary_prompt": "string",
-   "latency_metrics": "string",
-   "event_id": "string",
    "analysis_preset": "string",
    "platform": "string",
    "pathway_id": "string",
-   "placement_group": "string",
-   "billing_target": "string",
    "disposition_tag": "string",
    "available_tags": "string",
-   "model_code": "string",
    "webhook_events": "string",
    "version_number": "bigint",
    "dispatch_hours": "string",
    "timezone": "string",
    "noise_cancellation": "boolean",
    "pathway_tags": "string",
-   "org_id": "string",
    "proxy_agent_call_id": "string",
    "recording_expiration": "timestamp",
    "status": "string",
@@ -337,10 +216,8 @@
    "agent_version_id": "string",
    "redaction": "string",
    "agent_experiment_id": "string",
-   "dms_ingest_ts": "timestamp_ntz",
    "external_id": "string"
   },
-  "tenant": "user_id",
   "callId": "c_id",
   "dateColumn": "created_at",
   "cost": "light",
@@ -348,7 +225,6 @@
    "to",
    "from",
    "objective",
-   "api_key",
    "request_data",
    "variables",
    "metadata",
@@ -359,7 +235,6 @@
    "error_message",
    "transferred_to",
    "caller_id",
-   "twilio_account_sid",
    "pathway_logs",
    "analysis_schema",
    "analysis",
@@ -370,7 +245,6 @@
    "initial_memory_context",
    "external_id"
   ],
-  "callIdWhere": null,
   "available": true
  },
  "context_data": {
@@ -398,12 +272,10 @@
    "new_voice_id": "string",
    "temperature": "double",
    "transfer_list": "string",
-   "model": "string",
    "pronunciation_guide": "string",
    "enable_pathway": "boolean",
    "nodes": "string",
    "edges": "string",
-   "service": "string",
    "voicemail_message": "string",
    "timezone": "string",
    "block_interruptions": "boolean",
@@ -413,13 +285,9 @@
    "start_node_id": "string",
    "improve_accuracy": "boolean",
    "retry": "string",
-   "feature_flag": "string",
-   "model_code": "string",
    "version_number": "bigint",
    "sensitive_voicemail_detection": "boolean",
    "noise_cancellation": "boolean",
-   "pathway_model": "string",
-   "prompt_model": "string",
    "voicemail_sms": "string",
    "warm_transfer_proxy_agent": "string",
    "background_track": "string",
@@ -427,15 +295,12 @@
    "auto_response_duration": "bigint",
    "pathway_ids": "string",
    "precall_dtmf_sequence": "string",
-   "use_candidate_model": "boolean",
    "guard_rails": "string",
    "personas": "string",
    "pathway_version_id": "bigint",
    "agent_backchannel_level": "bigint",
-   "agent_backchannel_config": "string",
-   "dms_ingest_ts": "timestamp_ntz"
+   "agent_backchannel_config": "string"
   },
-  "tenant": null,
   "callId": "c_id",
   "dateColumn": "created_at",
   "cost": "heavy",
@@ -465,13 +330,11 @@
    "personas",
    "agent_backchannel_config"
   ],
-  "callIdWhere": null,
   "available": true
  },
  "disposition_runs": {
   "columns": {
    "id": "string",
-   "org_id": "string",
    "disposition_id": "string",
    "conversation_id": "string",
    "reference_type": "string",
@@ -483,10 +346,8 @@
    "input": "string",
    "created_at": "timestamp_ntz",
    "finished_at": "timestamp_ntz",
-   "console": "string",
-   "dms_ingest_ts": "timestamp_ntz"
+   "console": "string"
   },
-  "tenant": "org_id",
   "callId": "conversation_id",
   "dateColumn": "created_at",
   "cost": "heavy",
@@ -496,10 +357,6 @@
    "error",
    "console"
   ],
-  "callIdWhere": {
-   "column": "reference_type",
-   "equals": "CALL"
-  },
   "available": true
  },
  "logs": {
@@ -510,17 +367,14 @@
    "user": "string",
    "c_id": "string",
    "status": "string",
-   "transcript_id": "string",
-   "dms_ingest_ts": "timestamp_ntz"
+   "transcript_id": "string"
   },
-  "tenant": null,
   "callId": "c_id",
   "dateColumn": "created_at",
   "cost": "light",
   "deny": [
    "text"
   ],
-  "callIdWhere": null,
   "available": true
  },
  "pathway_events": {
@@ -533,17 +387,14 @@
    "operation_id": "bigint",
    "payload": "string",
    "created_at": "timestamp",
-   "created_date": "date",
-   "dms_ingest_ts": "timestamp_ntz"
+   "created_date": "date"
   },
-  "tenant": null,
   "callId": "conversation_id",
   "dateColumn": "created_at",
   "cost": "heavy",
   "deny": [
    "payload"
   ],
-  "callIdWhere": null,
   "available": true
  }
 }

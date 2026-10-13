@@ -101,7 +101,12 @@ dials nobody. Swap it in through `nodes`; the saved pipeline is not changed.
 6. `mock_call` does not echo `request_data` or `metadata` mapped in the
    config. Check each `{"source": "input", "value": "<path>"}` against the
    run's `input` by dot path. A path that is not there resolves to nothing.
-7. A `failed` run quotes the step and the reason in `error`, for example a
+7. `mock_call` only echoes. It does not check that the agent, version or
+   caller ID would be accepted; stage 3 is the first proof of that. Its
+   number comes only from `to` or an input `phone_number`, while
+   `send_call` also searches common phone fields (`Phone`, `MobilePhone`,
+   …). A missing `phone_number` in a mock run is not always a live failure.
+8. A `failed` run quotes the step and the reason in `error`, for example a
    config that did not resolve. Fix the mapping and repeat stage 2.
 
 Only `send_call` has a mock. A pipeline whose action is `send_sms`,

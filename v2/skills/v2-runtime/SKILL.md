@@ -7,39 +7,39 @@ description: Use when predicting or debugging Bland v2 runtime behavior, explain
 
 > **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland`, `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools; they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
-A v2 snapshot compiles to a flat conversation graph run by the pathway engine.
-Before debugging behavior, confirm which bytes answered and which runtime ran
-them.
+A v2 snapshot becomes a runnable conversation graph at connect. Read
+[how it works](references/how-it-works.md) for the life of a call: version,
+opening, per-turn routing, globals, interruptions, setting scopes and canvas.
+Before debugging behavior, confirm which version answered.
 
 ## Which version is the call even running
 
 | Channel | Runs |
 |---|---|
-| Inbound voice on a bound number | The **production pin**; the **staging pin** when the number is staging-attached. |
-| Outbound call | The production pin unless the request names an `agent_version` selector. |
-| Published web chat widget (agent-backed) | The twin pathway's production compile. No version pin and no override: promote to change it. |
-| API chat (`POST /v1/chat`) | The production twin (the latest version if never promoted). `settings.apiChat.enabled` is read from production. |
-| Builder test-chat socket | The **dev head**, or the version the `version_id` selector names. |
-| Texts on a bound number | The twin pathway's stored graph, refreshed only on attach and production repoints; see the messaging runtime below. |
+| Inbound voice on a bound number | The **production pin**; the **staging pin** when the number is staging-attached; or an experiment variant. |
+| Outbound call | The production pin or an experiment variant, unless the request names an `agent_version` selector. |
+| Published web chat widget (agent-backed) | The production version, refreshed on promote. No version override. |
+| API chat (`POST /v1/chat`) | The production version (the latest save if never promoted). `settings.apiChat.enabled` is read from production. |
+| Builder test chat | The **dev head**, or the version the `version_id` selector names. |
+| Texts on a bound number | The production copy attached to the number; see the messaging runtime below. |
 
-Inbound resolution fails open on a 2s budget: an invalid production pin or an
-unresolved env variable silently degrades the call to the twin's stale
-compile. "The fix didn't take" is usually this, not routing. Lifecycle: the
+If an inbound call cannot prepare its version (an invalid pin, an env variable
+with no value), it is still answered from the copy last attached to the number.
+"The fix didn't take" is often this, not routing. Lifecycle: the
 `v2-lifecycle` skill.
 
 ## Messaging runtime
 
 Texts (SMS, iMessage, RCS, WhatsApp) and API chat do not always walk the
 graph. When `settings.messaging.mode` is `reasoning` (the default when absent),
-each turn runs LLM-driven on the agent's compiled messaging brief, unless the
-brief lists pathway-only steps (webhook, code, scheduling, tool chain,
-verification); then turns run node by node as voice does. `pathway` mode
-always runs node by node. Read the brief with `bland_api_get`
+each turn is answered from a brief of the whole agent, unless the
+brief lists step-only kinds (webhook, code, scheduling, tool chain,
+verification); then turns run step by step as voice does. `pathway` mode
+always runs step by step. Read the brief with `bland_api_get`
 `/v2/agents/<agent id>/brief?channel=sms&version=<semver>` (default: the dev
 head; pass the production semver for what live texts run); `brief.pathwayOnly`
-names the blockers. The brief runtime never runs in the government boundary;
-there, turns always run node by node. Voice and web chat never read this
-setting.
+names the blockers. Some deployments always run texts step by step. Voice and
+web chat never read this setting.
 
 ## Routing and scenarios
 

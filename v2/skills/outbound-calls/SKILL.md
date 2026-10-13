@@ -5,14 +5,15 @@ description: Use when placing or scheduling outbound calls with a v2 agent ("cal
 
 # Place outbound calls with a v2 agent
 
-A call rings a real person and bills the org. Selectors are in
-[the lifecycle skill](../v2-lifecycle/SKILL.md), live-integration safety in
-[testing](../v2-testing/SKILL.md), bulk review in
+A call rings a real person and bills the org. Selectors:
+[lifecycle](../v2-lifecycle/SKILL.md); live-integration safety:
+[testing](../v2-testing/SKILL.md); bulk review:
 [call analysis](../call-analysis/SKILL.md).
 
 Read [calls](references/calls.md) before the first dial and
-[batches](references/batches.md) before a batch. Do not write fetch scripts
-and do not search the docs for these routes.
+[batches](references/batches.md) before a batch. For "why did this call or
+batch do X", read [how it works](references/how-it-works.md). Do not write
+fetch scripts and do not search the docs for these routes.
 
 ## Page context
 
@@ -33,8 +34,7 @@ Budget: four reads, one POST, waits.
    `/v1/calls` with the [v2 body](references/calls.md#the-body).
 2. Agent from the page, or ask. `bland_api_get`
    `/v2/agents/<id>/environments`; name the version that will run (the
-   production pin or the user's selector). An unrecognised selector
-   silently runs production.
+   production pin or the user's selector). An unknown selector is a 400.
 3. Caller id: pick `from` from `bland_api_get` `/v1/inbound`, or say the
    system picks one.
 4. `call_bland_api` POST `/v1/org_dnc/search` `{ "phone_number": … }`. A hit
@@ -92,9 +92,9 @@ many undialed calls end.
   idempotent.
 - `oauth_path_not_allowed`: "this connection cannot reach <route family>;
   do it on the Batches page", then stop.
-- `request_data` (agent variables) and `metadata` (returned in call log and
-  webhook) replace version defaults whole. Voicemail, `webhook_events`,
-  carrier keys: [calls](references/calls.md).
+- `request_data` (`{{key}}`) and `metadata` (`{{metadata.key}}`, also in
+  call log and webhook) replace version defaults whole. Voicemail,
+  `webhook_events`, carrier keys: [calls](references/calls.md).
 
 ## Do not
 

@@ -56,12 +56,10 @@ version save that reaches calls only through the pipeline.
 - Source ingestion, testing retrieval and open questions belong to the
   `knowledge-sources` skill. Test with an answerable question and one
   deliberately absent answer. Report evidence gaps rather than invent answers.
-- `settings.enableMemory` enables the agent's memory behavior;
-  `settings.memorySchema` supplies its structured schema. Inferring a schema
-  returns a proposal. It does not save that proposal or create memories.
-- Save the accepted schema in a version, then verify the channel's active
-  version. Inbound and SMS also depend on the twin's settings, refreshed on
-  promote. Changing dev does not update production or existing memories.
+- Memory (`settings.enableMemory`, `settings.memorySchema`): what it is,
+  when it is read and written, and how to diagnose it are in
+  [agent memory](../../knowledge-sources/references/how-it-works.md#agent-memory).
+  A schema change reaches callers only through a saved and promoted version.
 - **Read what was stored** through the [memory routes](api.md#memory-records):
   `GET /v1/memory/changes?call_id=` for one call, or `GET /v1/memory/stores`
   then `GET /v1/memory/<store id>?search=` for a contact. A schema alone is not

@@ -139,7 +139,9 @@ on. Write every skill so it works there as well as in a terminal.
   org-resource routes. On `oauth_path_not_allowed` say "this connection
   cannot reach <route family>; do it on <dashboard path>" and stop.
 - **Name the body limit.** File uploads and text bodies do not go through
-  the API tools. Point to the dashboard page instead.
+  `call_bland_api`. Use the dedicated tool where one exists
+  (`upload_knowledge_file` for a file at an https link, `save_code_snippet`
+  for code); otherwise point to the dashboard page.
 
 ## Offline validators
 

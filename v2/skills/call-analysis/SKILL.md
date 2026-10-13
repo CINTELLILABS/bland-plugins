@@ -7,6 +7,8 @@ description: Use when finding, reviewing, categorizing, or analyzing Bland calls
 
 Use existing API primitives and local code. No separate call-export service is
 required. Follow [API identity and privacy](../api-workspace/references/api.md).
+For what evidence a call leaves, where, and when each piece appears, read
+[how it works](references/how-it-works.md).
 
 1. Read [retrieval](references/retrieval.md) before selecting a cohort. For
    one v2 agent's calls, or for texts, API chats and web chats, read

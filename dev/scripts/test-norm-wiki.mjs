@@ -7,14 +7,14 @@ import test from 'node:test';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../v2');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const entries = ['api-workspace', 'evaluations', 'call-analysis', 'analytics-authoring', 'analytics-cohorts',
-  'phone-numbers', 'knowledge-sources', 'agent-channels', 'outbound-calls', 'automations', 'tool-library', 'triage-issues', 'agent-launch'];
+  'phone-numbers', 'knowledge-sources', 'agent-channels', 'outbound-calls', 'automations', 'tool-library', 'triage-issues', 'agent-launch', 'agent-environments', 'dispositions'];
 const surfaceReferences = [
   'skills/api-workspace/references/surface-map.md',
   'skills/v2-runtime/references/execution-order.md',
   'skills/v2-runtime/references/tools-and-handoffs.md',
   'skills/v2-snapshot/references/node-catalog.md',
   'skills/v2-lifecycle/references/resources.md',
-  'skills/evaluations/references/dispositions.md',
+  'skills/dispositions/references/how-it-works.md',
 ];
 function headingAnchors(text) {
   const anchors = new Set();
@@ -100,6 +100,20 @@ test('maintenance is discoverable and routes to existing specialist skills', () 
   const seen = visitReferences(resolve(root, entry));
   for (const name of ['api-workspace', 'v2-snapshot', 'v2-runtime', 'v2-testing', 'v2-lifecycle', 'evaluations', 'call-analysis']) {
     assert.ok(seen.has(resolve(root, `skills/${name}/SKILL.md`)), `missing maintenance capability: ${name}`);
+  }
+});
+
+test('environments workflows are discoverable and lifecycle stops claiming their triggers', () => {
+  const entry = 'skills/agent-environments/SKILL.md';
+  for (const start of ['README.md', 'skills/api-workspace/references/index.md',
+    'skills/v2-lifecycle/SKILL.md', 'skills/agent-launch/SKILL.md']) {
+    assert.ok(visitReferences(resolve(root, start)).has(resolve(root, entry)), start);
+  }
+  const seen = visitReferences(resolve(root, entry));
+  assert.ok(seen.has(resolve(root, 'skills/v2-lifecycle/references/lifecycle.md')), 'links the doctrine');
+  const lifecycle = /^description: (.+)$/m.exec(read('skills/v2-lifecycle/SKILL.md'))[1];
+  for (const phrase of [/\{\{env\./, /variables/i, /promotion checks/i, /branches/i]) {
+    assert.doesNotMatch(lifecycle, phrase, `v2-lifecycle still claims ${phrase}`);
   }
 });
 
@@ -239,4 +253,46 @@ test('the description check catches the YAML traps it names', () => {
     assert.match(descriptionProblem(fm(bad)) ?? '', problem, bad);
   }
   assert.equal(descriptionProblem('no frontmatter'), 'missing frontmatter');
+});
+
+// The plugin is public. Shipped references and dev benchmarks describe what a
+// user observes, never the vendors, models or infrastructure behind Bland's own
+// features, and never a server weakness. A keyword scan is not proof; it only
+// catches the obvious slips before a human reads the diff.
+const LEAK_PATTERNS = [
+  /\bgpt-?\d/i, /\bclaude-\d/i, /\b(?:sonnet|opus|haiku)\b/i, /\banthropic\b/i, /\bopenai\b/i,
+  /\bgemini\b/i, /\bglm-?\d/i, /\btogether(?:\.ai|ai| ai)\b/i, /\bdeepgram\b/i, /\belevenlabs\b/i,
+  /\bcartesia\b/i, /\bplay\.?ht\b/i, /\bgroq\b/i, /\bllama\b/i, /\bmistral\b/i, /\bkimi\b/i,
+  /\bbedrock\b/i, /\bvertex ai\b/i, /\bwhisper[- ](?:v?\d|large|model|api)/i, /\bdocling\b/i, /\bredis\b/i, /\bpostgres(?:ql)?\b/i,
+  /\bprisma\b/i, /\btemporal(?:\.io| workflow| worker| cloud)\b/i, /\bkinesis\b/i, /\bamazon s3\b/i,
+  /\bstatsig\b/i, /\bdatadog\b/i, /\bpinecone\b/i, /\bturbopuffer\b/i, /\bqdrant\b/i, /\bpgvector\b/i,
+  /\bbigquery\b/i, /\bclickhouse\b/i, /\bsupabase\b/i, /\bkubernetes\b/i, /\bdc\d{1,2}\b/i,
+  /\bno (?:role|org|ownership) (?:gate|check)\b/i, /\bhard-?coded (?:passkey|key|secret|password)\b/i,
+  /\breturns? (?:provider |oauth )?(?:tokens|credentials)\b/i,
+  /\bbtts/i, /\bnango\b/i, /\btemporal\b/i, /\bassemblyai\b/i,
+];
+function shippedDocs(dir, out = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = resolve(dir, entry.name);
+    if (entry.isDirectory()) shippedDocs(path, out);
+    else if (entry.name.endsWith('.md')) out.push(path);
+  }
+  return out;
+}
+
+test('public wiki pages name no internal vendors, models, infrastructure or server weaknesses', () => {
+  const repo = resolve(root, '..');
+  const files = [...shippedDocs(root), ...shippedDocs(resolve(repo, 'dev/benchmarks')),
+    ...shippedDocs(resolve(repo, 'skills')), ...shippedDocs(resolve(repo, 'agents')),
+    ...shippedDocs(resolve(repo, 'commands')), resolve(repo, 'CHANGELOG.md'), resolve(repo, 'dev/MIGRATION.md')];
+  const hits = [];
+  for (const file of files) {
+    readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+      for (const pattern of LEAK_PATTERNS) {
+        const match = line.match(pattern);
+        if (match) hits.push(`${relative(resolve(root, '..'), file)}:${i + 1}: ${match[0]}`);
+      }
+    });
+  }
+  assert.deepEqual(hits, [], `leak patterns found:\n${hits.join('\n')}`);
 });

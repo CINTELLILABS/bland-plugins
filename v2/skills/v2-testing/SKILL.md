@@ -7,11 +7,13 @@ description: Use when verifying Bland v2 agents with simulations, test chat, or 
 
 > **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland`, `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools; they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
-Every surface runs real integrations; safety comes first. Pick by what it runs:
+Every surface runs real integrations; safety comes first. What each surface
+runs, which version, and why results differ:
+[how agent testing works](references/how-it-works.md). Pick by what it runs:
 
 | Surface | Runs | Read |
 |---|---|---|
-| Platform simulations | the version under test, persona plus LLM judges | [simulations](references/simulations.md) |
+| Platform simulations | latest saved version, simulated caller plus judges | [simulations](references/simulations.md) |
 | Test-chat socket | dev head or `version_id`, node by node | [probes](references/probes.md#test-chat-the-builder-websocket) |
 | Messaging preview | the named version, the real messaging runtime; texts nobody | [probes](references/probes.md#messaging-preview-version-pinned-sends-nothing) |
 | API chat (`POST /v1/chat`) | production; creates real records, fires webhooks | [probes](references/probes.md#api-chat-the-production-messaging-path) |
@@ -35,9 +37,8 @@ Classify every integration in the agent as read or write:
 
 Multi-tenant agents hydrate from per-call request data. The valid fixture is
 the one the customer's OWN test scenarios use for this exact agent and
-variant: list them, group by target, copy the request data. Prove it hydrates
-by tracing the bootstrap step in one run before grading. Stale or
-wrong-variant fixtures produce failures indistinguishable from real bugs.
+variant: copy their request data. Prove it hydrates by tracing the bootstrap
+step in one run before grading. Stale fixtures look exactly like real bugs.
 
 ## Simulations and grading
 

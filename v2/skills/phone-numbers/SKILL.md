@@ -6,15 +6,16 @@ description: Use when someone asks "who answers this number", wants to "put my a
 # Phone numbers
 
 A number answers through one owner: a v2 agent, a classic persona, or a v1
-pathway. With none, it answers nothing. Versions and pins:
-[v2-lifecycle](../v2-lifecycle/SKILL.md).
+pathway. With none, only its own legacy settings, if any, answer. Pins:
+[v2-lifecycle](../v2-lifecycle/SKILL.md). "How does…" and "why did…"
+questions: answer from [how it works](references/how-it-works.md) and reads.
 
 Routes, bodies and messages: [endpoints](references/endpoints.md). Do not
 write fetch scripts or search the docs for these routes.
 
 ## Page context
 
-1. Call `get_dashboard_page_context` (`mode: "synced"`); no target chip exists.
+1. Call `get_dashboard_page_context` (`mode: "synced"`).
 2. `/dashboard/phone-numbers`: inventory. `/dashboard/sip`: `route.search`
    `phone_number`, `trunk`, `direction`. `/dashboard/sip-trunks[/$trunkId]`:
    trunk id, `tab`. Agent pages (`channels/calls`, `phone-numbers`): agent id.
@@ -26,8 +27,8 @@ write fetch scripts or search the docs for these routes.
 Budget: two reads.
 
 1. `bland_api_get` `/v1/personas`. The persona whose `inbound_numbers` holds
-   the number owns it: a `v2-agent:<agent id>` tag means a v2 agent, any
-   other persona is a classic persona.
+   the number owns it: a `v2-agent:<agent id>` tag means a v2 agent, else
+   a classic persona.
 2. Else `bland_api_get` `/v1/inbound/<number>`: a `pathway_id` means a v1
    pathway; none means unassigned. 404: not on the account or lapsed.
 
@@ -43,8 +44,8 @@ Budget: one search, one purchase per number, then the attach below.
 2. Confirm price × count. The org's one free number: POST `/numbers/claim_free`.
    Otherwise POST `/numbers/purchase` once per chosen number, in sequence. On
    a timeout re-list the inventory before any retry.
-3. Promote first ([v2-lifecycle](../v2-lifecycle/SKILL.md)): an unpinned
-   production answers nothing. Then attach.
+3. Promote first ([v2-lifecycle](../v2-lifecycle/SKILL.md)): unpromoted, the
+   number runs the latest save as of the attach. Then attach.
 
 ## Workflow: put an agent on a number
 
@@ -59,11 +60,11 @@ Budget: two reads, attach, read-back, test call.
    flag only after a confirm. Add `"environment": "staging"` only when asked.
 4. Read back `/v2/agents/<agentId>/inbound`.
 5. Verify: `create_call` to the number from another account number with a
-   short caller `task`; it hits the production pin (staging if staging-attached).
+   short caller `task`; it runs the production pin (staging if staging-attached).
 
 ## Workflow: per-number settings
 
-Budget: read, POST, read-back. Live and unversioned; nothing protects them.
+Budget: read, POST, read-back. Live and unversioned.
 
 1. `bland_api_get` `/v1/inbound/<number>`.
 2. `call_bland_api` POST `/v1/inbound/<number>` with only the changed keys
@@ -82,15 +83,14 @@ plaintext 5060. Store DIDs and extensions as given; never add `+`.
 
 ## Confirm before
 
-- Buying, claiming or the Agent Phone Plan: price × count, one purchase per
-  number.
+- Buying, claiming or the Agent Phone Plan: price × count.
 - Attaching an owned number; detaching.
 - SIP `test-call` (rings real equipment) or `discover` (probes an outside host).
 - Trunk header saves (overwrite per-number headers; name the count).
 - Deleting a block rule or a DNC entry.
 
-One confirm each, in the template: what changes, who is affected, cost or
-count, and whether it reaches the carrier or cannot be undone.
+One confirm each: what changes, who is affected, cost or count, and
+whether it can be undone.
 
 ## Hand off, never call
 
@@ -101,10 +101,10 @@ Caller ID submission.
 
 - `oauth_path_not_allowed`: name the route family and the dashboard path; stop.
 - 409 `NUMBER_ALREADY_ASSIGNED`: run the owner check.
-- 409 `AGENT_ENV_UNPINNED`: that environment has no pin; publish or promote first.
+- 409 `AGENT_ENV_UNPINNED`: publish to staging first.
 
 ## Do not
 
 - Send `prompt`, `pathway_id` or the whole row to `/v1/inbound/<number>`.
 - Promise `fallback_number` is a failover.
-- Claim the page updated, guess fields, write fetch scripts or search the docs.
+- Claim the page updated or guess fields.

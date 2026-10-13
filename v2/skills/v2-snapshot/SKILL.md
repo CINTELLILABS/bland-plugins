@@ -7,8 +7,8 @@ description: The Bland v2 agent snapshot dialect, the exact JSON shape of an age
 
 > **Server binding:** use only THIS plugin's MCP server (`plugin_norm_bland`); other `bland` servers may be signed in to another org.
 
-An agent version is one JSON snapshot, compiled into a conversation graph
-([builder/runtime mapping](../v2-runtime/references/builder-runtime-map.md)).
+An agent version is one JSON snapshot, run as a conversation graph
+([how it works](../v2-runtime/references/how-it-works.md)).
 Node shapes: [node catalog](references/node-catalog.md). Settings and tool
 fields: [field guide](references/knobs.md).
 

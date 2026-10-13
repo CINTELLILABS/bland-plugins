@@ -2,8 +2,10 @@
 
 API chat lets the customer's own app hold a text conversation with a v2 agent
 over HTTP. It runs the agent's **production** version on the messaging
-pipeline, the same turn a text runs. It has no version pin. A number attach
-or re-attach recompiles that twin from the dev head until the next promote.
+pipeline, the same turn a text runs. It has no version pin. A production
+number attach recompiles the shared copy from the latest save, so API chat
+can run unpromoted edits until the next promote, unless a widget is bound.
+[How it works](how-it-works.md) explains the copy and the text runtime.
 
 ## Contents
 
@@ -45,7 +47,8 @@ A missing `apiChat` key means off.
 | `POST /v1/chat/<conversation id>/end` | `{reason?}` | 200 conversation with transcript, `already_ended` |
 | `GET /v1/chat/<conversation id>` | none | 200 conversation with transcript |
 
-Errors: 400 `CHAT_BAD_REQUEST` (the message names the field), 403
+Errors: 400 `CHAT_BAD_REQUEST` (the message names the field, or says the
+agent was not found or its production version could not be prepared), 403
 `CHANNEL_DISABLED` ("API chat is turned off for this agent."), 404
 `CHAT_NOT_FOUND`, 409 `CHAT_ENDED`, 409 `CHAT_OPEN_IN_PROGRESS` (retry
 shortly), 409 `CONTACT_CONFLICT`, 500 `CHAT_INTERNAL_ERROR`.
@@ -68,8 +71,11 @@ shortly), 409 `CONTACT_CONFLICT`, 500 `CHAT_INTERNAL_ERROR`.
   still active for that person. `"new_conversation": true` ends it and opens a
   new one.
 - `time_out` is idle seconds before the conversation ends. Default 1800 (30
-  minutes). `0` turns it off. Whole numbers only.
+  minutes). `0` turns it off. Whole numbers only; a positive value under 30
+  is raised to 30. The clock starts at the open, so a chat nobody writes to
+  still ends. Resuming does not push it back.
 - `webhook` (http or https URL) receives the message and status events.
+  Resuming with a different `webhook` replaces the stored one.
 - `contact` `{phone_number?, email?, name?}` links the person to a contact, so
   memory follows them. A 409 `CONTACT_CONFLICT` means those identifiers belong
   to different contacts; merge them first.
@@ -122,7 +128,10 @@ API chat is live, not a test:
 
 - Each turn runs the agent's tools for real, including webhooks and writes.
 - Message and status webhooks fire.
-- End or timeout runs the summary and dispositions.
+- End or timeout runs the summary, plus any legacy dispositions listed in
+  the chat's texting config (`disposition_ids`; none by default). The
+  agent's own dispositions score completed calls, not chats
+  ([dispositions](../../dispositions/SKILL.md)).
 - A linked contact gets memory updates.
 
 For a version-pinned probe that sends nothing, use test chat
@@ -134,3 +143,8 @@ API chat threads are stored with the text threads. List them with
 `bland_api_get` `/v1/sms/conversations` and the filter
 `{"field": "effective_channel", "operator": "equals", "value": "api_chat"}`
 in `filters`. On the Conversations page they are the API chat channel.
+
+A person can take an API chat over and reply as a human with the takeover
+routes in [messaging](messaging.md#send-take-over-hand-back). While taken
+over, `/messages` returns no agent reply and `status` is `human_handoff`; the
+person's reply shows with role `human` on the next read.

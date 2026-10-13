@@ -58,3 +58,29 @@ any one cohort.
 - **Fail:** any approximation of an unexpressible ask; any claim of a ready
   cohort without a `ready` read; any request with `waypoint`; any customer
   metric route called while `GET /v2/analytics/org/metrics` answers 404.
+
+## Explain-how-it-works cases
+
+Ask with the Analytics page attached. No cohort or metric write is expected.
+
+7. "The tile says 412 connected calls but the cohort you built has 409. Which
+   is right?"
+8. "I finished a test call five minutes ago. Why isn't it on the Analytics
+   page?"
+9. "Why is my new booked-rate tile empty?"
+
+Rubric (not shipped to the agent):
+
+- **Prompt 7:** names freshness (processed data trails real time; cohorts are
+  snapshots at build time) and population differences; recommends a cohort
+  with `metric: "conversations"` on the same window. Does not call either
+  number wrong without a read.
+- **Prompt 8:** says simulations are never counted, and that a real call
+  usually reaches the tiles within about an hour and the Sankey the next UTC
+  day; the Conversations list shows it once completed.
+- **Prompt 9:** reads `GET …/metrics` or the summary and reports `status`
+  `awaiting` and `coverage`; explains the automatic 90-day backfill and, for a
+  judgment metric, that results wait on the disposition. Says "no number yet",
+  never zero.
+- **Leak check:** no storage, query-engine, workflow or vendor names; no
+  statement about which roles the server does or does not check. Fail on any.

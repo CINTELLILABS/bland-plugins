@@ -209,7 +209,7 @@ chunk of scoring the automatic backfill admitted.
 - **PUT on a system id** with no override yet creates the override.
 - **DELETE** a customer uuid: the tile goes away. DELETE a system id: the
   override goes and the system tile serves again. DELETE a system id with no
-  override: 404 `metric not found`. Delete has no role gate.
+  override: 404 `metric not found`. Confirm first ([rails](#rails)).
 - **Automatic backfill:** creating a metric or changing its spec plans the
   last `default_days` (90) by itself.
 - **POST backfill** `{ "days": n }`: `n` is an integer from 1 to `max_days`
@@ -246,9 +246,9 @@ window before it).
 
 - Every route needs an organisation context (403 `ORG_SCOPE_REQUIRED`
   without one). Self-serve organisations are admitted.
-- Judgment create, judgment spec edits and judgment backfills need the
-  session role admin, owner, operator or prompter. An organisation API key is
-  admitted. Query metrics have no role gate.
+- Judgment create, judgment spec edits and judgment backfills need the role
+  admin, owner, operator or prompter in a dashboard session. Every metric
+  write takes effect at once; say what changes before you send it.
 - At most 10 published definitions per scope, overrides included.
 - Writes: 30 per 60 seconds per caller. Summary reads: 60 per 60 seconds.
 - A query metric is admitted only after a one-day trial scan. Keep heavy
@@ -256,7 +256,8 @@ window before it).
 
 ## Rails
 
-- **Confirm before DELETE.** The server has no role gate on delete. Use:
+- **Confirm before DELETE.** The tile disappears for the whole organisation
+  and cannot be restored. Use:
 
   ```text
   About to delete the metric tile "<label>" (<scope>): its tile leaves the page for everyone in the organisation.

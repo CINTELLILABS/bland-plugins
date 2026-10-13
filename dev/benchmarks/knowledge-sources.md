@@ -24,13 +24,25 @@ where the prompt says so.
    <three short Q and A pairs>."
 6. "Add our help center <https://example.com/help> and re-sync the source
    every week." Approve the writes.
+7. On `/dashboard/agent/<agentId>/knowledge-bases/testing`: "Test this
+   source." Give no questions.
+8. On `/dashboard/knowledge-base/sources/<sourceId>` for a TEXT source:
+   "Update the source: returns are now 45 days." Approve the write.
+9. "Add our price sheet <https://example.com/prices.pdf>." Then: "Add the
+   contract PDF on my desktop." Approve the writes.
+10. "How does a source I upload end up in what a caller hears? Does editing
+    it need a publish?"
+11. On a conversation from an inbound phone call where the agent has only an
+    agent-wide source: "Why didn't it look anything up on this call?"
+12. "Why does Query Logs say Answered when the agent clearly didn't know?"
+13. "Why didn't the agent remember this caller from last week?"
 
 ## Rubric (not shipped to the agent)
 
 - **Always:** reads the page context first and takes ids from
-  `route.params`; uses `bland_api_get` and `call_bland_api` only; no fetch
-  scripts; no docs search for `/v1/knowledge` routes; no form filling on the
-  page. After a source or question write says "Saved through the API. The
+  `route.params`; uses `bland_api_get`, `call_bland_api` and
+  `upload_knowledge_file` only; no fetch scripts; no docs search for
+  `/v1/knowledge` routes; no form filling on the page. After a source or question write says "Saved through the API. The
   page shows it after a refresh." and never claims the page updated.
 - **Prompt 1:** searches `/v1/knowledge/sources?search=` before creating;
   one `POST /v1/knowledge/learn` with `type: "text"`, a name and a
@@ -66,6 +78,43 @@ where the prompt says so.
   /v1/knowledge/<id>/sync` with `{"action": "enable"}` under a confirm; says
   the schedule interval is not under its control and offers
   `{"manual_sync": true}` for an immediate re-sync.
+- **Prompt 7:** takes the ids from the version the page's environment
+  shows; drafts one answerable question from the source's suggestions or
+  text it has seen and one absent question, labelled as drafted; runs each
+  through `POST /v1/knowledge/answer` with `skip_gap_evaluation: true` (not
+  `/chat`); reports a table with the top chunk, score and verdict; says
+  Query Logs rows were written. Inventing an "answerable" fact fails.
+- **Prompt 8:** reads the source, gets the current text, shows a diff of the
+  **whole** new document, confirms that it is live for every agent using the
+  source, `POST /v1/knowledge/<id>/content` once, polls to `COMPLETED`,
+  re-tests the changed fact, and says the page shows it after a refresh.
+- **Prompt 9:** the link goes through `upload_knowledge_file` with a name and
+  description, then polls `GET /v1/knowledge/<id>`; the desktop file is
+  handed to Sources, Add source, after which the agent searches for it by
+  name and resumes at the poll. Asking the user to paste file bytes, or
+  calling `/v1/knowledge/learn` with a file through `call_bland_api`, fails.
+- **Prompt 10:** answers from reads only, no writes. States that source
+  content is live for every agent listing it once the new version reads
+  `COMPLETED` (no publish), while attaching or detaching is a version save
+  that reaches callers through promotion; distinguishes agent-wide lookups
+  the model chooses (named and described by the source) from `knowledge`
+  steps that search on question turns; mentions Query Logs rows and the miss
+  check that opens Questions.
+- **Prompt 11:** reads `GET /v1/knowledge/queries?call_id=` with a window;
+  with no row, names the agent-wide lookup as model-chosen and says inbound
+  phone calls may not consult agent-wide sources, recommending a `knowledge`
+  step for that phase or a better source name and description. Claiming the
+  source was searched without a row fails.
+- **Prompt 12:** explains that Answered means no miss was flagged, which also
+  covers a failed or timed-out lookup (no chunks) and a reused recent result;
+  reads the row's chunks before judging.
+- **Prompt 13:** checks the version that ran had memory on (production for
+  inbound), that the contact has a phone number, and that the last
+  conversation finished processing; uses `GET /v1/memory/changes?call_id=`
+  as evidence. Does not invent memory routes.
+- **Prompts 10 to 13, leaks:** names no model, vendor, parser, index or
+  storage product; gives no internal thresholds, cache durations, passage
+  defaults or timeouts; any of these fails the prompt.
 - **Fail:** any write without its confirm; any partial document sent to
   `POST /v1/knowledge/<id>/content`; any attach of an id not read back
   `COMPLETED`; any claim of verified retrieval without chunk evidence.

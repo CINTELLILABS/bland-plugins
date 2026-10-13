@@ -77,8 +77,12 @@ publish (only when asked)
   does not establish that scoring finished.
 - Check both behavioral assertions and execution coverage. A completion status
   or a summary with no configured pass threshold is not a universal quality pass.
-- Keep the voice-agent candidate stable throughout the comparison. If the
-  endpoint cannot pin it, record the resolved version and disclose that limit.
+- Keep the voice-agent candidate stable throughout the comparison.
+  `/simulate` always runs the latest saved version; record
+  `metadata.agent_version_id` from a conversation run and disclose that a
+  save during the comparison changes the candidate.
+- Read the verdict from `assertions[].passed`, not `summary.passed`; see
+  [how evaluations work](how-it-works.md).
 
 ## Existing-call batches
 
@@ -100,7 +104,7 @@ publish (only when asked)
 | `failed:true` or execution error | The judge did not successfully score; investigate the service/input, not the agent's quality |
 | `is_insufficient_evidence:true` | The available evidence does not support a verdict; request relevant evidence or revise the dimension |
 | Successful result with `is_target_match:false` | A genuine non-passing rubric result; inspect quotes and actual behavior |
-| `PARTIAL` run | Some work is incomplete/failed; report coverage and affected IDs |
+| `PARTIAL` run | Some calls failed, came back insufficient evidence, or are missing; report coverage and affected IDs |
 | Empty in-progress result | Continue following the same job; do not create duplicate runs |
 | Passing score with wrong version/fixture | Does not verify the requested candidate |
 

@@ -11,8 +11,10 @@ The Sankey on an agent's Analytics page folds real traffic through a
 definition. You never change the agent, its versions or its deployment.
 
 Read [concepts](references/concepts.md) before designing, [the
-contract](references/contract.md) before writing, and
-[rendering](references/rendering.md) before promising what the user sees.
+contract](references/contract.md) before writing,
+[rendering](references/rendering.md) before promising what the user sees, and
+[how it works](references/how-it-works.md) to explain timing or a chart that
+disagrees with its definition.
 
 ## Attached target
 
@@ -32,8 +34,8 @@ Routes, bodies and every status are in [the contract](references/contract.md).
 Reads use `bland_api_get`, writes `call_bland_api`; no fetch scripts, docs
 searches or other API families.
 
-1. **Read the page.** The page context names the agent, window and filters.
-   Ask only if the agent is absent.
+1. **Read the page** for the agent, window and filters. Ask only if the agent
+   is absent.
 2. **Read the definition** (`…/pathway/definition`): the production version,
    the structure `fingerprint`, the groupable `members`, the `published` and
    `pending` rows.
@@ -45,8 +47,7 @@ searches or other API families.
    sharing a `stage` for parallel branches, stable ids when only relabeling.
    Caps: at most 7 groups, each member in exactly one group, stages dense from 1.
 5. **Validate offline** with `node scripts/validate-definition.cjs <definition.json> <members.json>`
-   (in this skill). It applies the API's rules and names violations by id.
-   Fix them before the first write.
+   (in this skill). Fix every named violation before the first write.
 6. **Save pending** (PUT `…/pathway/definition/pending`) with
    `expected_fingerprint` from the read. A 422 names ids to fix; a 409 means the
    pin moved: read the definition again, then resend.
@@ -55,15 +56,15 @@ searches or other API families.
    and wait for confirmation.
 8. **Publish** (POST `…/pathway/definition`, same body). The pending row is
    consumed; the response names the new and superseded ids.
-9. **Confirm** with one more chart read on the same window. `served` is false
-   until the structure has 5 conversations since its first deployment or when
-   the serve mode holds it back; say so and report `unclassified_share`.
+9. **Confirm** with one more chart read on the same window. `served` stays
+   false until the structure is ready; say so and report `unclassified_share`.
 
 ## What to tell the user
 
 - The stage table: stage, label, member count, business meaning.
 - `unclassified_share` and what it holds, in business terms.
 - The page refreshes itself on save and publish. Never ask for a reload.
+- The chart counts whole UTC days; today's calls are not on it yet.
 - After publishing parallel branches: Simplified merges siblings, Detailed
   shows them apart ([rendering](references/rendering.md)).
 - Anything the request asked for that a definition cannot express, named
@@ -76,8 +77,8 @@ searches or other API families.
 - A definition regroups, renames and reorders compiled waypoints. It cannot add
   waypoints, change terminals, or classify calls by anything but the waypoints
   they visited.
-- The three terminals (completed by AI, transferred, hung up) are fixed.
-  Splitting one by reason is a dispositions task.
+- The three terminals are fixed. Splitting one by reason is a dispositions
+  task.
 - Edits apply to the production version's structure. A promotion that changes
   the node or tool set changes the fingerprint; a published definition carries
   forward only when every member still exists.

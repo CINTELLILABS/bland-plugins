@@ -1,6 +1,6 @@
 ---
 name: evaluations
-description: Use when creating or calibrating Bland evaluation judges ("align this judge", "correct this verdict"), configuring test cases and attached judges, building judge workbench panels, running or interpreting evaluations and simulations, applying verdicts as call tags, or investigating failed, partial, or inconclusive scores. Also covers disposition test runs, backfills and moving v1 citations and outcomes into dispositions. Distinguishes voice agents, evaluation judges, test scenarios, saved call cohorts, and asynchronous run results.
+description: Use when creating or calibrating Bland evaluation judges ("align this judge", "correct this verdict"), configuring test cases and attached judges, building judge workbench panels, running or interpreting evaluations and simulations, applying verdicts as call tags, or investigating failed, partial, or inconclusive scores. Distinguishes voice agents, evaluation judges, test scenarios, saved call cohorts, and asynchronous run results.
 ---
 
 # Evaluation work
@@ -10,6 +10,8 @@ evaluations. Read [workflow and evidence](references/workflows.md) and the
 [API map](references/api.md) for the chosen task. Follow
 [API identity and permission rules](../api-workspace/references/api.md).
 Do not write fetch scripts and do not search the docs for these routes.
+To explain how judges, runs, verdicts and scores fit together, or why a run
+ended `PARTIAL`, read [how evaluations work](references/how-it-works.md).
 
 Choose the right object before writing:
 
@@ -53,9 +55,8 @@ For agent-testing inline assertions and traces read
 [v2 testing](../v2-testing/SKILL.md). These are related but distinct surfaces;
 do not substitute one surface's status names or request fields for another's.
 
-For agent-scoped structured outputs, extractor versions, annotations and alignment,
-read [dispositions](references/dispositions.md). These have a separate
-draft/estimate/publish lifecycle and are not evaluation-judge configuration fields.
-Scoring past calls is a billed [backfill](references/dispositions.md#backfill);
-confirm the cost first. For v1 citations and outcomes, read
-[migrating into dispositions](references/dispositions.md#migrating-v1-citations-and-outcomes-into-dispositions).
+Post-call outputs produced on every call (dispositions: their values,
+extractors, test runs, corrections, backfills and moving v1 citations and
+outcomes) belong to the [dispositions skill](../dispositions/SKILL.md). A
+disposition value can pin a published judge version; changing the judge
+does not change the disposition until it is repinned and republished.

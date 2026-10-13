@@ -20,6 +20,16 @@ Do not write fetch scripts and do not search the docs for these routes.
   [conversations](conversations.md).
 - `GET /v1/calls/{call_id}`: full detail, including available transcript,
   variables, request data, and pathway evidence. A list row is not a full trace.
+  The path also accepts your own `external_id` (the newest call wins);
+  `fields=status,summary,variables` returns a subset; `v=2` returns
+  `pathway_logs` in the event-timeline format. `citations_status` says whether
+  citations were read fully (`ok`, `incomplete`, `unavailable`).
+- `GET /v1/pathway_calls/{call_id}?v=2`: the event timeline: transcript
+  turns, node transitions with the routes considered, tool, webhook and
+  knowledge events, variable changes. Sort by `sequence`. For agent-driven
+  calls the flat transcript can be empty; the dialogue is here.
+- `GET /v1/calls/{call_id}/recording`: the recording link, or the audio itself
+  with an `Accept: audio/*` header. 404 when the call has no recording.
 - `get_call_log`, when advertised, is a convenient curated first read; use the
   generic API for fields the curated schema omits.
 - Use the authorized recording reference or documented recording endpoint when
@@ -103,7 +113,9 @@ Other notes:
   synthesized ladder (dispatch and outcome) instead of captured messages.
 - `/v1/calls/metrics` answers 400 `CALL_NOT_COMPLETED` for a live call and
   404 `METRICS_NOT_FOUND` when no scores were computed. Neither means the
-  call is missing.
+  call is missing; 404 `CALL_NOT_FOUND` does.
+- When each piece of evidence appears, and why a fresh call can lack some, is
+  in [how it works](how-it-works.md).
 - An OAuth-connected host cannot read `/v2/tools/**` or `/v1/sip/**`. On
   `oauth_path_not_allowed` name the route family and the dashboard page
   (tool logs: `/dashboard/tools/analytics`; SIP: `/dashboard/sip-trunks`) and stop.

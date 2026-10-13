@@ -7,8 +7,9 @@ description: Use when filing or working issues on the Issues page, org-wide or f
 
 An issue is a tracked agent defect. This skill is the hand-off from a [debugging session](../api-workspace/references/debugging.md#report)
 or [call analysis](../call-analysis/SKILL.md): carry their ids, not their
-prose. Read [the API reference](references/api.md) first. Do not write fetch
-scripts and do not search the docs for these routes.
+prose. Read [the API reference](references/api.md) first; [how it
+works](references/how-it-works.md) explains statuses and side effects. Do not
+write fetch scripts or search the docs for these routes.
 
 ## Page context
 
@@ -73,7 +74,7 @@ wants that run, name it as a separate action with its own confirm and use
 ## Confirm before
 
 Delete, close, detach, unflag, unrelate, unbind, assign, eval analysis, a
-triage run. The server has no role gate here; this confirm is the only check.
+triage run. Confirm each one, every time; the API applies it at once.
 
 ```text
 About to <verb> <T-n "title">: <what changes, who is notified, call count>.

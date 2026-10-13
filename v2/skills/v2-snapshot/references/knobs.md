@@ -80,7 +80,7 @@ configuration applies.
 | `voicemailAction` | ACTIVE, outbound | `hangup` (default), `ignore`, `leave_message`, `leave_sms`. Overrides the agent's own reasoning when voicemail is detected. |
 | `voicemailMessage` | ACTIVE with `leave_message` | Spoken after the beep. Blank = no voicemail keys at all. |
 | `voicemailSms` | ACTIVE with `leave_sms` | Text body sent instead. Blank = no voicemail keys at all. |
-| `requestData`, `metadata` | ACTIVE | `{key, value}` rows: facts the agent sees on every call, and passthrough metadata returned in webhooks and call details. |
+| `requestData`, `metadata` | ACTIVE | `{key, value}` rows: facts the agent sees on every call, and passthrough metadata returned in webhooks and call details. An outbound request that sends its own `request_data` or `metadata` replaces these whole (no merge; `{}` clears them). |
 | `keywords` | ACTIVE | Transcription hints. At most 20 strings, each at most 100 characters, optional `word:<integer>` boost. |
 
 ## Chat and messaging settings
@@ -89,7 +89,7 @@ configuration applies.
 |---|---|---|
 | `webChat.*` | EDITOR-ONLY | `enabled`, `widgetTitle`, `greetingMessage`, `allowedOrigins` do not configure any widget. The widget record owns title, greeting and domains. `webChat.enabled` only feeds reachability warnings. |
 | `apiChat.enabled` | ACTIVE, production | Opening an API chat refuses an agent whose flag is off (403 `CHANNEL_DISABLED`). The gate reads the **production** version, so a dev edit takes effect only after promote. |
-| `messaging.mode` | ACTIVE, messaging | `reasoning` (default when absent) runs texting turns from an LLM brief of the agent; `pathway` runs the compiled graph node by node. Voice and web chat never read it. |
+| `messaging.mode` | ACTIVE, messaging | `reasoning` (default when absent) answers texting turns from a brief of the whole agent; `pathway` runs the compiled graph node by node. Voice and web chat never read it. |
 | `messaging.reasoningEffort` | ACTIVE, messaging | `low`, `medium` (default), `high`. |
 | `messaging.progressUpdates` | ACTIVE, messaging | `auto` (default) or `off`. Plain SMS, RCS and WhatsApp never get one on `auto`. |
 | `messaging.computerUse` | ACTIVE, messaging | `auto` (default) or `off`. Off while `website` is unset. |
@@ -100,7 +100,7 @@ configuration applies.
 | Knob | Status | Behavior |
 |---|---|---|
 | `contact.inboundNumbers` | ACTIVE (required) | Array, or supported whole-string `{{env.KEY}}`. Not inside `settings`. Verify resolved values. |
-| `knowledge.kbIds` | ACTIVE | Agent-scope knowledge: retrieval on every step, call-wide. Distinct from node-scoped `kbIds` on `knowledge` steps. Lift node-scoped KBs here only when they were genuinely call-wide. |
+| `knowledge.kbIds` | ACTIVE | Agent-scope knowledge: lookups the model chooses, named by the source, on API-placed calls and text conversations; inbound phone calls and test chat may not consult them ([how knowledge reaches a call](../../knowledge-sources/references/how-it-works.md)). Distinct from node-scoped `kbIds` on `knowledge` steps. Lift node-scoped KBs here only when they were genuinely call-wide. |
 | `initialization.enabled` | ACTIVE | Off = no node, the call starts as if the step were absent. |
 | `initialization.step` | ACTIVE | A `customCode` step's data (`name`, `code`, `snippetId`, `snippetVersion`, `variables`, `timeoutMs?`). Runs once on connect, before the first prompt; returned keys are live in the opening line. Without a saved `snippetId` it does not run. |
 | `initialization.routes[]` | ACTIVE | `{id, key, valueType, value, targetId}`. When the returned `key` equals `value`, the call opens on `targetId` (the hub or a root scenario, never an auth zone). Comparison is string-based; `valueType` (`string`, `number`, `boolean`) is an authoring aid. No match = the normal entry. |
@@ -114,7 +114,7 @@ Array of guardrail objects, each `{id, kind, actions[]}`. Kinds:
 |---|---|---|
 | `tcpa:ai_disclosure`, `tcpa:recording_disclosure`, `tcpa:self_introduction` | `endSeconds` (REQUIRED, 1 to 600) | Timed rails: the disclosure must happen within the window from call start or the actions fire. One entry per kind. |
 | `tcpa:opt_out` | none | Opt-out rail (no window). One entry per kind. |
-| `custom` | `name` (non-empty), `description`, `prompt` (non-empty) | A live LLM evaluator running on EVERY agent turn. Max **5 per agent**; adding a new custom rail is enterprise-gated at save time (already-saved ones keep running). |
+| `custom` | `name` (non-empty), `description`, `prompt` (non-empty) | A model-judged check that watches the conversation as it happens and can fire at any point in the call. Max **5 per agent**; adding a new custom rail is enterprise-gated at save time (already-saved ones keep running). |
 
 `actions[]` rows: `{type: "end_call"}`, `{type: "transfer", phoneNumber}` or
 `{type: "move_to_node", nodeId}`. The validator enforces unique ids, no
@@ -164,7 +164,7 @@ globals for carried v1 globals, but the knob is live and a design may use it.
 |---|---|---|
 | `tag` | ACTIVE on steps | `{name, color}` or `null`. Disposition tag on the compiled node. Dropped on cards. |
 | `media` | ACTIVE | `[{id, url, name, description}]`; images the agent may attach. Inline image data counts toward the 2 MiB cap. |
-| `conditionGuardRails`, `extractVarsGuardRails` | ACTIVE for enabled orgs | `{actions: [...]}`; consensus checks on the loop condition or on extraction. Usual action: `{type: "restart_node", config: {fallback, max_restart_iterations}}`. Empty `actions` = off. |
+| `conditionGuardRails`, `extractVarsGuardRails` | ACTIVE for enabled orgs | `{actions: [...]}`; extra verification of the loop condition or of extraction. Usual action: `{type: "restart_node", config: {fallback, max_restart_iterations}}`. Empty `actions` = off. |
 | `dialogueExamples` | ACTIVE | `[{"Conversation History", "Assistant Response"}]`. The keys contain spaces and must be spelled exactly. |
 | `conditionExamples` | ACTIVE | `[{"Conversation History", "Condition Achieved"}]`. |
 | `pathwayExamples` | ACTIVE | `[{"Conversation History", "Chosen Pathway"}]`. |

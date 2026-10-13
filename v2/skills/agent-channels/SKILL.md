@@ -1,13 +1,13 @@
 ---
 name: agent-channels
-description: Use when someone wants to "embed chat on my site" or set up a "web chat widget", use the "chat API" or "turn on API chat", "text my customers", "reply to this thread", "take over this conversation" or hand it back, set up "WhatsApp" or "A2P", or asks "why isn't the agent answering texts", on Channels (Web chat, API chat, Messages) or the Conversations page.
+description: Use when someone wants to "embed chat on my site" or set up a "web chat widget", use the "chat API" or "turn on API chat", "text my customers", "reply to this thread", "take over this conversation" or hand it back, set up "WhatsApp" or "A2P", or asks "why isn't the agent answering texts" or "which version answers texts", on Channels (Web chat, API chat, Messages) or the Conversations page.
 ---
 
 # Run an agent on chat and text channels
 
 A web chat widget, API chat and texts on a bound number all run the agent's
-**production** version ([v2-lifecycle](../v2-lifecycle/SKILL.md) has the
-per-channel table; a number attach recompiles the twin from the dev head).
+**production** version, with no pin: promote to change them. Explain how
+or why from [how it works](references/how-it-works.md).
 Attaching a number belongs to
 [phone-numbers](../phone-numbers/SKILL.md),
 reading many threads to [call-analysis](../call-analysis/SKILL.md), choosing
@@ -15,7 +15,7 @@ recipients to [analytics-cohorts](../analytics-cohorts/SKILL.md).
 
 ## Page context
 
-Call `get_dashboard_page_context` (`mode: "synced"`) first. No target chip exists.
+Call `get_dashboard_page_context` (`mode: "synced"`) first; there is no chip.
 
 - `/dashboard/agent/$agentId/channels/chat[/$widgetId]`: agent id, widget id.
 - `/dashboard/agent/$agentId/channels/api-chat`: agent id.
@@ -36,8 +36,6 @@ API. The page shows it after a refresh."
 4. Publish: PATCH `/v1/widget/<id>` with non-empty `allowed_domains` and the
    **full** read `config` (it is replaced whole).
 5. Give the snippet: `widget_id`, `api_domain` off production, `styles.dimensions`.
-
-No version pin: to change the widget, promote.
 
 ## Workflow: turn on API chat
 

@@ -2,12 +2,13 @@
 
 Use “interruption” with a qualifier. Stopping audible speech, changing scenario,
 and selecting a global node are different mechanisms with different evidence.
+For where each fits in a whole call, read [how it works](how-it-works.md).
 
 | Mechanism | What changes | Inspect | Does not imply |
 |---|---|---|---|
 | Audio barge-in | Whether/how caller speech cuts off agent playback | Calls → Conversation feel, effective call settings, audio/playback evidence | A different node or scenario was selected |
 | Scenario/topic change | Which conversation flow handles the caller's next intent | Entry criteria, explicit and generated routes, flow boundary, current variables and selected route | Agent audio was immediately cut off |
-| Global-node interruption | A router-selected global step handles an intent, with its configured continuation | `settings.global`, loop conditions, return mode and trace | Every utterance or every moment can bypass every gate |
+| Global-node interruption | A router-selected global step handles an intent, with its configured continuation | `settings.global`, loop conditions, return mode and trace | Every utterance or every moment can skip every gate |
 
 ## Audio settings: use the current scope
 
@@ -28,8 +29,10 @@ resolved call settings before changing an unfamiliar value.
   only when that step sets `advanced.turnTakingOverride: true` (the step
   Settings tab writes it with Interruptibility and Interruption threshold) or
   the agent sets `settings.nodeTurnTaking: true` (pathway imports). Then the
-  step overrides the call baseline: a level of 0 means blocked, 1 to 4 a
-  level. Without either marker the values stay in the JSON, inert, because
+  step overrides the call baseline while it is the active step: a level of 0
+  means blocked, 1 to 4 a level. Leaving the step returns to the baseline;
+  the next step does not inherit it. Blocking follows the step whose audio is
+  playing. Without either marker the values stay in the JSON, inert, because
   older builders wrote them on every step.
 - The per-step backchannel pair (`agentBackchannelLevel`,
   `agentBackchannelConfig`) compiles only behind `advanced.backchannelOverride`,
@@ -82,11 +85,14 @@ hub/scenario cards. Stored JSON presence does not prove activation at that scope
 
 ### Repetition after barge-in is not a diagnosis
 
-An early interruption can regenerate the response on the current node. Recovery
-also avoids replaying a previous tool, code, router, transfer, or other action
-step. Neither outcome alone proves a broken route, missed transcription, or
-noise-cancellation problem. Other recovery paths can revisit a previous node;
-do not promise a universal rewind rule.
+A cut-in soon after the agent started speaking is answered again with the
+caller's combined input: either on the current node, or one node back when the
+agent had just moved. Recovery never steps back into a tool, code, router,
+transfer, or other action step, so their side effects do not repeat. A cut-in
+after the agent has been talking a while is an ordinary new turn from the
+current node. Short acknowledgments ("mm-hm") do not stop playback at all.
+None of these outcomes alone proves a broken route, missed transcription, or
+noise-cancellation problem. Do not promise a universal rewind rule.
 
 Before changing settings, align the caller audio and agent playback with the
 accepted caller text, interruption/recovery events (when exposed), current and

@@ -3,8 +3,9 @@
 The org's tool library, the secrets its tools reference, and the connections
 (resources) that hold third-party credentials. This page is the contract. The
 [tool-library skill](../../tool-library/SKILL.md) holds the workflows that use
-it. How an attached tool behaves inside a turn is in
-[tools and handoffs](tools-and-handoffs.md).
+it. What happens on a call (who decides, what the caller hears, time
+limits, failures) is in [how tools work](../../tool-library/references/how-it-works.md);
+step mechanics are in [tools and handoffs](tools-and-handoffs.md).
 
 Use `bland_api_get` for reads (query values are strings) and `call_bland_api`
 with `{method, path, body}` for writes. Do not write fetch scripts and do not
@@ -28,8 +29,8 @@ search the docs for these routes.
 
 Every route on this page needs an install that authenticates with an org API
 key. A keyless install connects over OAuth, and that connection refuses
-`/v1/tools/**` and `/v2/tools/**` (reads included, because stored headers can
-hold credentials) and every secret, resource, integration and snippet route.
+`/v1/tools/**` and `/v2/tools/**` (reads included) and every secret,
+resource, integration and snippet route.
 The refusal code is `oauth_path_not_allowed`. Say "this connection cannot
 reach tools, secrets or connections; do it on /dashboard/tools" and stop.
 Never retry through another route.
@@ -55,7 +56,7 @@ first.
 
 | Method and path | Body or query | What to know | Gate |
 |---|---|---|---|
-| `GET /v1/tools` | `search`, `cursor` (the previous page's `nextCursor`), `limit`, `agent_id`, `include_referenced` | `include_referenced=true` with `agent_id` adds tools the agent's current version uses; rows then carry `owner: agent` or `shared`. Headers come back in clear. | none; redact headers |
+| `GET /v1/tools` | `search`, `cursor` (the previous page's `nextCursor`), `limit`, `agent_id`, `include_referenced` | `include_referenced=true` with `agent_id` adds tools the agent's current version uses; rows then carry `owner: agent` or `shared`. Rows include the definition's headers. | none; redact headers |
 | `GET /v1/tools/:id` | | One row. | none; redact headers |
 | `GET /v2/tools` | `page`, `limit` (1 to 1000), `search`, `agent_id` | Offset paging. There is no `GET /v2/tools/:id`. | none |
 | `POST /v2/tools` | definition plus `resource_id`, `public`, `staging_tool`, `label`, `agent_id` | Unknown keys are refused. `name`, `description`, `integration` and `action` are required; the pair must exist. Returns `data.id`. | confirm |
@@ -105,15 +106,16 @@ connect only through a browser OAuth hand-off. `rest_api`, `custom-code`,
 | `POST /v1/resources/:id/disconnect` | | Revokes the credentials and sets `is_active: false` on every tool whose `resource_id` matches. List them first. | REQUIRED |
 | `DELETE /v1/resources/:id` | | The same tool deactivation, then a hard delete. | REQUIRED |
 
-Never call `/nango/**`: those routes are dashboard plumbing and one returns
-provider tokens.
+Never call the dashboard's connection sign-in routes: they are plumbing for the browser
+sign-in flow, not part of the API.
 
 ## Snippet routes
 
 | Method and path | What to know |
 |---|---|
-| `GET /v1/snippets/list`, `GET /v1/snippets/get/:id` | Reads. Use them to find the id and the current version. |
-| `POST /v1/snippets/create?language=js&name=<name>`, `POST /v1/snippets/update?snippet_id=<id>` | The body is the raw script as `text/plain`. The API tools send JSON only, so these are not reachable here. Code is saved in the builder. An update creates a new version. |
+| `GET /v1/snippets/list`, `GET /v1/snippets/get/:id` | Reads. Use them to find the id and the current version; `?all_versions=true` lists every version. |
+| `save_code_snippet` (a dedicated tool) | `{snippet_id?, name?, language: "js", code}`. Without `snippet_id` it creates a snippet (`name` required: letters and underscores, at most 100); with one it saves a new version (`name` ignored). Every save is confirm-gated. Returns `{snippetId, version, name}`. An unpinned consumer runs the newest version, so a save changes it at once. Not in your tool list: the server does not have it yet; code is saved in the builder. Workflow: [custom code tools](../../tool-library/references/workflows.md#custom-code-tools). |
+| `POST /v1/snippets/create?language=js&name=<name>`, `POST /v1/snippets/update?snippet_id=<id>` | The body is the raw script as `text/plain`, which `call_bland_api` cannot send. Use `save_code_snippet`. |
 | `POST /v1/snippets/run/:id` | `{payload, headers, version?, timeout_ms?}`. Executes the snippet for real. |
 | `POST /v1/snippets/delete` | `{snippet_id}`. Breaks every pin. REQUIRED confirm. |
 
@@ -129,14 +131,14 @@ The definition is the tool JSON: the library row's `tool` column, and the
 | `integration`, `action` | strings, required | A registered pair, listed by `GET /v1/integrations/:key/actions`. |
 | `body` | object or JSON string | Action inputs. Placeholders resolve here. |
 | `input_schema` | `{type: "object", properties: {...}, required?: [...]}` | What the model fills. Each property becomes `{{input.<name>}}`. |
-| `response_data` | `[{name, data, context?, sensitive?}]` | `data` is a JSONPath into the result; `name` becomes a call variable. |
-| `speech` | string | Filler line while the tool runs. |
-| `timeout` | number, **milliseconds**, 1000 to 60000 | |
-| `cooldown` | number, **seconds**, 1 to 30 | |
-| `max_retries` | number, 0 to 4 | Transport retries inside one invocation. Not the step's `retryLimit` (0 to 5), which is how often the model may call the tool again after a failure. |
-| `cache` | boolean | |
+| `response_data` | `[{name, data, context?, sensitive?}]` | `data` is a JSONPath into the result; `name` becomes a call variable (`null` when the path finds nothing). `sensitive` keeps the value out of the model's view and the records. **Absent or empty makes the tool fire-and-forget**: the agent is told it succeeded and never sees the result. |
+| `speech` | string | Filler line spoken as the tool starts (voice only). A `wrapperSpeech` on the attached tool wins. |
+| `timeout` | number, **milliseconds**, 1000 to 60000 | Used by custom code (when `body.timeout` is absent) and the old HTTP path. REST and connected-service calls stop at 30 seconds regardless. |
+| `cooldown` | number, **seconds**, 1 to 30 (default 4) | While a run is in progress, for up to this long, a second call to the tool is refused. |
+| `max_retries` | number, 0 to 4 | Retries on 429 and 5xx, old HTTP path only. REST and connected-service tools run once per invocation. The attached tool's `retryLimit` (0 to 5) is saved but does not limit calls; `maxCalls` does (default 3 per step per call, 0 = unlimited). |
+| `cache` | boolean | Accepted; no observable effect on tool runs. |
 | `resource_id` | string | The connection, for connection-backed integrations only. |
-| `extractVarSettings` | `{audioVariables?, ignorePrevious?, useAudio?, sensitiveVariables?}` | `sensitiveVariables` maps input names to `true` to keep values out of logs. |
+| `extractVarSettings` | `{audioVariables?, ignorePrevious?, useAudio?, sensitiveVariables?}` | `audioVariables` fills those inputs from the caller's audio. `sensitiveVariables` maps input names to `true` to keep values out of logs. `ignorePrevious` does not apply to tool inputs. |
 
 Placeholders inside `body`:
 
@@ -174,7 +176,7 @@ Example, synthetic, a REST POST:
 | Kind | `integration` / `action` | `body` | Note |
 |---|---|---|---|
 | REST call | `rest_api` / `get` or `post` | `{method, url, headers: [{key, value}], body?}` | Only `get` and `post` exist. GET and DELETE use `get`, which drops any request body. POST, PUT and PATCH use `post`; `body.method` carries the real verb. Results sit under `$.data.rest_api_get_data` or `$.data.rest_api_post_data`, with `..._status` beside them. |
-| Custom code | `custom-code` / `run_snippet` | `{snippet_id, snippet_version?, variables?, connections?, secrets?, timeout?}` | `body.timeout` is in **seconds** (1 to 60, default 10); a top-level `timeout` in ms is converted when `body.timeout` is absent. `connections` maps an alias to `{resource_id}`; `secrets` maps an alias to a secret reference. The snippet reads them under `input.connections` and `input.secrets`. |
+| Custom code | `custom-code` / `run_snippet` | `{snippet_id, snippet_version?, variables?, connections?, secrets?, timeout?}` | Pin `snippet_version`; without it the tool runs the snippet's newest version. `body.timeout` is in **seconds** (1 to 60, default 10); a top-level `timeout` in ms is converted when `body.timeout` is absent. `variables` keys arrive at the root of the snippet's input (map a model input as `"{{input.<name>}}"`). `connections` maps an alias to `{resource_id}`; `secrets` maps an alias to a secret reference. The snippet reads them under `input.connections` and `input.secrets`. |
 | Call control | `bland` / `cold_transfer_call`, `warm_transfer_call`, `transfer_pathway`, `transfer_conversation`, `end_call`, `press_button`, `query_kb` | per action | Acts on the live call. Transfers dial real lines only on voice calls. |
 | Text message | `bland-sms` / `send_sms` | `{to, from?, message}` | E.164 numbers, `message` up to 1600 characters. Texts a real person. |
 | Connection-backed | `slack`, `hubspot`, `salesforce`, `notion`, `google-calendar`, `googleDocs`, `calendly`, `cal-com` / per action | per action | Needs `resource_id` of an active connection in the org. |
@@ -194,7 +196,8 @@ It fails the check when:
   tool; those belong inside `body`);
 - `input_schema` is a string, or an object without `type: "object"` and
   `properties`. The save accepts a string schema;
-- `name`, `description`, `integration` or `action` is missing or empty;
+- `name`, `description`, `integration` or `action` is missing or empty, or
+  the integration and action pair is not registered;
 - `timeout`, `cooldown` or `max_retries` is out of range.
 
 Snapshot saves do not validate an embedded `definition` at all. Prove every
@@ -209,11 +212,14 @@ the test-chat turn alone.
 | Mode | Snapshot shape | What runs | Who a library edit reaches |
 |---|---|---|---|
 | Embedded copy | step tool with `definition` and provenance `toolId` | The embedded definition as saved in the version. | Nobody. The copy is frozen until someone re-copies it and saves a version. |
-| By reference | step tool with `byReference: true`, `toolId`, optional `toolOverrides` (dot-path body overrides) | The library row's current definition, fetched by id on each call, with overrides applied. | Every call of every agent that holds it, at once, with no version save or promotion. |
-| Tool step | `tool` step with `toolId`, `overrides` rows | The library row's current definition, unless an imported step carries `embeddedTool`. | Same as by reference. |
+| By reference | step tool with `byReference: true`, `toolId`, optional `toolOverrides` (dot-path body overrides) | The library row's current definition, read the first time the tool is called in a call and reused for the rest of that call, with overrides applied. | Every new call of every agent that holds it, with no version save or promotion. |
+| Tool step | `tool` step with `toolId`, `overrides` rows | The library row's current definition, read each time the step runs, unless an imported step carries `embeddedTool`. Prove `overrides` with a test chat. | Same as by reference. |
 
 `isStaging` on a step tool runs the staging definition: `stagingDefinition`
-for an embedded copy, the row's `staging_tool` for a reference.
+for an embedded copy (falling back to `definition` when absent), the row's
+`staging_tool` for a reference (a missing one fails the tool call). It is a
+per-tool switch, unrelated to the agent's staging and production
+environments.
 
 No route lists a tool's consumers. Find them by reading each agent's dev head
 and every version an environment pins, and matching the id (with or without
@@ -235,7 +241,10 @@ pass `start_date` and `end_date`; the same filters apply; `limit` up to 1000.
 
 - For one call: `GET /v2/tools/logs?call_id=<call id>`.
 - For a failing tool: `GET /v2/tools/logs/stats?group_by=tool_id,error_type&status=error&period=week`.
-- Only the integration path writes these rows. A tool that the trace shows
-  firing but that has no row for the call was demoted to the HTTP path: read
-  [the HTTP-0 trap](#the-http-0-trap). An error row with an upstream status is
-  the third party answering, not a bad definition.
+- Only the integration path writes these rows, and a row keeps the inputs
+  (sanitised) and sizes, not the response body. No row is written for a run
+  against a missing or disconnected connection, for webhook and code steps,
+  or for a definition demoted to the HTTP path. A tool the trace shows firing
+  with "HTTP 0" and no row: read [the HTTP-0 trap](#the-http-0-trap). An
+  error row with an upstream status is the third party answering, not a bad
+  definition.

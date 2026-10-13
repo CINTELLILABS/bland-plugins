@@ -1,15 +1,16 @@
 ---
 name: automations
-description: Use when someone says "when a call ends, do X", "when a CRM record changes, call them", "set up a trigger", "test my automation", "why didn't my automation fire", "pause the automation", "alert me when", "resend the webhook" or asks about the "post-call webhook", on the Triggers or Alerts pages or an agent's Automations or Alerts tab.
+description: Use when someone says "when a call ends, do X", "when a CRM record changes, call them", "set up a trigger", "test my automation", "how do automations work", "why didn't my automation fire", "pause the automation", "alert me when", "resend the webhook" or asks about the "post-call webhook", on the Triggers or Alerts pages or an agent's Automations or Alerts tab.
 ---
 
 # Automations, alerts and post-call webhooks
 
 A **trigger** (event plus conditions) runs a **pipeline** (ordered steps);
-each firing is an **execution**. Read [the API reference](references/api.md)
-before the first request and [testing](references/testing.md) before any
-test. Hand-offs: outbound-calls (calls, batches), agent-channels (texting),
-tool-library (tools, connections), [call-analysis](../call-analysis/SKILL.md).
+each firing is an **execution**. For "how does it work" or "why did it
+happen", read [how it works](references/how-it-works.md). Read [the API
+reference](references/api.md) before the first request and
+[testing](references/testing.md) before any test. Hand-offs: outbound-calls,
+agent-channels, tool-library, [call-analysis](../call-analysis/SKILL.md).
 
 ## Page context
 
@@ -40,8 +41,8 @@ Budget: catalog, two POSTs, three tests, toggle.
    `/v1/automation/triggers` with `"is_active": false` (omitted means live).
    On an agent page set `agent_id` on both and in `send_call`.
 5. Test in order: `"dryRun": true`; a `nodes` override swapping `send_call`
-   for `mock_call` (resolves number, agent, caller id; dials nobody); then,
-   confirmed, one live run.
+   for `mock_call` (shows the resolved number and config; dials nobody,
+   checks no agent or caller ID); then, confirmed, one live run.
 6. PATCH `/v1/automation/triggers/<id>/toggle` `{"is_active": true}`. An
    empty body flips the state.
 
@@ -74,8 +75,7 @@ before the reads explain it.
 ## Workflow: post-call webhooks
 
 1. URL: the call's own (call, agent or number), else the org default
-   (`/user/getCurrentWebhook`). The old outcomes webhook page opens
-   Dispositions.
+   (`/user/getCurrentWebhook`).
 2. `/v1/postcall/webhooks/<call_id>`: `payload`, `url`, deliveries with
    `response_code`. `null` means nothing was sent.
 3. Resend: POST `/v1/postcall/webhooks/resend` `{"call_ids": [...]}`. All
@@ -97,7 +97,6 @@ Reply "yes" to proceed.
 
 - `oauth_path_not_allowed`: say "this connection cannot reach automations;
   do it on /dashboard/triggers" (or `/dashboard/alerts`) and stop.
-- CSV or file uploads cannot go through these tools; name the dashboard page.
 - `WEBHOOK_PAYLOAD_EXPIRED`: retention cleared it; nothing was sent.
 
 ## Do not

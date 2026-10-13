@@ -2,13 +2,13 @@
 
 ## Traffic semantics
 
-Keep org, agent, version/structure, window, timezone, region, and cohort filters
+Keep org, agent, version/structure, window, timezone and cohort filters
 attached to every measurement. Do not mix agent IDs with org IDs or v1 pathway
 keys. A migrated agent may have historical traffic keyed differently; verify the
 mapping from evidence rather than broadening the cohort to the entire org.
 
-Distinguish a successful query with no rows from denied access, a wrong region,
-a missing table, or ingestion lag. Report the queried scope; none establishes
+Distinguish a successful query with no rows from denied access, a missing
+table, or data that has not been processed yet ([freshness](how-it-works.md#how-it-reaches-a-live-call-or-conversation)). Report the queried scope; none establishes
 that the customer has never had calls. A structural graph is not traffic.
 
 An aggregate edge traversal count is not a distinct-call count. Loops and revisits

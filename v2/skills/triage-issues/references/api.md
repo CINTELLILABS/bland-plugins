@@ -28,8 +28,8 @@ the docs for these routes.
 - Lists return `{ "items": [...], "next_cursor": "<cursor or null>" }`. Pass
   `cursor` and `limit` (1 to 100) to page.
 - Bodies are strict. An unknown key answers 400 `Invalid params: …`.
-- Any org member or org key can call every route here. There is no role gate,
-  so the skill's confirm is the only check.
+- Every write takes effect at once. Confirm each one as the skill says
+  before you send it.
 - OAuth-connected hosts are refused on all of `/v1/triage` with
   `oauth_path_not_allowed`.
 

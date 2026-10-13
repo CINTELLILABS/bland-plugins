@@ -22,7 +22,9 @@ user changed.
   first and quote the old value in your reply, so the user can restore it.
 - Call behavior that lives in the agent version (voicemail, max duration,
   recording, transcription keywords) is changed with a version save, not
-  here. See [v2-lifecycle](../../v2-lifecycle/SKILL.md).
+  here. See [v2-lifecycle](../../v2-lifecycle/SKILL.md). An agent value
+  left at its default does not override the number's own value; see the
+  [merge table](how-it-works.md#how-it-reaches-a-live-call-or-conversation).
 - `settings.voiceCall.fallbackNumber` in the agent version is read by no call
   path. The number's `fallback_number` is the only fallback field calls use,
   and only while the platform's inbound fallback is switched on: then calls to

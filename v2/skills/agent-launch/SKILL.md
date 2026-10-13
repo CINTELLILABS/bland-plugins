@@ -48,8 +48,9 @@ Launch: <agent name>
 5. **Staging and simulations.** Publish to staging
    ([v2-lifecycle](../v2-lifecycle/SKILL.md)), then run the suite
    ([v2-testing](../v2-testing/SKILL.md)) with its live-integration rails.
-6. **Promote.** Promote the staging pin. `409 CHECKS_BLOCKED` means fix the
-   checks, never `force`.
+6. **Promote.** Pre-flight production variables and pass the staging checks
+   ([agent-environments](../agent-environments/SKILL.md)); then promote.
+   Never `force`.
 7. **Number.** [phone-numbers](../phone-numbers/SKILL.md): "get a number" if
    needed, "put an agent on a number", then the real test call from another
    account number.
@@ -81,7 +82,8 @@ and attach are the two the user feels first; name them.
 - An owning skill's routes are unreachable over this connection
   (`oauth_path_not_allowed`): mark the item "dashboard" with the path and
   continue.
-- File uploads and carrier submissions are dashboard-only; mark, do not block.
+- Local files and carrier submissions are dashboard-only; mark, do not
+  block.
 - Never promote to make a later step pass; promote is its own confirmed step.
 
 ## Do not

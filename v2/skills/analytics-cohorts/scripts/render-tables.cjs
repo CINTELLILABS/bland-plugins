@@ -39,9 +39,7 @@ function availability(entry) {
 function tableSection(name, entry) {
   const lines = [`## ${name}`, ''];
   lines.push(`- Call id column: ${code(entry.callId)}`);
-  lines.push(`- Tenant column: ${entry.tenant ? code(entry.tenant) : 'none'}`);
   lines.push(`- Date column: ${code(entry.dateColumn)}`);
-  if (entry.callIdWhere) lines.push(`- Row filter: only rows where ${code(entry.callIdWhere.column)} = ${code(entry.callIdWhere.equals)}`);
   lines.push(`- Cost: ${entry.cost}`);
   lines.push(`- Availability: ${availability(entry)}`);
   lines.push(name === 'calls'
@@ -66,9 +64,6 @@ function tableSection(name, entry) {
     lines.push(`| ${code(column)} | ${CLASS_OF_KIND[kind]} | ${opList(kind)} |`);
   }
   lines.push('');
-  lines.push('### Denied columns', '');
-  lines.push(denied.size === 0 ? 'None.' : [...denied].sort().map(code).join(', '));
-  lines.push('');
   return lines;
 }
 
@@ -83,9 +78,12 @@ function renderTables() {
     '> Do not edit by hand. Re-cut both files when the API\'s predicate allowlist',
     '> changes; the plugin tests fail when this page and the data disagree.',
     '',
-    'Every table and column a cohort `where` leaf may name. A table not listed here',
-    'is refused as `unknown or unallowlisted table`; a listed column under',
-    '"Denied columns" is refused as `denied column`. The API is the authority if',
+    'The tables and columns a cohort `where` leaf may name. A table not listed here',
+    'is refused as `unknown or unallowlisted table`, a column not listed as',
+    '`unknown column`. Columns that hold conversation content or personal data',
+    '(transcript text, summaries, payloads, phone numbers, prompts, variables) are',
+    'refused as `denied column`: classify those with a disposition instead. The',
+    'offline checker refuses anything not listed here; the API is the authority if',
     'it has moved ahead of this copy.',
     '',
     '## Type classes',

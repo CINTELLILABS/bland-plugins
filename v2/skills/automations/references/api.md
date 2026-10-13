@@ -4,7 +4,8 @@ Every route here is org scoped. Reads use `bland_api_get` (query values are
 strings). Writes use `call_bland_api` with `{method, path, body}`. Send the
 body as a JSON object. An `INVALID_JSON` 400 means the body went out as a
 string. Do not write fetch scripts and do not search the docs for these
-routes.
+routes. Why things happen (event timing, run states, alert transitions,
+cause map) is in [how it works](how-it-works.md).
 
 ## Contents
 
@@ -122,16 +123,22 @@ PUT the trigger.
 | `send_call` | `agent_id`, `agent_version`, `to`, `from`, `max_duration` (default 12), `record`, `wait_for_greeting`, `interruption_threshold`, `block_interruptions`, `request_data`, `metadata` | Places a real call. `agent_id` is never combined with `persona_id` or `pathway_id`. Output `call_id` |
 | `mock_call` | same as `send_call` | Dials nobody. Output `call_id: "mock_<n>"` and `resolved_config` |
 | `send_sms` | `to`, `message` (with `{{path}}` placeholders), `agent_id` (answers replies), `from`, `request_data`, `new_conversation`, `time_out`, `webhook` | Enterprise only. Texts a person |
-| `send_webhook` | `url`, `headers` `[{key, value}]`, `body`, `timeout` | POSTs to the URL |
+| `send_webhook` | `url`, `headers` `[{key, value}]`, `body`, `timeout` (ms, default 30000) | POSTs JSON signed like the post-call webhook. No `body` sends the whole event. A non-2xx response fails the run |
 | `send_slack_message` | `resource_id`, `channel_id`, `message` | Needs a Slack connection |
 | `run_connected_custom_code` | `snippet_id`, `variables`, `connections`, `secrets`, `timeout` | Runs a saved snippet |
-| `schedule_window` | `mode` (`business_hours` or `custom`), `timezone`, `startHour`, `endHour`, `daysOfWeek` | Put first. Sets `start_time` so the call waits for the window |
+| `schedule_window` | `mode` (`business_hours` or `custom`), `timezone`, `startHour`, `endHour` (excluded), `daysOfWeek` (0 = Sunday) | Put first. Sets `start_time` so the call waits for the window. Only call steps honor it. Always set `timezone`. The dashboard offers it for CRM events only |
 | `evaluate_conditions`, `fetch_lead`, `run_eval_judge`, `resolve_hubspot_association` | | API-only helpers; read an existing pipeline before using one |
 
 `send_call` stamps the call's `metadata` with `automation_execution_id`,
-`automation_pipeline_id` and `automation_node_id`. Those keys are reserved.
-`metadata` reaches the post-call webhook for every call status; `request_data`
-becomes the agent's variables.
+`automation_pipeline_id`, `automation_node_id` and, when a conversation
+triggered the run, `automation_source_conversation_id`. Those keys are
+reserved. `metadata` reaches the post-call webhook for every call status;
+`request_data` becomes the agent's variables. A run triggered by a
+conversation's end also passes `previous_conversation` (`id`, `channel`,
+`summary`) unless you map that key.
+
+Saving the trigger in the dashboard builder rewrites `nodes` from its form
+(timing, CRM association lookup, one action) and drops any other step.
 
 ## Executions
 
@@ -145,10 +152,15 @@ An execution has `status` (`pending`, `running`, `completed`, `failed`,
 step output, merged), `nodes_executed`, `error`, `started_at`,
 `completed_at`, `duration_ms`, `trigger_id`, `created_at`.
 
-- `error` reads `Node <node_id> failed: <message>`. Quote it verbatim.
+- `error` reads `Node <node_id> failed: <message>` when a step reported
+  failure, or `Pipeline execution failed: <message>` (with an empty
+  `result`) when a step kept erroring after automatic retries. Quote it
+  verbatim.
 - `pending` that never turns `running` means the run never started.
-- Test runs are recorded like real ones. A `call_id` starting `mock_` marks
-  a mock run.
+- Test runs are recorded like real ones and count in the trigger's
+  `trigger_count` and `last_triggered_at`. A `call_id` starting `mock_`
+  marks a mock run.
+- `cancelled` is defined but normal runs never reach it.
 - There is no retry or re-run route.
 
 ## Alerts
@@ -176,14 +188,15 @@ Create body:
   "agent_id": "<agent id or omit for org-wide>",
   "metric": "call_length",
   "levels": {
-    "WARNING": {"operator": "gt", "value": 10, "percentage": 0.2, "lookback_ms": 3600000}
+    "WARNING": {"operator": "gt", "value": 600, "percentage": 0.2, "lookback_ms": 3600000}
   },
   "min_calls": 5,
   "delivery": {"emails": ["<email>"]}
 }
 ```
 
-- Exactly one of `metric` or `custom_condition`.
+- Exactly one of `metric` or `custom_condition`. `call_length` is in
+  seconds (the example fires when 20% of calls run over 10 minutes).
 - `metric`: `call_length`, `api_errors`; enterprise only: `latency`,
   `transcription_score`, `silence_count`, `user_interruption_count`,
   `low_engagement_ratio`, `sentiment_score`.
@@ -197,8 +210,9 @@ Create body:
   Levels: `INFO`, `WARNING`, `CRITICAL`.
 - `delivery.emails[]` sends email. `delivery.tools[]` (`{id, input}`) runs a
   saved tool; this is how Slack or a webhook is reached. `delivery.phone`
-  (`{numbers, from, say}`) **places real calls when the alert reaches
-  CRITICAL**.
+  (`{numbers, from, say}`) **places real calls when the alert starts at or
+  rises to CRITICAL**. Email and tools are sent when an alert starts,
+  escalates and resolves; not when it drops a level.
 - `agent_id` is fixed at create. To re-scope, delete and create again.
 - There is no "send a test alert" route. The preview is the test.
 - Ignore the legacy `/v1/alarms` routes; the product uses `/v1/alerts`.
@@ -228,15 +242,19 @@ call, or by its agent or inbound number), else the org default.
 - Each request carries `X-Webhook-Signature`: hex HMAC-SHA256 of the raw
   JSON body with the org secret. Disposition follow-ups add
   `X-Webhook-Idempotency-Key`.
-- The `bland:post_call.completed` automation fires on the original send
-  only. A call with no webhook URL sends nothing and fires no post-call
-  automation. A resend does not fire it again.
+- The `bland:post_call.completed` and `bland:call.voicemail_detected`
+  automations fire on the original send only, whatever the receiver
+  answered. A call with no webhook URL sends nothing and fires neither. A
+  resend or create does not fire them.
+- A resend answers 200 even when your receiver fails. Read the new
+  delivery's `response_code`. It is signed with the current secret.
 - Resend checks every call before sending any. One missing or expired call
   fails the whole request and nothing is sent.
 - These routes allow 100 requests per 15 minutes.
 - Disposition `hold` versus `emit_followup` timing is in
   [dispositions](../../evaluations/references/dispositions.md#definition-and-dependencies).
 - Payload fields can be excluded org-wide on Settings, Organization.
+- The old agent outcomes webhook page now opens Dispositions.
 
 ## Errors
 
@@ -252,6 +270,7 @@ call, or by its agent or inbound number), else the org default.
 | 403 `ENTERPRISE_REQUIRED` on custom conditions or enterprise metrics | not an enterprise org | use `call_length` or `api_errors` |
 | 410 `WEBHOOK_PAYLOAD_EXPIRED` | retention cleared the stored payload | nothing was sent; it cannot be resent |
 | 500 on resend | usually a call with no stored webhook | check each id with the GET first |
+| 500 `CREATE_PIPELINE_ERROR` `Pipeline compilation failed: …` | duplicate `node_id` or `order`, an `order` gap, or an unknown `type` | number steps 0, 1, 2 …; use a listed type |
 | 400 `INVALID_JSON` | body sent as a string | send a JSON object |
 
 ## Access

@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // Offline check for a cohort column predicate (the `predicate.where` of
 // POST /v2/analytics/cohorts). It applies the rules the API applies to the
-// same value, against the same table allowlist (trusted-layer.json, keyed by
-// table name; `available: false` marks a table the API refuses for now), and
+// same value, against a copy of the table allowlist (trusted-layer.json, keyed
+// by table name; `available: false` marks a table the API refuses for now), and
 // reports each refusal with the same path and message the API answers with.
+// The copy lists the tables and columns meant for customer predicates; the API
+// may accept a few more, which this check refuses as unknown (fail closed).
 // It is not the API: a clean result still needs the live request, and the
 // API stays the authority whenever its allowlist moves ahead of this copy.
 //

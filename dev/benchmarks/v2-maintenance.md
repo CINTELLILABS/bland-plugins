@@ -52,3 +52,48 @@ The pre-maintenance wiki correctly handled state conflicts and scoped promotion,
 but did not define the special default-response precedence or explain current-node
 interruption recovery. An older installed plugin also asserted a mandatory hub
 hop. Keep these as regression cases even after correcting the prose.
+
+## How-it-works cases
+
+Same setup: a fresh agent with only `v2/`. Grade on the correct mechanism and
+on what the answer leaves out.
+
+6. "We promoted a fix ten minutes ago, but an inbound caller still heard the
+   old greeting. Outbound test calls with `agent_version: "production"` sound
+   right. Explain how this can happen and what to check."
+7. "A caller in the middle of our Billing pathway asked to cancel their
+   account. The Cancellation scenario has a clear routing condition, but the
+   agent kept asking billing questions. Why, and what are the fixes?"
+8. "Walk me through what happens between a caller dialing in and the agent's
+   first word, for an agent with an Initialization snippet, a Start item and a
+   'Starts in' pathway."
+9. "Our Help global step answers, then the agent goes back to the question it
+   was asking. Which model decides that, and how do I make it continue from
+   Help instead?"
+
+### Rubric for cases 6 to 9 (not shipped to the agent)
+
+- **6:** the version is frozen at connect; inbound can differ from production
+  through a staging-attached number, an experiment variant, or an inbound call
+  that could not prepare its version (a missing `{{env.KEY}}` for production)
+  and was answered from the number's attached copy; an explicit selector skips
+  experiments. Checks: the call's resolved version, number environment,
+  experiments, production env values. No caching internals, durations or
+  internal component names.
+- **7:** inner Pathway steps follow only the Pathway's own edges and global
+  steps; generated sibling routes leave from the End pill. Fixes: an exit edge
+  from the relevant step, or a global step; not a mandatory hub hop, not
+  broadening the routing condition. Loop-condition holds are a valid second
+  cause.
+- **8:** Initialization runs first (saved snippet only) and its routes can open
+  the hub or a root scenario directly; then the Start item; then the "Starts
+  in" pathway instead of the hub's routing turn. Notes that the Start item and
+  entry pathway get no generated entry or sibling routes, and an auth zone in
+  Start cannot combine with an entry pathway.
+- **9:** the default "go back" return mode; Redirect or Manual changes it, and
+  "Return to node before global" is a different setting on the destination
+  step. The answer declines to name any model or vendor and points to what the
+  user controls.
+
+A case fails if the answer names a model, vendor, cache, queue, database,
+timeout value or internal service, even when the mechanism is otherwise right.

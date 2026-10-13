@@ -26,7 +26,10 @@ Every agent has exactly three fixed environments: `dev`, `staging` and
   timeline (the head). Saving a version deploys it to dev.
 - **staging and production are pins**: a pointer at one immutable version row.
   A new agent has both unpinned. A call to an agent with no production pin
-  fails with `AGENT_ENV_UNPINNED`. It does not fall back to the head.
+  fails with `AGENT_ENV_UNPINNED` on outbound calls, tests and simulations;
+  it does not fall back to the head. Inbound calls still connect and run the
+  twin's stored copy, compiled at the last attach or promote (after a fresh
+  attach to a never-promoted agent, that is the latest save), unattributed.
 
 ## The ship pipeline
 
@@ -81,39 +84,45 @@ Selector grammar (`agent_version`, `version_id`): `production` | `staging` |
   production variable set.
 - **Test chat proves the dev head**, not what customers hear. Publish and
   promote, or pass an explicit selector, before claiming production parity.
+  When the builder tests the Staging or Production version it selects it by
+  semver, so it runs with dev variables.
+- A selector value the platform cannot parse (a number, a typo) counts as no
+  selector: the production pin.
 - **API chat** also needs the API chat channel switched on in the version the
   chat runs. The `agent-channels` skill owns that workflow.
 
 ## Inbound binding, the twin and fail-open
 
 Attaching numbers (`POST /:agentId/inbound/attach`) does not bind a number to
-the agent directly. It materializes a **twin pathway and twin persona** for the
-agent over the v1 runtime and points the number's inbound row at them. The
-widget, API chat and SMS run the same twin.
+the agent directly. It builds a **twin**, a compiled copy of the agent, and
+points the number at it. The widget, API chat and SMS run the same twin.
 
 - **Attach clears the number's direct-pathway columns.** A v1 pathway on that
   number stops answering at once. Send `only_if_unassigned: true` unless the
   user asked to move a number; the attach then refuses (`409
   NUMBER_ALREADY_ASSIGNED`) rather than take a number someone else holds.
 - **The twin's stored graph changes on these events only**: a production
-  attach or re-attach (compiles the **dev head** of that moment), binding a
-  widget (compiles production, or the latest save if never promoted), and any
-  **production repoint**, promote or rollback (compiles the production pin).
-  Publish does not touch it. Between those events it is stale.
+  attach or re-attach (compiles the **dev head** of that moment, with
+  `{{env.KEY}}` references left unfilled), binding a widget (compiles
+  production, or the latest save if never promoted), a production variable
+  write while a widget is bound, and any **production repoint**, promote or
+  rollback (compiles the production pin with production variables). Publish
+  does not touch it. Between those events it is stale. If production cannot
+  be prepared at a refresh, the twin keeps its old copy.
 - So a fresh attach puts dev-head behavior on SMS, the widget and API chat
   until the next promote. Plan verification of those channels after promote,
   not after publish.
-- At call time the inbound voice resolver has a **2-second budget and fails
-  open**: an error, timeout, unpinned production, invalid snapshot or
-  unresolved environment variable silently degrades the call to the twin's
-  stored graph, unattributed to the agent version. Keep production pinned and
-  valid, and promote to refresh the twin.
+- At call time inbound voice resolves the production pin, and **fails open**:
+  if resolution errors or does not finish in time (unpinned production,
+  invalid snapshot, unresolved environment variable), the call still runs on
+  the twin's stored graph, unattributed to the agent version. Keep production
+  pinned and valid, and promote to refresh the twin.
 - `environment: "staging"` on attach makes inbound calls on that number resolve
   the staging pin. It needs an enterprise org, routing that supports it, a
   published staging pin and resolved staging variables.
 - One number binds one agent (rebinding overwrites). One agent can hold many
-  numbers. Compiled inbound routes cache about 60 seconds; production and
-  staging keys are invalidated on repoints, variable writes, attach and detach.
+  numbers. A repoint, a staging or production variable write, an attach or a
+  detach reaches the next inbound call on the affected environment.
 - Deleting the agent unbinds every number and retires the twin. It is refused
   (`409 AGENT_HAS_BOUND_WIDGETS`) while a widget still runs the twin.
 
@@ -135,8 +144,9 @@ to 64 characters of `[A-Za-z0-9._-]`, never `dev`, `latest`, `staging`,
 - A branch head can be tested with selector `branch:<name>` (dev variables),
   published to staging with `{version_id, branch_id}`, or promoted as an exact
   candidate. Promotion changes production and staging under the promotion
-  policy; publishing changes only staging. Closed or merged branches cannot be
-  selected (`409 BRANCH_CLOSED`).
+  policy; publishing changes only staging. A merged or deleted branch cannot
+  be selected (`AGENT_BRANCH_NOT_FOUND` on a call or test) or published or
+  promoted (`409 BRANCH_CLOSED`).
 
 ## Standalone experiments
 
@@ -152,13 +162,15 @@ history, and `finish` promotes the winner. Experiments are enterprise-only
   variant_call_quota?}`. The variant is compiled at creation, so a broken
   variant is a 400 now, not a fail-open surprise later.
 - Only **selector-less** calls are eligible. Any explicit `agent_version`, even
-  `"production"`, bypasses the split and is never attributed. Outside run
+  `"production"`, is never split and never attributed. Outside run
   hours, quota or dates, calls run the baseline arm but stay attributed.
   Unanswered outbound calls never consume quota.
-- The baseline is the environment pointer. A publish, promote or rollback that
-  repoints it **auto-completes the experiment** (`baseline_changed`). A bare
-  experiment has no winner endpoint: promote the variant, or
-  `POST /experiments/:id/stop` and do nothing.
+- The baseline is the environment pointer. A promote or rollback that
+  repoints production **auto-completes a production-baseline experiment**
+  (`baseline_changed`). For a staging baseline, do not rely on a publish to
+  end it; stop it explicitly. A bare experiment has no winner endpoint:
+  promote the variant, or `POST /experiments/:id/stop` and do nothing.
+- Both arms of an experiment resolve production variables.
 - Only `traffic_percentage`, dates, `run_hours` and quota are PATCHable. When a
   rollout drives the experiment, a traffic PATCH returns
   `409 ROLLOUT_IN_PROGRESS`; change it from the rollout.
@@ -187,7 +199,8 @@ resolves).
 
 A check config per agent and environment (`staging` or `production`): 1 to 5
 agent-testing scenarios times judge evals (`required` defaults true), and
-`simulations_count` per scenario (default 5, max 50).
+`simulations_count` per scenario (default 5, at most 50 and at most the
+org's per-scenario simulation limit; the refusal names it).
 `POST /environments/:env/check-runs` (body `{version_id?}`) runs simulations
 against the candidate and scores them in one eval run. The default candidate
 is what a promotion into that environment would deploy: staging's pin for
@@ -206,11 +219,14 @@ production, the dev head for staging.
   the detailed verdicts, not a headline status or an old passing run.
 - Check runs freeze the candidate and use the check environment's variables. A
   staging check is not evidence that production bindings work.
-- `force: true` is an explicit, audited policy bypass. Never add it, disable
-  checks or remove required judges to make a failed promotion succeed. A
-  request to deploy does not authorize bypassing a known safety gate.
-- One active run per agent and environment. A wedged run returns 409 to new
-  starts until it is cancelled or the 45-minute stale reaper ends it.
+- `force: true` is an explicit override, recorded as forced. Never add it,
+  disable checks or remove required judges to make a failed promotion
+  succeed. A request to deploy does not authorize skipping a known safety
+  gate.
+- Rollback is never gated by checks, and neither is a promote of a version
+  production already runs (it only brings staging level).
+- One active run per agent and environment. A stuck run returns 409 to new
+  starts until it is cancelled or it is ended as timed out after 45 minutes.
 
 ## The rest of the surface
 

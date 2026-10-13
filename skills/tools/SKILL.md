@@ -35,7 +35,7 @@ Endpoints (confirm each in the docs before calling — do not trust this list bl
   - List secrets — `GET /v1/secrets` → `bland_api_get`. Returns `id`, `name`, `static`, `has_secret` for each; secret VALUES are never returned (`data: null`).
   - There is NO documented REST endpoint to create, read, or delete a secret value. The docs (tutorial `tutorials/secrets`) describe the Secret Manager UI at `app.bland.ai/dashboard/secrets`. If the user needs a NEW secret, direct them to create it in that dashboard, then reuse it here by listing `GET /v1/secrets` and referencing it. Do not fabricate a secrets-write endpoint.
 
-## Design the tool like Anthropic designs tools
+## Design the tool well
 
 The tool you create is consumed by a voice agent mid-call, so the same agent-computer-interface rules that make any agent tool good apply here:
 

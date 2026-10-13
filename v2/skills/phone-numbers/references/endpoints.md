@@ -37,7 +37,8 @@ Owner rules, in order:
    `v2-agent:<agent id>` marks a v2 agent; the persona's `name` is the
    agent's name. Any other persona is a classic persona.
 2. Otherwise a `pathway_id` on the number row means a v1 pathway answers it.
-3. Otherwise the number is unassigned and answers nothing.
+3. Otherwise the number is unassigned. Only its own legacy settings, if
+   any, answer; usually nothing or a not-set-up placeholder.
 
 A number missing from `/v1/inbound` is either not on this account or its
 subscription is not active.
@@ -55,13 +56,17 @@ number has an owner):
   flag on a number already bound to this agent and starts every other number
   on production.
 - `only_if_unassigned: true` binds only numbers with no persona and no
-  pathway. If any number is taken, nothing is written and the call returns
-  409.
+  pathway. A number running its own legacy prompt still counts as
+  unassigned. If any number is taken, nothing is written and the call
+  returns 409.
 - Without it, the attach takes the number from whatever owns it, including a
   live v1 pathway, whose direct pathway binding is cleared.
 - A production attach recompiles the agent's latest saved mainline version
   into its inbound bridge. Calls still resolve the production pin at call
-  time, or the staging pin for a staging number.
+  time, or the staging pin for a staging number. When that version cannot
+  be served (never promoted, invalid, a production variable unset), the
+  call runs the copy compiled at the last attach or promote instead
+  ([how it works](how-it-works.md#how-it-reaches-a-live-call-or-conversation)).
 - 200: `{ agent_id, persona_id, pathway_id, compiled_from_version, attached }`.
 
 | Status | Code | Message | Fix |
@@ -80,8 +85,10 @@ number has an owner):
 | 409 | `AGENT_VARIABLE_UNRESOLVED` | names the variables missing a staging value | Set them for staging. |
 
 POST `/v2/agents/<agentId>/inbound/detach` with `{ "inbound_numbers": [...] }`
-(✓, gate **confirm**): unbinds numbers bound to this agent. The number then
-answers nothing. A repeat returns `detached_count: 0`.
+(✓, gate **confirm**): unbinds numbers bound to this agent. The number goes
+back to its own legacy settings, usually nothing; a v1 pathway that an
+earlier attach cleared does not come back. A repeat returns
+`detached_count: 0`.
 
 POST `/v1/personas/<personaId>/inbound/attach|detach` is the classic persona
 binding. Never use it for a v2 agent.

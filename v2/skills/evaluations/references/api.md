@@ -31,13 +31,14 @@ Call `get_dashboard_page_context` first. On judge pages, take `agentId` and
 | `/dashboard/agent/<agent id>/judges/workbench` | workbench panels for the agent |
 | `/dashboard/agent/<agent id>/judges/test-cases` | test cases and their rosters |
 | `/dashboard/agent/<agent id>/judges/runs` | multi-case runs (see [Test cases from calls](#test-cases-from-calls)) |
-| `/dashboard/agent/<agent id>/dispositions` | dispositions; read [dispositions](dispositions.md) |
+| `/dashboard/agent/<agent id>/dispositions` | dispositions; read the [dispositions skill](../../dispositions/SKILL.md) |
 
 The open page refreshes by itself only after: judge create, judge identity or
 version PATCH, judge fork, publish and copy, `POST /v1/evals/runs`, test-case
-create and PUT, roster PUT and POST, and `POST …/source-calls`. After any other
-write (annotations, alignment, analyze, apply, workbench setups, test configs,
-deletes, owner moves, regenerate) say: "Saved through the API. The page shows
+create and PUT, roster PUT and POST, `POST …/source-calls`, and
+`POST …/run`. After any other write (`/simulate`, annotations, alignment,
+analyze, apply, workbench setups, test configs, deletes, owner moves,
+regenerate) say: "Saved through the API. The page shows
 it after a refresh."
 
 ## Judge identity and rubric are separate resources
@@ -165,13 +166,21 @@ wanted behavior, so the target is `observed_issue`. Keep the returned
    detaches one judge. Read back after either.
 5. `POST /v1/agent-testing/scenarios/{id}/simulate` with
    `{"simulations_count":3}` starts conversation generation and scoring, returning
-   202 and a `simulation_set_id`. This is not a completed score.
+   202 and a `simulation_set_id`. This is not a completed score. The case needs
+   at least one attached judge (else 400). The count defaults to 5 and is cut to
+   50; the plan's per-test cap (10 by default) and per-minute conversation
+   budget answer 429. A pass/fail judge needs `"target_level_keys":["pass"]` on
+   its attachment, or its verdicts never count as on target.
 6. Poll `GET /v1/agent-testing/simulation-runs/{simulation_set_id}/results`.
    Despite the route name, this endpoint accepts the **set ID** returned by
    `/simulate`, not an individual run ID.
    The assembled result has `summary`, `assertions`, and `logs`.
-   `summary.eval_run_id` may be null and arrays empty while scoring initializes.
+   `summary.eval_run_id` stays null and the arrays empty until every
+   conversation has been generated; scoring starts after that.
    That is not proof that no judges were attached or the test passed.
+   The verdict is `assertions[].passed` (at least half of the conversations
+   on target). `summary.passed` and `logs[].passed` only mean the
+   conversations were scored cleanly.
 7. Reconcile all three requested simulations against `logs[]` and
    `summary.total_calls` after generation/scoring. Each `logs[].run_id` identifies
    an individual scenario run; read `GET /v1/agent-testing/runs/{run_id}` for its
@@ -181,9 +190,11 @@ wanted behavior, so the target is `observed_issue`. Keep the returned
 
 The `/scenarios/{id}/run` → `/runs/{id}` inline-assertion workflow is different
 from `/simulate` → `/simulation-runs/{id}/results`. Use the matching read path.
-Never infer a v2 voice-agent version selector from the legacy `version_number`
-field. Consult the current contract and verify the selected version in results;
-for explicit candidate checks see [lifecycle checks](../../v2-lifecycle/references/api.md).
+Agent-owned cases always run the agent's latest saved version with dev
+variable values; `version_number` applies only to v1 pathway cases. Each
+conversation run records the version it ran in `metadata.agent_version_id`.
+To score a specific candidate, use a promotion check run; see
+[agent environments](../../agent-environments/SKILL.md).
 
 ## Test cases from calls
 
@@ -235,13 +246,15 @@ the actual estimate's counts and `estimated_cost_usd_cents`, never hardcoded
 pricing.
 
 Run statuses: `PENDING`, `QUEUED`, `RUNNING`, then `COMPLETE`, `PARTIAL`, `FAILED`,
-or `CANCELLED`. Queueing is not a failed judge. A run's `error_code` /
+or `CANCELLED`. Queueing is not a failed judge. `PARTIAL` also covers a run
+where nothing failed but one call came back insufficient evidence. A run's `error_code` /
 `error_message` describe execution; per-judge `failed`, `failure_code`, and
 `is_insufficient_evidence` must be distinguished from `is_target_match:false`.
 
 Refusals: 402 `BILLING_RECORD_REQUIRED` or `BILLING_NOT_ALLOWED` (hand to
-billing), 429 `RATE_LIMITED` (wait, do not retry in a loop), 400
-`CALL_NOT_FOUND` (an ID outside this org).
+billing), 429 `RATE_LIMITED` (30 submissions a minute by default; wait, do
+not retry in a loop), 404 `CALL_NOT_FOUND` (an ID outside this org), 400
+`NO_RUNNABLE_AGENTS` (no attached judge matches `run_mode`).
 
 ## Run create: remaining fields
 

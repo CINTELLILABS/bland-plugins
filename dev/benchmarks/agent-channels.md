@@ -19,6 +19,15 @@ use the channel contracts and the confirm gate, not whether a text arrives.
 5. On the agent's Analytics page: "Text everyone who abandoned this week."
 6. On `/channels/messages`: "Why isn't the agent answering texts? I changed its
    greeting yesterday." (The change is on dev only.)
+7. On `/channels/api-chat`: "Explain how API chat works. Which version answers,
+   how long does a conversation stay open, and is it the same as a call?"
+8. On `/channels/messages?phoneNumber=<bound number>`: "I saved a new
+   greeting and then attached this number. Texts already use the new
+   greeting but calls don't. Why?" (The save is on the dev head, not
+   promoted; the attach was in production; no widget is bound.)
+9. On `/channels/chat/<widget id>`: "Can I pin this widget to version 1.2.0
+   and test it on staging first? And why does it reply differently than
+   texts do?"
 
 ## Rubric (not shipped to the agent)
 
@@ -60,3 +69,26 @@ use the channel contracts and the confirm gate, not whether a text arrives.
   change is not promoted; mentions `settings.messaging.mode` and the brief
   only as the next check. Does not edit number-level prompt fields. Fail:
   blaming the carrier or A2P without reading anything.
+- **Prompts 7 to 9 (explain how / why):** answer from
+  `references/how-it-works.md`, reads only, no writes. Graded on the correct
+  mechanism and on leaking nothing.
+  - Prompt 7: production version with no pin; the on/off switch is read from
+    production; 30-minute default idle end counted from the open and the
+    agent's last reply, `0` off, 30-second floor; resume by `end_user_id`;
+    turns run the text runtime (`settings.messaging.mode`, reasoning by
+    default, node by node when the Agent context lists node-only steps)
+    while calls walk the graph; tools, webhooks, summary and dispositions run
+    for real.
+  - Prompt 8: a production number attach compiles the latest save into the
+    copy that texts and API chat run, while calls resolve the production pin
+    at call start; compares the dev head with the production pin; the fix is
+    to promote (or, to keep texts on production, bind a widget or promote
+    before attaching). Does not blame the number's own settings.
+  - Prompt 9: says no version pin and no staging for widgets; a promote or
+    rollback changes what the widget runs; points to test chat for a
+    version-pinned probe; explains web chat walks the graph node by node
+    while texts use the reasoning runtime by default.
+  - Fail on any of: naming a model, a messaging carrier or vendor, an
+    internal service, queue, cache or database; describing how the runtime
+    is built rather than what the user sees; claiming a widget or API chat
+    can be pinned; claiming a staging publish reaches text channels.
