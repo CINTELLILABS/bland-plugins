@@ -838,21 +838,36 @@ test('a v1 edge with an empty condition group always matches, alone or ORed with
   }
 });
 
+// Rule 2 holds an empty group, so v1 never gets past it: rules 3 and 4 and the
+// old fallback never fire. Other (and Other follow-up, reached only from
+// Other) are dead in v1; Gold stays, as rule 1 still reaches it.
 const EMPTY_GROUP_ROUTE = {
   nodes: [
     { id: 'r', type: 'Route', data: { name: 'Branch', fallbackNodeId: 'z', routes: [
       { targetNodeId: 'x', conditions: [{ field: 'tier', operator: 'equals', value: 'gold' }] },
       { targetNodeId: 'y', conditions: [{ field: 'tier', operator: 'equals', value: 'silver' }, { isGroup: true, conditions: [] }, { field: 'tier', operator: 'equals', value: 'bronze' }] },
       { targetNodeId: 'z', conditions: [{ field: 'tier', operator: 'equals', value: 'lead' }] },
+      { targetNodeId: 'x', conditions: [{ field: 'tier', operator: 'equals', value: 'platinum' }] },
     ] } },
-    { id: 'x', type: 'Default', data: { name: 'Gold', prompt: 'Gold.' } },
-    { id: 'y', type: 'Default', data: { name: 'Silver', prompt: 'Silver.' } },
-    { id: 'z', type: 'Default', data: { name: 'Other', prompt: 'Other.' } },
+    { id: 'x', type: 'Default', data: { name: 'Gold', prompt: 'Thank the caller for being a gold member.' } },
+    { id: 'y', type: 'Default', data: { name: 'Silver', prompt: 'Thank the caller for being a silver member.' } },
+    { id: 'z', type: 'Default', data: { name: 'Other', prompt: 'Tell the caller about the other membership tiers.', tag: { name: 'other-tier', color: '#888888' } } },
+    { id: 'w', type: 'Default', data: { name: 'Other follow-up', prompt: 'Ask which other tier interests the caller.' } },
+    { id: 'bye', type: 'End Call', data: { name: 'Goodbye', prompt: 'Say goodbye to the caller and end the call.' } },
+    { id: 'h', type: 'Default', data: { name: 'Hours', prompt: 'Tell the caller the office hours.' } },
   ],
-  edges: [],
+  edges: [
+    { id: 'e1', source: 'x', target: 'bye', data: { label: 'Done', description: 'The caller has nothing else.' } },
+    { id: 'e2', source: 'y', target: 'bye', data: { label: 'Done', description: 'The caller has nothing else.' } },
+    { id: 'e3', source: 'z', target: 'w', data: { label: 'Interested', description: 'The caller wants another tier.' } },
+  ],
 };
+const EMPTY_GROUP_PLAN = { scenarios: [
+  { name: 'Membership', entry: { label: 'Membership', description: 'The caller asks about their membership' }, members: ['r', 'x', 'y', 'z', 'w', 'bye'] },
+  { name: 'Hours', entry: { label: 'Hours', description: 'The caller asks about office hours' }, members: ['h'] },
+] };
 test('a v1 route rule with an empty condition group becomes the fallback; later rules drop', () => {
-  const { snapshot, report } = buildWith({ source: EMPTY_GROUP_ROUTE });
+  const { snapshot, report } = buildWith({ source: EMPTY_GROUP_ROUTE, plan: EMPTY_GROUP_PLAN });
   const flow = flowOf(snapshot);
   const idOf = (name) => flow.nodes.find((n) => n.data && n.data.name === name).id;
   const route = flow.nodes.find((n) => n.type === 'route').data;
@@ -862,6 +877,39 @@ test('a v1 route rule with an empty condition group becomes the fallback; later 
   ]);
   assert.equal(route.fallbackNodeId, idOf('Silver'));
   assert.ok(report.warnings.some((w) => /route "Branch": an empty condition group is always true/.test(w)));
+});
+
+test('steps only the cut-off rules reached are dropped and recorded, and the full audit passes', () => {
+  const { snapshot, report, checks } = buildWith({ source: EMPTY_GROUP_ROUTE, plan: EMPTY_GROUP_PLAN });
+  const names = flowOf(snapshot).nodes.map((n) => n.data && n.data.name).filter(Boolean);
+  assert.deepEqual(names.sort(), ['Branch', 'Gold', 'Goodbye', 'Silver']);
+  assert.deepEqual(report.dropped.map((d) => [d.node, d.name]).sort(), [['w', 'Other follow-up'], ['z', 'Other']]);
+  for (const d of report.dropped) assert.match(d.reason, /unreachable in v1: route "Branch" has an always-true empty condition group/);
+  assert.equal(report.warnings.some((w) => /NOT covered by any scenario/.test(w)), false);
+  const failed = Object.values(checks).filter((c) => !c.passed);
+  assert.deepEqual(failed, [], JSON.stringify(failed));
+  assert.match(checks.P11.detail, /dropped, unreachable in v1.*Other \(behind route "Branch"\)/);
+  // The audit does not excuse a node the source still reaches: drop Gold too
+  // and P11 fails, since rule 1 still leads there.
+  const flow = flowOf(snapshot);
+  const gold = flow.nodes.find((n) => n.data && n.data.name === 'Gold');
+  flow.nodes = flow.nodes.filter((n) => n !== gold);
+  flow.edges = flow.edges.filter((e) => e.source !== gold.id && e.target !== gold.id);
+  const route = flow.nodes.find((n) => n.type === 'route').data;
+  route.rules = route.rules.filter((r) => r.targetNodeId !== gold.id);
+  const p11 = runAudit(snapshot, EMPTY_GROUP_ROUTE).P11;
+  assert.equal(p11.passed, false);
+  assert.match(p11.detail, /Gold — node not carried and not declared dropped/);
+});
+
+test('a cut-off target that something else still reaches is kept', () => {
+  const source = structuredClone(EMPTY_GROUP_ROUTE);
+  source.edges.push({ id: 'e4', source: 'y', target: 'z', data: { label: 'Other tiers', description: 'The caller asks about other tiers.' } });
+  const { snapshot, report, checks } = buildWith({ source, plan: EMPTY_GROUP_PLAN });
+  const names = flowOf(snapshot).nodes.map((n) => n.data && n.data.name).filter(Boolean);
+  assert.ok(names.includes('Other') && names.includes('Other follow-up'));
+  assert.deepEqual(report.dropped, []);
+  assert.equal(checks.R3.passed, true, checks.R3.detail);
 });
 
 // Optional consuming-repository check: the compiled always-true rows match

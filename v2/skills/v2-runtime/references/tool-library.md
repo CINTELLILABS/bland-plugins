@@ -113,7 +113,7 @@ sign-in flow, not part of the API.
 
 | Method and path | What to know |
 |---|---|
-| `GET /v1/snippets/list`, `GET /v1/snippets/get/:id` | Reads. Use them to find the id and the current version; `?all_versions=true` lists every version. |
+| `GET /v1/snippets/list`, `GET /v1/snippets/get/:id` | Reads. Use them to find the id and the current version; `?all_versions=true` lists every version. Refused over an OAuth connection: the user reads the code and version in the builder. |
 | `save_code_snippet` (a dedicated tool) | `{snippet_id?, name?, language: "js", code}`. Without `snippet_id` it creates a snippet (`name` required: letters and underscores, at most 100); with one it saves a new version (`name` ignored). Every save is confirm-gated. Returns `{snippetId, version, name}`. An unpinned consumer runs the newest version, so a save changes it at once. Not in your tool list: the server does not have it yet; code is saved in the builder. Workflow: [custom code tools](../../tool-library/references/workflows.md#custom-code-tools). |
 | `POST /v1/snippets/create?language=js&name=<name>`, `POST /v1/snippets/update?snippet_id=<id>` | The body is the raw script as `text/plain`, which `call_bland_api` cannot send. Use `save_code_snippet`. |
 | `POST /v1/snippets/run/:id` | `{payload, headers, version?, timeout_ms?}`. Executes the snippet for real. |

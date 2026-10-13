@@ -73,7 +73,9 @@ Create and prove:
 Change the code of an existing tool:
 
 1. `bland_api_get` `/v1/snippets/get/<snippet id>` for the current code and
-   version. Show the code diff.
+   version. Show the code diff. Over an OAuth connection snippet reads are
+   refused (`oauth_path_not_allowed`): ask the user to open the code in the
+   builder and paste it, and do not save until you have it.
 2. Find every consumer of the snippet. An incomplete scan stops the save.
    - Library tools: follow `GET /v1/tools` by `nextCursor` until `hasMore`
      is false; match `body.snippet_id` in `tool` and in `staging_tool`.
@@ -101,7 +103,8 @@ holds the lock; wait and retry once), `snippet_save_failed`.
 
 If `save_code_snippet` is not in your tool list, this server does not have
 it yet. The user saves the code in the builder; then read
-`/v1/snippets/get/<id>` and re-pin as above. Never call `/v1/snippets/create`
+`/v1/snippets/get/<id>` (or, over OAuth, ask the user for the id and
+version the builder shows) and re-pin as above. Never call `/v1/snippets/create`
 or `/update` through `call_bland_api`; they take raw text it cannot send.
 
 ## Debug a tool run

@@ -166,9 +166,15 @@ Call budget: one source read, one target read, one save, plus one
      and rewrite internal references (edge `source`/`target`, route
      `targetNodeId`/`targetId`, fallbacks, `exitPlacements`) to match;
    - remove `parentId`: the source's authentication zone does not come along;
-   - on each custom-code step remove `snippetId` and `snippetVersion` (two
-     steps never share a snippet), keep `code`, and save it as a new snippet
-     ([custom code](../../tool-library/references/workflows.md#custom-code-tools));
+   - on each custom-code step, read the code that actually runs before
+     dropping the pin: `GET /v1/snippets/get/<snippetId>?all_versions=true`
+     and take the entry for `snippetVersion`. The step's `code` field is only
+     an editor copy and can be empty or stale. Save that code as a new
+     snippet, then set the copy's `snippetId` and `snippetVersion` to it (two
+     steps never share a snippet; see
+     [custom code](../../tool-library/references/workflows.md#custom-code-tools)).
+     Over an OAuth connection the snippet read is refused: stop and ask the
+     user to copy the pathway on the Pathways page instead;
    - a route that points outside the pathway keeps an id the target does not
      have: re-point it or name it.
 4. **Check dependencies** in the target: library tools and knowledge ids

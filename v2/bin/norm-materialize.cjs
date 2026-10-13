@@ -53,6 +53,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
+const { unreachableBehindEmptyGroups } = require("./norm-migrate-audit.cjs");
 
 const args = process.argv.slice(2);
 function flag(name) {
@@ -392,7 +393,8 @@ function toStep(node) {
 			// Rules run in order, first match wins. An empty isGroup block is
 			// always true in v1, so its route is taken whenever it is reached:
 			// its target becomes the fallback and everything after it, which
-			// v1 never reaches, is dropped.
+			// v1 never reaches, is dropped. Steps only those rules led to are
+			// dropped from the flow too (droppedUnreachable below).
 			routes: for (const route of d.routes || []) {
 				const rows = Array.isArray(route.conditions) ? route.conditions : [];
 				for (const row of rows) {
@@ -649,11 +651,26 @@ if (startCodeNode) {
 	initialization = { enabled: true, step: data };
 	warnings.push(`Start node "${str(startCodeNode.data.name) || startCodeNode.id}" (Custom Code) carried as initialization (runs at connect, before the first sentence); its outgoing edge(s) are the hub's to route`);
 }
+// Nodes v1 never reaches: a route's empty condition group is always true, so
+// the rules after it (and its old fallback) never fire, and a node only they
+// led to is dead in v1 as well. Those nodes are dropped, not carried as steps
+// nothing routes to, and the report lists each with its reason; the audit
+// derives the same set from the source and accepts the drop. A scenario's
+// entry step stays (the hub can enter it).
+const scenarioEntries = (plan.scenarios || []).flatMap((sc) => (sc.entryMember || (sc.members || [])[0] ? [resolveMember(sc.entryMember || sc.members[0])] : []));
+const deadInV1 = unreachableBehindEmptyGroups(mergedNodes, mergedEdges, [...scenarioEntries, ...(startCodeNode ? [startCodeNode.id] : [])]);
+const droppedUnreachable = [...deadInV1].map(([id, routeName]) => ({
+	node: id,
+	name: str((nodeById.get(id).data || {}).name),
+	reason: `unreachable in v1: route "${routeName}" has an always-true empty condition group before every way into this node`,
+}));
+for (const row of droppedUnreachable) warn(`dropped "${row.name || row.node}" (${row.node}): ${row.reason}`);
+
 const scenarioNodes = [];
 const consumedHooks = new Set();
 for (const sc of plan.scenarios || []) {
 	// members: resolve prefixes; auto-insert surgery nodes right after their host
-	const members = [];
+	let members = [];
 	for (const m of sc.members) {
 		const id = resolveMember(m);
 		members.push(id);
@@ -666,6 +683,7 @@ for (const sc of plan.scenarios || []) {
 		if (seenMembers.has(id)) throw new Error(`${id} in both "${seenMembers.get(id)}" and "${sc.name}"`);
 		seenMembers.set(id, sc.name);
 	}
+	members = members.filter((id) => !deadInV1.has(id));
 	const memberSet = new Set(members);
 	// Start is the Initialization code step, not a scenario. Re-pointing the
 	// inbound edge at a scenario is the exception for CONNECTION gating — call
@@ -849,7 +867,7 @@ for (const k of plan.silentPills || []) {
 	if (!consumedHooks.has(`pill:${k}`)) throw new Error(`silentPills target matched no scenario member: ${k}`);
 }
 
-const uncovered = mergedNodes.filter((n) => !seenMembers.has(n.id) && !(startCodeNode && n.id === startCodeNode.id)).map((n) => `${n.id} (${(n.data || {}).name || n.type})`);
+const uncovered = mergedNodes.filter((n) => !seenMembers.has(n.id) && !deadInV1.has(n.id) && !(startCodeNode && n.id === startCodeNode.id)).map((n) => `${n.id} (${(n.data || {}).name || n.type})`);
 if (uncovered.length > 0) warn(`NOT covered by any scenario (must each be a deliberate disposition): ${uncovered.join(", ")}`);
 
 // ── assemble ────────────────────────────────────────────────────────────────
@@ -944,6 +962,7 @@ process.stdout.write(
 			out: outAbs,
 			scenarios: scenarioNodes.map((n) => ({ name: n.data.name, steps: n.data.flow.nodes.length - 2, edges: n.data.flow.edges.length })),
 			endCalls: endCallNodes.length,
+			dropped: droppedUnreachable,
 			globalPromptsFound: globalPrompts.map((g) => `${g.file} (${g.prompt.length} chars — must be inside plan.systemPrompt verbatim)`),
 			warnings,
 		},

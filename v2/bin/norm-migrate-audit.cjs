@@ -62,6 +62,75 @@ function loadJson(p) {
 	return raw && raw.data && typeof raw.data === "object" ? raw.data : raw;
 }
 
+// v1 Route rules run in order and the first match wins. An empty isGroup
+// block is an AND over no rows, so it is always true: the rule holding it is
+// taken whenever it is reached, and the rules after it and the fallback are
+// never reached. Returns the index of that rule, or -1.
+const isEmptyGroup = (row) => Boolean(row) && row.isGroup === true && Array.isArray(row.conditions) && row.conditions.length === 0;
+function emptyGroupRouteIndex(routes) {
+	return (Array.isArray(routes) ? routes : []).findIndex((r) => r && Array.isArray(r.conditions) && r.conditions.some(isEmptyGroup));
+}
+
+// The v1 nodes that nothing can reach because a Route's empty condition group
+// cuts off every way in: the targets of the rules after it and of its old
+// fallback, and whatever only those lead to. A node stays when it is a start
+// or global node, one of `roots`, or something else leads to it (an edge, a
+// rule or fallback on another route, a response pathway; any node id named in
+// a node's data counts). Returns Map(node id -> name of the cutting route).
+function unreachableBehindEmptyGroups(nodes, edges, roots = []) {
+	const list = (Array.isArray(nodes) ? nodes : []).filter((n) => n && typeof n.id === "string");
+	const ids = new Set(list.map((n) => n.id));
+	const next = new Map();
+	const link = (from, to) => {
+		if (from === to || !ids.has(to)) return;
+		if (!next.has(from)) next.set(from, new Set());
+		next.get(from).add(to);
+	};
+	for (const e of Array.isArray(edges) ? edges : []) if (e) link(e.source, e.target);
+	const cutBy = new Map();
+	for (const n of list) {
+		let data = n.data || {};
+		const routes = Array.isArray(data.routes) ? data.routes : [];
+		const cut = n.type === "Route" ? emptyGroupRouteIndex(routes) : -1;
+		if (cut >= 0) {
+			const routeName = typeof data.name === "string" && data.name ? data.name : n.id;
+			for (const target of [...routes.slice(cut + 1).map((r) => (r || {}).targetNodeId), data.fallbackNodeId]) {
+				if (ids.has(target) && !cutBy.has(target)) cutBy.set(target, routeName);
+			}
+			data = { ...data, routes: routes.slice(0, cut + 1), fallbackNodeId: routes[cut].targetNodeId };
+		}
+		(function walk(o) {
+			if (typeof o === "string") link(n.id, o);
+			else if (Array.isArray(o)) o.forEach(walk);
+			else if (o && typeof o === "object") Object.values(o).forEach(walk);
+		})(data);
+	}
+	// Candidates: the cut-off targets and everything they lead to.
+	const candidates = new Map();
+	const stack = [...cutBy.keys()].map((id) => [id, cutBy.get(id)]);
+	while (stack.length) {
+		const [id, routeName] = stack.pop();
+		if (candidates.has(id)) continue;
+		candidates.set(id, routeName);
+		for (const to of next.get(id) || []) stack.push([to, routeName]);
+	}
+	const rootSet = new Set(roots);
+	for (const n of list) if (n.data && (n.data.isStart === true || n.data.isGlobal === true)) rootSet.add(n.id);
+	const live = new Set([...candidates.keys()].filter((id) => rootSet.has(id)));
+	for (const [from, tos] of next) if (!candidates.has(from)) for (const to of tos) if (candidates.has(to)) live.add(to);
+	const queue = [...live];
+	while (queue.length) {
+		for (const to of next.get(queue.pop()) || []) {
+			if (candidates.has(to) && !live.has(to)) {
+				live.add(to);
+				queue.push(to);
+			}
+		}
+	}
+	for (const id of live) candidates.delete(id);
+	return candidates;
+}
+
 function main() {
 	if (!snapshotPath) {
 		process.stdout.write(JSON.stringify({ passed: false, error: "--snapshot required" }));
@@ -519,9 +588,14 @@ function main() {
 		const missVar = [];
 		const missKb = [];
 		const missGlobal = [];
+		// Nodes v1 itself never reaches (behind a route's always-true empty
+		// condition group) are dropped by the builder; the source proves it, so
+		// no declaration is needed, and P11's detail names them.
+		const deadInV1 = [];
 		for (const sp of sourcePaths) {
 			const src = loadJson(sp);
 			const nodes = (src.nodes || []).filter((n) => n && n.id !== "global-prompt" && n.data);
+			const unreachable = unreachableBehindEmptyGroups(src.nodes, src.edges);
 			const carriedNode = new Map();
 			// Several v1 nodes often share a name ("End Call"); for those, the
 			// node is carried when its OWN speech is present somewhere, and a
@@ -545,7 +619,8 @@ function main() {
 				const absent = (steps.length === 0 && !(speech && carried(speech))) || (duplicateName && speech && !carried(speech) && !steps.some(isSilenced));
 				if (absent) {
 					carriedNode.set(n.id, false);
-					if (!isDeclaredDrop(n)) missPrompt.push(`${d.name || n.id} — node not carried and not declared dropped (--dropped-tags {"node":"${String(n.id).slice(0, 8)}…"})`);
+					if (unreachable.has(n.id)) deadInV1.push(`${d.name || n.id} (behind route "${unreachable.get(n.id)}")`);
+					else if (!isDeclaredDrop(n)) missPrompt.push(`${d.name || n.id} — node not carried and not declared dropped (--dropped-tags {"node":"${String(n.id).slice(0, 8)}…"})`);
 					continue;
 				}
 				// A DECLARED node drop excuses the whole node — its words may still
@@ -592,7 +667,7 @@ function main() {
 				if (desc && !carried(desc)) missEdge.push(`${String(e.source).slice(0, 8)}→${String(e.target).slice(0, 8)} "${String(e.data.label || "").slice(0, 30)}"`);
 			}
 		}
-		check("P11", "every v1 node carried verbatim or explicitly declared dropped (silenced pills excluded)", missPrompt.length === 0, missPrompt.slice(0, 6).join(", "));
+		check("P11", "every v1 node carried verbatim or explicitly declared dropped (silenced pills excluded)", missPrompt.length === 0, missPrompt.length ? missPrompt.slice(0, 6).join(", ") : deadInV1.length ? `dropped, unreachable in v1 (an empty condition group is always true, so v1 never gets past it): ${deadInV1.slice(0, 6).join(", ")}` : "");
 		check("P12", "every v1 hold condition carried verbatim (escapes may be appended)", missCondition.length === 0, missCondition.slice(0, 6).join(", "));
 		check("P13", "every LLM-routed v1 edge description carried verbatim (deterministic edges route on conditions)", missEdge.length === 0, missEdge.slice(0, 5).join("; "));
 		check("P14", "every v1 extraction variable carried on the same step", missVar.length === 0, missVar.slice(0, 6).join(", "));
@@ -802,7 +877,12 @@ function main() {
 		if (sourcePaths.length) {
 			const srcTags = new Set();
 			for (const sp of sourcePaths) {
-				for (const n of loadJson(sp).nodes || []) {
+				const src = loadJson(sp);
+				// A node v1 never reaches (behind an empty condition group) is dropped
+				// with its tag.
+				const unreachable = unreachableBehindEmptyGroups(src.nodes, src.edges);
+				for (const n of src.nodes || []) {
+					if (n && unreachable.has(n.id)) continue;
 					const t = ((n && n.data) || {}).tag;
 					if (t && typeof t.name === "string" && t.name.trim()) srcTags.add(t.name.trim());
 				}
@@ -826,9 +906,13 @@ function main() {
 	process.stdout.write(`${JSON.stringify({ passed, checks }, null, 2)}\n`);
 }
 
-try {
-	main();
-} catch (e) {
-	process.stdout.write(JSON.stringify({ passed: false, error: String(e && e.message) }));
-	process.exitCode = 2;
+module.exports = { unreachableBehindEmptyGroups };
+
+if (require.main === module) {
+	try {
+		main();
+	} catch (e) {
+		process.stdout.write(JSON.stringify({ passed: false, error: String(e && e.message) }));
+		process.exitCode = 2;
+	}
 }

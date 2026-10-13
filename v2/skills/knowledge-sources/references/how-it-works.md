@@ -399,11 +399,16 @@ When someone asks "what is the agent weakest on?":
 
 1. Read `GET /v1/knowledge/map` and keep the agent's sources, agent-wide and
    step, from the version that runs (production for live traffic).
-2. Rank by **Misses**, then Coverage. Two lookups at 0% are noise; 300 at
-   60% is a real gap.
-3. Discount test traffic. Source testing and `/chat` misses count. Check
-   `GET /v1/knowledge/queries?state=QUESTION_OPEN&query_source=API` (and
-   `PLAYGROUND`) over 30 days before blaming the source.
+2. The map's numbers are org-wide: a source shared with other agents
+   carries their misses too. Use it to pick candidates only. For this
+   agent's own misses, read
+   `GET /v1/knowledge/queries?agent_id=<id>&state=QUESTION_OPEN` over 30
+   days and count the rows per source.
+3. Rank by this agent's misses, then the map's Coverage. Two misses are
+   noise; dozens on one source are a real gap. Leave out test traffic
+   (`query_source` `API` and `PLAYGROUND` rows come from Source testing and
+   `/chat`). If the agent's own count is small but the map is red, say it
+   is the shared source's health, driven by other agents.
 4. For the weak source, list
    `GET /v1/knowledge/gaps?status=OPEN&kb_id=<id>&sort_by=occurrences_desc`
    and answer or edit the source from the user's facts.
