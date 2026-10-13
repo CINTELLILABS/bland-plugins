@@ -9,6 +9,7 @@ the question needs.
 - [The rule](#the-rule)
 - [Step 1: the summary tiles](#step-1-the-summary-tiles)
 - [Step 2: query_analytics](#step-2-query_analytics)
+- [Time buckets](#time-buckets)
 - [Step 3: the cohort drill-down](#step-3-the-cohort-drill-down)
 - [Recipes](#recipes)
 - [Do not](#do-not)
@@ -65,10 +66,12 @@ query, scoped to the caller's organisation, and needs no confirmation.
   named: `{ "metric": "<name>" }`.
 - **`ratio`**: `{ "num": "<label>", "den": "<label>" }` names two metric
   labels and returns one `ratio` column in their place. Label the metrics.
-- **`dimensions`** (up to 10): a column name; `{ col, label? }`; a time bucket
-  `{ col, trunc }` with `trunc` one of `hour`, `day`, `week`, `month`, `year`
-  on a timestamp column; `{ col, source: "citation" }`; or
-  `{ col: "<result key>", source: "disposition" }`.
+- **`dimensions`** (up to 10): a column name; `{ col, label? }`;
+  `{ col, source: "citation" }`; or `{ col: "<result key>", source: "disposition" }`.
+  `query_analytics` takes no time bucket: a `trunc` key is dropped and the
+  rows come back per raw timestamp (per call on `calls`, per hour on the
+  hourly tables). For a series by day, week or month, see
+  [time buckets](#time-buckets).
 - **`filters`** (up to 20), combined by `filter_mode` `AND` (default) or `OR`:
   `{ col, op, val, source? }`. Ops `=`, `!=`, `>`, `<`, `>=`, `<=`, `LIKE`,
   `IN`, `NOT IN`, `IS NULL`, `IS NOT NULL`. Citation and disposition sources
@@ -76,12 +79,13 @@ query, scoped to the caller's organisation, and needs no confirmation.
   `IS NOT NULL`. `IN` takes at most 500 values.
 - **`date_range`**: `{ since?, until? }`, each relative (`"-7d"`) or a date
   (`YYYY-MM-DD`). Default the last 30 days; at most 365.
-- **`limit`** 1 to 10000; **`order_by`** up to 5 `{ col, dir }` by output label.
+- **`limit`** 1 to 10000, 100 when omitted; **`order_by`** up to 5
+  `{ col, dir }` by output label.
 - **Output**: `{ rows, rowCount, query, visualization }`. Rows are flat
   objects keyed by the snake_cased labels, so name labels deliberately.
 
-`query_analytics` aggregates only. It has no row mode. For individual calls,
-use a cohort (Step 3).
+`query_analytics` aggregates only. It has no row mode; a `mode` key is
+dropped. For individual calls, use a cohort (Step 3).
 
 ### calls
 
@@ -115,7 +119,7 @@ Named metrics on this table:
 | `total_calls` | (all calls, connected or not) |
 | `ai_completion_rate` | Completed by AI |
 | `containment_rate` | narrower than Completed by AI: `contained` only |
-| `abandonment_rate` | caller and AI drops together |
+| `abandonment_rate` | caller and AI drops combined |
 | `ai_abandonment_rate` | AI drops only |
 | `escalation_rate` | Transferred |
 | `early_exit_rate` | Early exit rate |
@@ -156,6 +160,27 @@ One row per hour per customer metric series and value bucket. Columns:
 | A timeout | Narrow `date_range` or split it into windows. |
 | `Date range exceeds maximum of 365 days` | Shorten the range; say the cap. |
 
+## Time buckets
+
+For a series by hour, day, week, month or year:
+
+- **Enterprise organisations:** send the same query through `call_bland_api`
+  POST `/v2/analytics/query` with body
+  `{ "mode": "structured", "query": { …the query_analytics fields… } }`.
+  This route applies `{ col, trunc, label? }` with `trunc` one of `hour`,
+  `day`, `week`, `month`, `year` on a timestamp column: `created_at`,
+  `updated_at`, `started_at` or `transferred_at` on `calls`, `hour_utc` on the
+  hourly tables. The POST runs a read and changes nothing; say so if a
+  confirmation prompt appears. Other organisations get 403
+  `ENTERPRISE_REQUIRED`.
+- **Every organisation:** group `agent_hour_stats` by `hour_utc` with `sum`
+  of count columns (`connected`, `contained`, `escalated_cold`, …) and a
+  `limit` that covers every hour (the default is 100 rows), or read the
+  summary's `hours[]`, and add the hours into days yourself. Sum
+  numerators and denominators per day; never average hourly rates.
+
+Buckets on `hour_utc` are UTC days. Say so when the page shows another zone.
+
 ## Step 3: the cohort drill-down
 
 Go here for "which calls", or to scope a `calls` query to one agent.
@@ -169,10 +194,13 @@ Go here for "which calls", or to scope a `calls` query to one agent.
 
 - **Containment this week, as the page shows it:** Step 1, `window=7`, the
   `containment` entry.
-- **Completed by AI by day for one agent:** `agent_hour_stats`,
-  `metrics: [{ "metric": "ai_completion_rate", "label": "completed_by_ai" }]`,
-  `dimensions: [{ "col": "hour_utc", "trunc": "day", "label": "day" }]`,
-  `filters: [{ "col": "agent_key", "op": "=", "val": "<agent id>" }]`.
+- **Completed by AI by day for one agent** (enterprise,
+  [time buckets](#time-buckets)): POST `/v2/analytics/query` with
+  `query: { "table": "agent_hour_stats",
+  "metrics": [{ "metric": "ai_completion_rate", "label": "completed_by_ai" }],
+  "dimensions": [{ "col": "hour_utc", "trunc": "day", "label": "day" }],
+  "filters": [{ "col": "agent_key", "op": "=", "val": "<agent id>" }] }`.
+  Otherwise fold the summary's `hours[]` (`ai_completed` over `connected`).
 - **Average call length by version for one agent:** build a cohort with
   `agent_key`, then `calls` with `cohort_id`,
   `metrics: [{ "fn": "avg", "col": "call_length", "label": "avg_minutes" }]`,
@@ -180,8 +208,10 @@ Go here for "which calls", or to scope a `calls` query to one agent.
 - **A disposition rate:** `calls`, two metrics (`count` labelled `total`, and
   `count` with a disposition filter labelled `hits`), `ratio: { "num": "hits",
   "den": "total" }`. Or save it as a judgment tile ([metrics](metrics.md)).
-- **A customer tile's hourly trend:** `metric_hour_stats` with the tile's
-  `key`, grouped by `hour_utc` truncated to day.
+- **A customer tile's daily trend:** `metric_hour_stats` with the tile's
+  `key`, grouped by `hour_utc` and `value_bucket`, folded into days
+  ([time buckets](#time-buckets)). The summary's `hours[].metrics` holds
+  per-hour values; never add hourly rates into a day.
 
 ## Do not
 

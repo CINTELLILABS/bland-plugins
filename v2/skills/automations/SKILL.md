@@ -41,8 +41,8 @@ Budget: catalog, two POSTs, three tests, toggle.
    `/v1/automation/triggers` with `"is_active": false` (omitted means live).
    On an agent page set `agent_id` on both and in `send_call`.
 5. Test in order: `"dryRun": true`; a `nodes` override swapping `send_call`
-   for `mock_call` (shows the resolved number and config; dials nobody,
-   checks no agent or caller ID); then, confirmed, one live run.
+   for `mock_call` (dials nobody, checks no agent or caller ID; other nodes
+   run for real); then, confirmed, one live run.
 6. PATCH `/v1/automation/triggers/<id>/toggle` `{"is_active": true}`. An
    empty body flips the state.
 
@@ -83,9 +83,9 @@ before the reads explain it.
 
 ## Confirm before
 
-Activating a trigger that calls or texts; non-dry tests without the mock
-swap; re-runs; alert phone or tool delivery; resends; secret rotation;
-deletes (a pipeline delete removes its triggers and runs).
+Activating a trigger that calls or texts; non-dry tests that keep any node
+with a real effect; re-runs; alert phone or tool delivery; resends; secret
+rotation; deletes (a pipeline delete removes its triggers and runs).
 
 ```text
 About to <verb> <object>: <what changes, who is affected, count>.

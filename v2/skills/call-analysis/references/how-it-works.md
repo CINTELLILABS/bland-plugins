@@ -3,7 +3,10 @@
 This page explains which records exist for one call or thread, when each one
 appears, and which read answers which question. Route details and paging are
 in [retrieval](retrieval.md) and [conversations](conversations.md); the
-analysis method is in [analysis](analysis.md).
+analysis method is in [analysis](analysis.md). Calls in progress and the
+people behind conversations have their own sections:
+[Active calls](#active-calls) and [Contacts](#contacts), with routes in
+[live calls and contacts](live-calls-and-contacts.md).
 
 ## What it is
 
@@ -61,7 +64,7 @@ It is not:
 
 | State | What exists | Where to look |
 | -- | -- | -- |
-| Queued or live | The call record | Conversations page Active tab; the call record shows it is not completed |
+| Queued or live | The call record | Active calls tab; the top of the Conversations list; the call record shows `completed: false` |
 | Ended | Record, transcript, event timeline, recording (if on) | Conversations list; the call detail read |
 | After the call | Summary, analysis, extracted variables, citations, disposition results, call scores | The call detail read; the detail panel rail |
 | After retention | The record stays; recordings and transcripts older than the organisation's retention policy (14 days at the shortest) are removed | Organisation settings show the policy |
@@ -78,8 +81,8 @@ becomes readable.
 
 | Evidence | Readable when |
 | -- | -- |
-| Call record | At creation; updated as the call progresses. In-progress calls are on the Active tab. |
-| Conversations list row | Once the call completes. The list shows completed calls only. |
+| Call record | At creation; updated as the call progresses. In-progress calls are on the Active calls tab. |
+| Conversations list row | Once the call completes. With no filter applied, the first page also shows calls in progress, marked "In progress". |
 | Event timeline | During and after the call; complete once it ends |
 | Recording | After the call ends, only when recording was on |
 | Summary, analysis, variables | Shortly after the call ends; a minute or more is normal |
@@ -98,8 +101,9 @@ under the agent), is where people read calls and threads.
 
 | Part of the page | What it shows | Backing read |
 | -- | -- | -- |
-| List | Completed calls, texts and chats, filterable; a cohort or a deep link narrows it | `/user/logs`, `/v1/sms/conversations`, `/v1/widget/threads` |
-| Active tab | Calls in progress | live |
+| List | Completed calls, texts and chats, filterable; a cohort or a deep link narrows it. Unfiltered, calls in progress sit on top | `/user/logs`, `/v1/sms/conversations`, `/v1/widget/threads` |
+| Active calls tab (org page only) | Calls queued or in progress, with live controls | see [Active calls](#active-calls) |
+| Contacts tab | The people behind the conversations | see [Contacts](#contacts) |
 | Detail: timeline | Transcript turns with routing, tool and webhook events between them, and an audio player with markers | call detail, event timeline, recording |
 | Detail rail: Metadata | Call fields and the generated summary | call record |
 | Detail rail: Notes | Team notes on the call | call notes |
@@ -116,8 +120,10 @@ Notes:
   even for a scored call. For platform scores, read `/v1/calls/metrics`.
 - For agent-driven calls the flat transcript can be empty; the dialogue is in
   the event timeline. The page falls back to it, and so should you.
-- The page reads; it does not change the call. Writes from Norm elsewhere do
-  not refresh this page; reload it to see new after-call outputs.
+- The detail panel of a finished call reads; it does not change the call. A
+  call in progress opens the live panel instead, which can end or transfer
+  it ([Active calls](#active-calls)). Writes from Norm elsewhere do not
+  refresh this page; reload it to see new after-call outputs.
 
 ## Rules and limits
 
@@ -134,7 +140,7 @@ Notes:
 | Call scores | 400 `CALL_NOT_COMPLETED` for a live call; 404 `METRICS_NOT_FOUND` when none were computed |
 | Recording | only when recording was on; a 404 "no recordings found" otherwise |
 | Exports | 20 per hour; the file is emailed, not returned |
-| OAuth-connected hosts | cannot reach `/user/logs`, `/v1/sms/**`, `/v1/widget/**`, `/exports/**`, `/v2/tools/**`, `/v1/sip/**` |
+| OAuth-connected hosts | cannot reach `/user/logs`, `/v1/sms/**`, `/v1/widget/**`, `/exports/**`, `/v2/tools/**`, `/v1/sip/**`, `POST /v1/calls/active/**`, live listen, or the live streams |
 
 ## When it goes wrong
 
@@ -177,9 +183,215 @@ timeline or a disposition that checks it.
 Pass your `external_id` in place of the call id on the call detail read.
 
 **Why is a call I just finished not in the Conversations list?**
-The list shows completed calls. A call still in progress is on the Active
-tab.
+The list holds completed calls; with no filter applied it also shows calls in
+progress on top. A filtered list, a cohort or a sequence hides calls in
+progress. A call that ended seconds ago can sit between the two for a moment;
+read the call record to see `completed`.
 
 **Is a texted conversation a call?**
 No. It is a thread with its own id and routes. Never pass its id to a call
 route.
+
+## Active calls
+
+The **Active calls** tab of the org Conversations page,
+`/dashboard/conversations?tab=active`, lists the organisation's calls that
+are queued or in progress, every agent at once. The agent-scoped
+Conversations page has no Active calls tab; there, calls in progress sit at
+the top of the list instead. Routes and bodies are in
+[live calls and contacts](live-calls-and-contacts.md#active-call-routes).
+
+### What counts as active
+
+```text
+ outbound call created ──► Queued ─────► In progress ──► Transferred
+   (scheduled: "Scheduled (<date>)")     ▲      │              │
+ inbound or web call connects ───────────┘      └──── ends ────┴──► leaves the tab
+ queued call stopped ─────────────────────────────────────────────► leaves the tab
+```
+
+- An outbound call joins when it is created, as Queued. A scheduled call
+  shows its start time while it waits.
+- An inbound or web call joins when it connects, as In progress. An inbound
+  call refused at the door (for example over a limit) never joins.
+- A call leaves the tab when it ends, however it ends.
+- The Objective column shows only the first 20 characters of the call's
+  task.
+- Duration counts from the call's last status change, so it restarts at a
+  transfer.
+
+### How fresh it is
+
+| Surface | Freshness |
+| -- | -- |
+| Active calls tab | Pushed as calls change; a full re-read every 30 seconds catches anything missed. A dropped connection shows "Lost connection to call updates. Reconnecting…" and retries with growing waits. |
+| Conversations list (org and agent) | With no filter, sequence or cohort, the first page carries calls in progress, marked "In progress", and refreshes every 5 seconds while the tab is visible. |
+| Live transcript panel | Lines appear as they are spoken. A reconnect replays the last 100 lines. A call that hides transcript lines (privacy or redaction on a step) can show "No transcript yet" throughout. |
+| After the call | The live transcript is gone. Read the finished call ([evidence](#objects-and-how-they-relate)). |
+
+An entry on the Active calls tab lapses about 30 minutes after its last
+status change. A call that runs longer than that without a transfer can drop
+off the tab while still connected, and a call whose end signal went missing
+can linger for up to 30 minutes. The call record (`completed`) and the
+Conversations list's in-progress rows do not have this gap. Trust them when
+the tab disagrees.
+
+### What a person can do live
+
+Click a row to open the live panel. The same panel opens from an in-progress
+row of the Conversations list.
+
+| Control | What it does | Limits |
+| -- | -- | -- |
+| Live transcript | Streams caller and agent lines, and agent actions | Text only |
+| Listen | Plays the call's audio in the browser | Needs **Live call monitoring** on (Settings, Organization, Recording preferences). Off shows a lock that links there. Appears once the call connects |
+| End call | Hangs up, or cancels a queued call | Acts at once. The button has no second prompt |
+| Transfer call | Dials the number entered and connects the caller to it. The agent leaves the call | Shown after the first transcript line, until the call is transferred or ends. Phone calls only |
+| View call details | Opens the Conversations tab | No deep link to the call yet |
+| Get a test call | On the empty tab only: places a real demo call to your account's phone number | Needs a phone number on your account |
+
+### What Norm can do through the API
+
+- **Read** which calls are live: `GET /v1/calls/active`. It answers the
+  question "who is on a call right now", not "what are they saying".
+- **End one call**, after confirming: `stop_call` with the call id.
+- **Transfer one call**, after confirming: `POST /v1/calls/active/transfer`.
+  An OAuth connection cannot; send the user to the live panel.
+- **Never** end every call at once (`POST /v1/calls/active/stop`). It hangs
+  up on every live call in the organisation.
+
+Dashboard only:
+
+- **Listening.** Norm cannot hear a call, live or recorded. The listen route
+  hands back a short-lived audio stream for a browser to play; Norm has no
+  way to play it. Send the user to the Listen button.
+- **Following the live transcript.** The live streams feed the dashboard and
+  are not readable through Norm's tools. Norm reads what was said after the
+  call ends.
+
+### Active calls: when it goes wrong
+
+| Symptom | Likely cause | Evidence | Fix |
+| -- | -- | -- | -- |
+| Caller is on the line but the call is not on the Active calls tab | Over about 30 minutes since its last status change; or an inbound call that was refused | Call record shows `completed: false`; the row is on the Conversations list as In progress | Use the Conversations list or the call record |
+| Row stays after the caller hung up | The end signal was missed | Call record shows `completed: true` | It clears within about 30 minutes |
+| Listen shows a lock, or the API answers 400 `INVALID_ORG_PREFERENCES` | Live call monitoring is off | Organization settings | Turn it on in Recording preferences |
+| "We couldn't connect to the call" on Listen | The call has not started or just ended (404 `CALL_NOT_FOUND`), or listening is not offered in this deployment (404 `NOT_SUPPORTED_IN_ENVIRONMENT`) | The call's status | Retry once it is In progress |
+| Transfer refused with 403 | International destination for this account type, a phone-plan destination limit, or an onboarding demo call | The error message | Use an allowed destination |
+| Transfer 400 "not found or has already been completed" | The call ended or never started | Call record | Nothing to transfer |
+| Stop answers 404 "SID not found for the given c_id." | The call failed before it dialled | `queue_status` on the call record | Nothing to hang up |
+
+## Contacts
+
+A contact is one person your organisation has talked to, known by a phone
+number, an email, or your own external id. It is org-wide: the same person
+reached by two agents is one contact. It is not a memory and not a
+do-not-call entry, though it links to the first and never to the second.
+Routes are in [live calls and contacts](live-calls-and-contacts.md#contact-routes).
+
+### What a contact holds
+
+```text
+ organisation
+ └─ contact (one person, org-wide)
+    ├─ identifiers        phone_number · email · external_id   (matched exactly)
+    ├─ name, profile      profile fields come from the org's profile schema
+    ├─ memory, one per agent (or per number the agent used)
+    │                     summary · facts · entities · open items · recent messages
+    ├─ CRM sync status    one row per connected CRM
+    └─◄ calls and message threads point back to it (contact_id)
+```
+
+- Each call row from `/user/logs` carries `contact_id` and `contact_name`.
+- What memory holds, and when an agent reads and writes it, is in
+  [agent memory](../../knowledge-sources/references/how-it-works.md#agent-memory).
+- The do-not-call list is a list of numbers that blocks outbound calls
+  ([do-not-call list](../../phone-numbers/references/endpoints.md#outbound-do-not-call-list)).
+  A contact has no do-not-call flag, and adding its number to the list does
+  not change the contact.
+
+### How a contact is created and matched
+
+| Path | Creates a contact when |
+| -- | -- |
+| Inbound or outbound call | Memory is on in the version that ran (production for inbound) and there is a phone number |
+| Text thread (SMS, RCS, WhatsApp) | Memory is on in the version that answers |
+| iMessage thread | The message arrives; this channel may create one even with memory off |
+| API chat opened with `end_user_id` and a `contact` block | Always; it links the end user id to the phone or email given |
+| `POST /v1/contacts/resolve` | No identifier matches |
+
+- A match on any one identifier reuses the existing contact. The match is
+  exact, so use the form the calls show (E.164 such as `+15551234567`).
+- Reusing a contact fills the name only when it is empty, merges profile
+  keys, and adds any new identifier.
+- With memory off, calls and texts create no contact and carry no
+  `contact_id`. A web call or web chat with no phone number usually has none.
+- Two contacts can end up with the same identifier. A lookup then returns
+  one of them. An API chat that names two different contacts is refused with
+  409 `CONTACT_CONFLICT` until they are merged.
+
+### Edit, merge and delete
+
+| Change | Effect | Undo |
+| -- | -- | -- |
+| `PATCH` name | Replaces the name | Patch it back |
+| `PATCH` email or external id | Adds it as another identifier; the old one stays | No route removes an identifier |
+| `PATCH` metadata | Merges key by key. A key set to `null` is blanked, never removed. Keys that name a profile field with a pattern must match it | Patch it back |
+| Merge | Moves the duplicate's identifiers, memories, calls and threads onto the primary, then deletes the duplicate | None. A merged contact cannot be split |
+| Delete | No route deletes a contact | n/a |
+| Forget what an agent remembers | Deletes that agent's memory of the contact; the contact stays ([memory records](../../v2-lifecycle/references/api.md#memory-records)) | None |
+
+How a merge combines data: the primary's name and profile values win where
+both have one. Two memories from the same agent become one: messages are
+interleaved by time, the primary's facts win, open items are combined and
+the two summaries are joined. The next conversation with that person reads
+the combined memory.
+
+### Contacts on the dashboard
+
+| Where | What it shows |
+| -- | -- |
+| `/dashboard/conversations?tab=contacts` | Every contact, newest first, 50 at a time with "Load more contacts". The agent chip does not narrow this list |
+| `/dashboard/agent/<agent id>/conversations?tab=contacts` | Contacts that have a memory from this agent: its own, or one written through a number bound to it now. A number moved between agents brings its contacts along |
+| Contact drawer | Profile fields; tabs Conversations (the 25 most recent calls and threads, oldest first), Memory, Agents, CRM (with Sync now), Raw |
+| A conversation's detail panel | "Full thread with this contact" widens the transcript to every call and thread with that person |
+
+- The search box filters only the rows already loaded: name, phone, email
+  and memory summary.
+- **Messages** counts the recent messages kept in memory, not every message
+  ever exchanged. **Last seen** is when the contact record last changed.
+- **Edit profile fields** changes the org-wide profile schema (owner, admin
+  or operator). `?profile=1` opens it directly.
+- The tab does not edit, merge or delete contacts. Those are API actions.
+  After one, say "Saved through the API. The page shows it after a refresh."
+
+### Contacts: when it goes wrong
+
+| Symptom | Likely cause | Evidence | Fix |
+| -- | -- | -- | -- |
+| A caller has no contact | Memory was off in the version that ran, or no phone number | `contact_id` is null on the call | Turn memory on ([agent memory](../../knowledge-sources/references/how-it-works.md#agent-memory)) |
+| Same person twice | Reached by different identifiers, or created twice | `POST /v1/contacts/find` per identifier returns different ids | Merge, after confirming |
+| Agent's Contacts tab shows people it never spoke to | They came through a number now bound to this agent | The contact's Agents tab names the number | Expected |
+| `PATCH` answers 400 `INVALID_PROFILE_FIELD` | A value does not match the field's pattern, or is over 256 characters | The `fields` map in the error | Fix the value |
+| `find` answers `data: null` | No exact identifier match | The number's format | Retry in E.164 |
+| Thread shows fewer conversations than expected | The thread keeps the 25 most recent | `omitted` in the response | Page the calls list by number instead |
+
+### Questions about live calls and contacts
+
+**Can Norm listen to a call?**
+No. Norm cannot hear audio, live or recorded. A person listens with the
+Listen button on the live panel.
+
+**Can Norm tell me what is being said right now?**
+No. It can tell you which calls are live and read each call once it ends.
+The live transcript is on the dashboard panel.
+
+**Will ending a call warn the caller?**
+No. Ending hangs up at once. A queued call is cancelled instead.
+
+**Can I delete a contact?**
+Not through the API or the dashboard. You can merge a duplicate into another
+contact, or delete one agent's memory of the person.
+
+**Does adding a contact's number to do-not-call change the contact?**
+No. The list is separate and only blocks outbound calls.

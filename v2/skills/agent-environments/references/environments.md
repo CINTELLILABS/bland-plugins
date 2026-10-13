@@ -46,14 +46,22 @@ before a caller does.
 
 1. **Pick the candidate and the environment that will resolve it.**
 
-   | About to | Candidate snapshot | Read it with | Environment |
-   |---|---|---|---|
-   | Promote, empty body | staging's pin | `list_agent_environments`, then `get_agent_version` `{agentId, semver}` | production |
-   | Promote an exact version | that version | `get_latest_agent_version` (dev head, or `{branchId}` for a branch head) | production |
-   | Publish to staging | the dev head or the named version | `get_latest_agent_version` | staging |
-   | Staging check run | the run's candidate | as above | staging |
-   | Test by `branch:`, semver, `dev` | that version | as above | dev |
-   | Attach a number with `environment: "staging"` | staging's pin | as for promote | staging |
+   | About to | Candidate snapshot | Environment |
+   |---|---|---|
+   | Promote, empty body | staging's pin | production |
+   | Promote an exact version | that version | production |
+   | Publish to staging | the dev head or the named version | staging |
+   | Staging check run | the run's candidate | staging |
+   | Test by `branch:`, semver, `dev` | that version | dev |
+   | Attach a number with `environment: "staging"` | staging's pin | staging |
+
+   **Read the candidate itself, never a stand-in.** A pin or any published
+   version: `get_agent_version` `{agentId, semver}` (staging's semver from
+   `list_agent_environments`). The dev head: `get_latest_agent_version`. A
+   branch head: `get_latest_agent_version` `{agentId, branchId}`. Check that
+   the returned `id` equals the candidate's version id. A version that is
+   neither published nor a head cannot be read in full: say the pre-flight
+   could not run for it, and do not report "all set".
 
 2. **Collect references.** Search the whole snapshot serialized as JSON, not
    only prompts: tool bodies, settings and contact fields count. A reference

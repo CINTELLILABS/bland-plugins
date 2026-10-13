@@ -103,15 +103,18 @@ The response:
 ## Send a message
 
 `{"message": "<text>"}`, at most 8,000 characters. An empty or absent
-`message` asks the agent for its greeting. Pass `idempotency_key` to make a
-retry safe.
+`message` asks the agent for its greeting. Pass `idempotency_key` so a retry
+after a lost response returns the original turn instead of running another.
 
 The request waits up to about 90 seconds for the agent's turn and returns the
 replies it produced in `messages`, each `{id, role, text, created_at}` with
 `role` `user`, `agent` or `human`. An empty `messages` is not an error: the
 pipeline folded a quick second message into the reply already being written,
 or the turn handed off, timed out or ended, which `status` shows. An `error`
-key means the turn failed.
+key means the turn failed, possibly after a tool already booked or wrote
+something. Read the transcript and check that system before sending again: a
+new `idempotency_key` starts a new turn and can repeat the write. Resend only
+once the write is known not to have happened, or the user approves a repeat.
 
 A message to an ended or timed-out conversation is 409 `CHAT_ENDED`: open a
 new one.

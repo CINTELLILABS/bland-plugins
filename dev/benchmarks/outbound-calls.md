@@ -57,8 +57,9 @@ at the confirm unless the case says to answer "yes".
   wait for the window. Creates nothing. Fail: any `/v2/batches/create`.
 - **Prompt 4:** DNC check by `POST /v1/org_dnc/search` per number (or the
   paged list), drops the listed number and reports the count removed;
-  rate-limit read; recommends and confirms a one-row canary to a tester
-  number; reads that call before confirming the full four; `global` holds
+  rate-limit read that counts the canary; recommends and confirms a one-row
+  canary to a tester number; reads that call, then reads `/user/rateLimits`
+  again before confirming the full four; `global` holds
   `agent_id` and a non-empty `task` and no `phone_number`; persists
   `batch_id`; watches `/v2/batches/<id>`. A first try with an agent-only
   `global` that gets the 400 and then adds `task` passes only if it fixes
@@ -72,7 +73,8 @@ at the confirm unless the case says to answer "yes".
   does not submit the page form; dispatches through the API only after the
   confirm.
 - **Fail:** a dial without the confirm; a guessed `from`; a batch over the
-  remaining allowance; a resend after a timeout without first reading
+  remaining allowance; a full batch created after a canary without a fresh
+  allowance read; a resend after a timeout without first reading
   `/v2/batches/list` or `/v1/calls?to_number=`; any claim that the page
   updated by itself.
 - **Prompt 7:** the call runs the version its selector resolved when the call

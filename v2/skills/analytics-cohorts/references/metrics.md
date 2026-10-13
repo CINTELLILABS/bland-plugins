@@ -83,14 +83,22 @@ Budget: one read. A question never writes.
 2. **Write the definition** ([the definition](#the-definition)). For a query
    metric, validate `spec.where` offline as a cohort `where`:
    `node scripts/validate-predicate.cjs` on `{ "where": … }`.
-3. **Save.** New: `call_bland_api` POST `…/metrics` (201). Edit: PUT
+3. **Confirm a judgment save.** A judgment create, or an edit that changes
+   `kind`, `source`, `denominator` or `spec` and leaves or makes the metric a
+   judgment metric, starts scoring the last 90 days of calls with the
+   disposition the moment it is saved. That scoring is billed. Explain it and
+   wait for a yes ([rails](#rails)), even though no estimate exists before
+   the save. A label or description edit needs no confirmation.
+4. **Save.** New: `call_bland_api` POST `…/metrics` (201). Edit: PUT
    `…/metrics/<id>` with the whole body (200).
-4. **Report** `preview` when present (the last 14 days), the `status`, and
-   whether numbers are `awaiting`. The page refreshes the tiles
-   itself on the write receipt; never ask for a reload.
-5. **Refusal:** fix exactly what `violations[]` names and resend once.
+5. **Report** `preview` when present (the last 14 days), the `status`,
+   whether numbers are `awaiting`, and `backfill.estimated_cost_usd` when
+   present (the first chunk of scoring, not the whole 90 days). The page
+   refreshes the tiles itself on the write receipt; never ask for a reload.
+6. **Refusal:** fix exactly what `violations[]` names and resend once.
 
-Budget: one list read, one write, at most one corrected write.
+Budget: one list read, one write, at most one corrected write. A judgment
+save waits for the user's yes.
 
 ## Workflow: delete or backfill a tile
 
@@ -182,7 +190,7 @@ refused for `rate` and `count`, and it must be a numeric `calls` column from
 | -- | -- | -- |
 | 201 / 200 | | Saved. `preview` is `{ num, den, window_days: 14 }` for a light query metric, else `null`. |
 | 400 | | Shape error. The message names the body path, for example `body.spec.value: …`. |
-| 403 | | A dashboard session without the admin, owner, operator or prompter role wrote a judgment metric, or the caller has no organisation context. |
+| 403 | | The caller lacks the admin, owner, operator or prompter role for a judgment metric, or has no organisation context. |
 | 404 | | `agent not found` or `metric not found`. Also a foreign id. |
 | 409 | `METRIC_CAP` | 10 definitions in this scope; overrides count. Delete one first (with confirmation). |
 | 409 | `CONFLICT` | The row or the disposition's published version changed during the write. Read again, then retry once. |
@@ -210,8 +218,10 @@ chunk of scoring the automatic backfill admitted.
 - **DELETE** a customer uuid: the tile goes away. DELETE a system id: the
   override goes and the system tile serves again. DELETE a system id with no
   override: 404 `metric not found`. Confirm first ([rails](#rails)).
-- **Automatic backfill:** creating a metric or changing its spec plans the
-  last `default_days` (90) by itself.
+- **Automatic backfill:** creating a metric or changing its `kind`,
+  `source`, `denominator` or `spec` plans the last `default_days` (90) by
+  itself. For a judgment metric that is billed scoring, and it starts on the
+  save; confirm first ([rails](#rails)).
 - **POST backfill** `{ "days": n }`: `n` is an integer from 1 to `max_days`
   (399); omitted means `default_days`. Outside the range: 422 with a violation
   on `days`. Only days not already done, running or pending are planned; a
@@ -247,8 +257,8 @@ window before it).
 - Every route needs an organisation context (403 `ORG_SCOPE_REQUIRED`
   without one). Self-serve organisations are admitted.
 - Judgment create, judgment spec edits and judgment backfills need the role
-  admin, owner, operator or prompter in a dashboard session. Every metric
-  write takes effect at once; say what changes before you send it.
+  admin, owner, operator or prompter. Every metric write takes effect at
+  once; say what changes before you send it.
 - At most 10 published definitions per scope, overrides included.
 - Writes: 30 per 60 seconds per caller. Summary reads: 60 per 60 seconds.
 - A query metric is admitted only after a one-day trial scan. Keep heavy
@@ -266,6 +276,16 @@ window before it).
   ```
 
   For an override, say the system tile comes back instead.
+- **Confirm before a judgment create or spec change.** Saving starts the
+  automatic 90-day backfill, which scores those calls with the disposition
+  and is billed. Use:
+
+  ```text
+  About to save the judgment metric "<label>" for <agent>: saving starts scoring the last 90 days of this agent's calls with the disposition "<disposition>", which is billed.
+  No estimate is available before the save; I will report the first estimate the save returns.
+  Reply "yes" to proceed.
+  ```
+
 - **State scan and cost before a backfill beyond the automatic 90 days.**
   Name the days requested and the days already covered. For a query metric,
   say it scans the analytics lake once per added day, more for

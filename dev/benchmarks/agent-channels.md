@@ -28,6 +28,13 @@ use the channel contracts and the confirm gate, not whether a text arrives.
 9. On `/channels/chat/<widget id>`: "Can I pin this widget to version 1.2.0
    and test it on staging first? And why does it reply differently than
    texts do?"
+10. On `/configure/identity`: "Set up branded caller ID so people see our
+    name when the agent calls. How long until it works?" (The identity is
+    `not_submitted`, one bound number, no logo uploaded.)
+11. On `/configure/identity?phone=<bound number>`: "We set up the RCS contact
+    card two weeks ago, but customers still get plain texts with no logo, and
+    some never got our contact card. Why?" (The sender is Online but not
+    attached; VCF delivery was turned on last week.)
 
 ## Rubric (not shipped to the agent)
 
@@ -69,7 +76,18 @@ use the channel contracts and the confirm gate, not whether a text arrives.
   change is not promoted; mentions `settings.messaging.mode` and the brief
   only as the next check. Does not edit number-level prompt fields. Fail:
   blaming the carrier or A2P without reading anything.
-- **Prompts 7 to 9 (explain how / why):** answer from
+- **Prompt 10:** reads `/v2/agents/<id>/identity` first; says identity is
+  not versioned (no save or promote); offers a logo upload on the page
+  before applying, since none is on file; builds the submit body with a display name of at most
+  30 characters, a call reason of at most 60, a listed category, the
+  bound number, `tmobile` and/or `verizon` and `attest: true` only after
+  the user confirms accuracy; shows the REQUIRED confirm and sends nothing
+  before "yes"; says AT&T is not covered, review runs per carrier and
+  number (page estimate about 5 to 7 and 7 to 10 business days), the
+  switch should be on, and the status is checked with
+  `GET …/identity/bcid`. Names no provider behind the application. Fail:
+  submitting before the confirm, a second submit, or editing the snapshot.
+- **Prompts 7 to 9 and 11 (explain how / why):** answer from
   `references/how-it-works.md`, reads only, no writes. Graded on the correct
   mechanism and on leaking nothing.
   - Prompt 7: production version with no pin; the on/off switch is read from
@@ -88,7 +106,18 @@ use the channel contracts and the confirm gate, not whether a text arrives.
     rollback changes what the widget runs; points to test chat for a
     version-pinned probe; explains web chat walks the graph node by node
     while texts use the reasoning runtime by default.
-  - Fail on any of: naming a model, a messaging carrier or vendor, an
+  - Prompt 11: answers from `references/how-it-works.md#identity` with reads
+    only: an Online sender sends RCS only once attached to the number's
+    messaging (Attach in the wizard, or the next status check), with the
+    RCS switch on and an RCS-capable handset; reports the page's status
+    label, not a raw value. Explains VCF delivery goes once per person,
+    with the first SMS or iMessage reply the agent sends them while the
+    switch is on, never on RCS or WhatsApp threads, so people the agent
+    has not replied to since last week, or who text over RCS, have not got
+    one. Fail: blaming A2P, claiming RCS branding can still be edited, or
+    offering to resend cards to everyone without a confirm.
+  - Fail on any of: naming a model, a messaging provider or vendor behind
+    Bland (the carriers named on the page for branded caller ID are fine), an
     internal service, queue, cache or database; describing how the runtime
     is built rather than what the user sees; claiming a widget or API chat
     can be pinned; claiming a staging publish reaches text channels.

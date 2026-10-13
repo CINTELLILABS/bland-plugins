@@ -300,8 +300,10 @@ The agent's production version, unless the step sets `agent_version`.
 Promoting the agent changes what the next automated call runs.
 
 **Is a test run a real run?**
-A test without `dryRun` and without a `mock_call` swap places the real call
-or text. All test runs show in the run history and in the run count.
+A test without `dryRun` runs every node it is given for real. A `mock_call`
+swap stops the call only: a text, webhook, message, code or judge step in
+the same pipeline still happens. All test runs show in the run history and
+in the run count.
 
 **Why does the dashboard show a different error than the API?**
 The runs page shortens messages. The API's `error` is the full text; quote

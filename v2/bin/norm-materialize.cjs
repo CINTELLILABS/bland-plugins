@@ -388,9 +388,19 @@ function toStep(node) {
 			};
 		case "Route": {
 			const rules = [];
-			for (const route of d.routes || []) {
+			let fallbackNodeId = str(d.fallbackNodeId);
+			// Rules run in order, first match wins. An empty isGroup block is
+			// always true in v1, so its route is taken whenever it is reached:
+			// its target becomes the fallback and everything after it, which
+			// v1 never reaches, is dropped.
+			routes: for (const route of d.routes || []) {
 				const rows = Array.isArray(route.conditions) ? route.conditions : [];
 				for (const row of rows) {
+					if (row && row.isGroup === true && Array.isArray(row.conditions) && row.conditions.length === 0) {
+						fallbackNodeId = str(route.targetNodeId);
+						warn(`route "${str(d.name)}": an empty condition group is always true in v1, so its target is the fallback and the rules after it were dropped (v1 never reaches them)`);
+						break routes;
+					}
 					if (row && row.isGroup === true && Array.isArray(row.conditions)) {
 						rules.push({
 							id: randomUUID(),
@@ -412,7 +422,7 @@ function toStep(node) {
 				data: {
 					name: str(d.name),
 					rules,
-					...(str(d.fallbackNodeId) ? { fallbackNodeId: d.fallbackNodeId } : {}),
+					...(fallbackNodeId ? { fallbackNodeId } : {}),
 					settings: stepSettings(d),
 				},
 			};
@@ -558,6 +568,14 @@ function v2Comparison(op, rawValue, notes) {
 	if (op === "equals" || op === "not equals" || op === "contains" || op === "does not contain") notes.push(`"${op}" is case-sensitive in v2`);
 	return { conditionOperator: op, value };
 }
+// Always-true deterministic rows, for a v1 edge that always matches.
+const ALWAYS_TRUE_FIELD = "v1_empty_group";
+function alwaysTrueRows() {
+	return [
+		{ id: randomUUID(), field: ALWAYS_TRUE_FIELD, operator: "AND", conditionOperator: "is", value: "undefined" },
+		{ id: randomUUID(), field: ALWAYS_TRUE_FIELD, operator: "OR", conditionOperator: "is", value: "not undefined" },
+	];
+}
 function edgeData(e) {
 	const d = e.data || {};
 	const rows = (Array.isArray(d.condition) ? d.condition : []).filter((r) => r && typeof r === "object");
@@ -574,6 +592,14 @@ function edgeData(e) {
 			),
 		];
 	}
+	// An empty isGroup block is always true in v1 (an AND over no rows), and the
+	// rows are ORed, so the whole edge always matches. A v2 deterministic edge
+	// with no rows never matches, so carry it as a pair of rows that is always
+	// true: a field that is undefined OR not undefined.
+	if (rows.some((r) => r.isGroup === true && Array.isArray(r.conditions) && r.conditions.length === 0)) {
+		warn(`edge "${str(d.label)}": an empty condition group is always true in v1, so this edge always matches; carried as "${ALWAYS_TRUE_FIELD} is undefined OR is not undefined"`);
+		return [deterministic(alwaysTrueRows())];
+	}
 	const notes = [];
 	const toRow = (r, join, i) => ({ id: randomUUID(), field: str(r.field), operator: i === 0 ? "AND" : join, ...v2Comparison(str(r.operator), r.value, notes) });
 	const orRows = [];
@@ -582,7 +608,7 @@ function edgeData(e) {
 		if (r.isGroup !== true) orRows.push(r);
 		else {
 			const inner = (Array.isArray(r.conditions) ? r.conditions : []).filter((x) => x && typeof x === "object");
-			if (inner.length === 0) notes.push("an empty condition group (always true in v1) was dropped");
+			if (inner.length === 0) notes.push("a malformed condition group (no condition list) was dropped");
 			else if (inner.length === 1) orRows.push(inner[0]);
 			else groups.push(inner);
 		}
@@ -867,7 +893,8 @@ function carriedLanguage(raw) {
 	return /^[A-Za-z]{2,8}(-[A-Za-z0-9]{2,8})*$/.test(code) ? code : "";
 }
 const callConfig = (persona && persona.call_config) || {};
-const carriedVoice = str(plan.voice).trim() || str(callConfig.voice).trim();
+// A plan field overrides the persona even when empty: "" picks the default.
+const carriedVoice = str(plan.voice !== undefined ? plan.voice : callConfig.voice).trim();
 const languageSource = plan.language !== undefined ? plan.language : callConfig.language;
 const carriedLang = carriedLanguage(languageSource);
 const importWarnings = [];

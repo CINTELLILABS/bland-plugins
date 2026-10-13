@@ -202,10 +202,11 @@ It fails the check when:
 
 Snapshot saves do not validate an embedded `definition` at all. Prove every
 new or edited definition twice: `POST /v2/tools/:id/run` with synthetic
-inputs (it applies the same check and fails the same way), then one test-chat turn that makes the
-agent call it (the attached path adds node settings). An embedded definition
-has no library row to run; save it as a library tool first or prove it with
-the test-chat turn alone.
+inputs (it applies the same check and fails the same way), then attach it in
+a dev version save and run one test-chat turn that makes the agent call it
+(the attached path adds node settings; test chat runs the saved dev head).
+An embedded definition has no library row to run; save it as a library tool
+first or prove it with the test-chat turn alone.
 
 ## Attach modes and blast radius
 
@@ -223,7 +224,12 @@ environments.
 
 No route lists a tool's consumers. Find them by reading each agent's dev head
 and every version an environment pins, and matching the id (with or without
-`TL-`) on a `byReference` tool or a `tool` step.
+`TL-`) on a `byReference` tool or a `tool` step. List the agents with one
+`GET /v2/agents` and no `limit`: that returns every agent in the org, while a
+`limit` cuts the list and the route has no pages. If the list cannot be read
+in full, stop the write. A snippet save also reaches embedded definitions
+that name the snippet without a version
+([custom code tools](../../tool-library/references/workflows.md#custom-code-tools)).
 
 ## Tool logs as evidence
 

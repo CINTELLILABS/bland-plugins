@@ -37,30 +37,32 @@ Budget: two reads.
 
 ## Workflow: get a number
 
-Budget: one search, one purchase per number, then the attach below.
+Budget: one search, one purchase per number, then attach (below).
 
 1. Ask country and area code. `call_bland_api` POST
    `/numbers/get_available_numbers` `{"country_code": "US", "area_code": "415", "limit": 3}`.
 2. Confirm price × count. The org's one free number: POST `/numbers/claim_free`.
-   Otherwise POST `/numbers/purchase` once per chosen number, in sequence. On
-   a timeout re-list the inventory before any retry.
-3. Promote first ([v2-lifecycle](../v2-lifecycle/SKILL.md)): unpromoted, the
-   number runs the latest save as of the attach. Then attach.
+   Else POST `/numbers/purchase` per chosen number, in sequence. Re-list the
+   inventory before retrying a timeout.
 
 ## Workflow: put an agent on a number
 
-Budget: two reads, attach, read-back, test call.
+Budget: four reads, attach, read-back, test call.
 
 1. Run the owner check for every number.
 2. A v1 pathway owner: attaching cuts that live traffic over now; offer the
    migration rollout ([rollouts](../v2-lifecycle/references/rollouts.md))
    instead. Any other owner: confirm, naming it.
-3. `call_bland_api` POST `/v2/agents/<agentId>/inbound/attach`
+3. Read `/v2/agents/<agentId>/versions/latest` and `/environments`. A
+   production attach puts the latest save on texts, widget and API chat at
+   once; if it is not the production pin, promote first or confirm, naming
+   them.
+4. `call_bland_api` POST `/v2/agents/<agentId>/inbound/attach`
    `{"inbound_numbers": ["<number>"], "only_if_unassigned": true}`. Drop the
    flag only after a confirm. Add `"environment": "staging"` only when asked.
-4. Read back `/v2/agents/<agentId>/inbound`.
-5. Verify: `create_call` to the number from another account number with a
-   short caller `task`; it runs the production pin (staging if staging-attached).
+5. Read back `/v2/agents/<agentId>/inbound`.
+6. Verify: `create_call` to it from another account number with a short
+   caller `task`; it runs the production pin (staging if staging-attached).
 
 ## Workflow: per-number settings
 

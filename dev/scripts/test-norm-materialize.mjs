@@ -798,6 +798,101 @@ test('the audit flags an edge row with a comparison in operator or an unknown co
   assert.equal(runAudit(snapshot, { nodes: [], edges: [] }).R5.passed, true);
 });
 
+test('an explicit empty plan.voice picks the default voice over the persona voice', () => {
+  const { snapshot } = buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>', language: 'en-GB' }), plan: { voice: '' } });
+  assert.equal(snapshot.settings.voice, '');
+  assert.equal(snapshot.settings.importWarnings.find((w) => w.field === 'voice').code, 'voice_not_carried');
+  assert.equal(buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>' }), plan: { voice: '<other-voice>' } }).snapshot.settings.voice, '<other-voice>');
+  assert.equal(buildWith({ source: ONE_STEP, persona: PERSONA({ voice: '<voice-uuid>' }) }).snapshot.settings.voice, '<voice-uuid>');
+});
+
+// v1 ANDs a group's rows; an empty group is an AND over nothing, so it is
+// always true, and v1 ORs it with the edge's other rows.
+const ALWAYS_TRUE = [
+  { field: 'v1_empty_group', operator: 'AND', conditionOperator: 'is', value: 'undefined' },
+  { field: 'v1_empty_group', operator: 'OR', conditionOperator: 'is', value: 'not undefined' },
+];
+function emptyGroupSource(condition) {
+  return {
+    nodes: [
+      { id: 'a', type: 'Default', data: { name: 'Ask', prompt: 'Ask for the account status.' } },
+      { id: 'b', type: 'Default', data: { name: 'Next', prompt: 'Carry on.' } },
+    ],
+    edges: [{ id: 'e1', source: 'a', target: 'b', data: { label: 'Go on', condition } }],
+  };
+}
+
+test('a v1 edge with an empty condition group always matches, alone or ORed with other rows', () => {
+  for (const condition of [
+    [{ isGroup: true, conditions: [] }],
+    [{ field: 'status', operator: 'equals', value: 'active' }, { isGroup: true, conditions: [] }],
+    [{ isGroup: true, conditions: [{ field: 'a', operator: 'equals', value: '1' }, { field: 'b', operator: 'equals', value: '2' }] }, { isGroup: true, conditions: [] }],
+  ]) {
+    const { snapshot, report, checks } = buildWith({ source: emptyGroupSource(condition) });
+    const edges = flowOf(snapshot).edges.filter((e) => e.data && e.data.label === 'Go on');
+    assert.equal(edges.length, 1);
+    assert.equal(edges[0].data.mode, 'deterministic');
+    assert.deepEqual(edges[0].data.conditions.map(({ id, ...row }) => row), ALWAYS_TRUE);
+    assert.ok(report.warnings.some((w) => /empty condition group is always true/.test(w)));
+    assert.equal(checks.R5.passed, true, checks.R5.detail);
+  }
+});
+
+const EMPTY_GROUP_ROUTE = {
+  nodes: [
+    { id: 'r', type: 'Route', data: { name: 'Branch', fallbackNodeId: 'z', routes: [
+      { targetNodeId: 'x', conditions: [{ field: 'tier', operator: 'equals', value: 'gold' }] },
+      { targetNodeId: 'y', conditions: [{ field: 'tier', operator: 'equals', value: 'silver' }, { isGroup: true, conditions: [] }, { field: 'tier', operator: 'equals', value: 'bronze' }] },
+      { targetNodeId: 'z', conditions: [{ field: 'tier', operator: 'equals', value: 'lead' }] },
+    ] } },
+    { id: 'x', type: 'Default', data: { name: 'Gold', prompt: 'Gold.' } },
+    { id: 'y', type: 'Default', data: { name: 'Silver', prompt: 'Silver.' } },
+    { id: 'z', type: 'Default', data: { name: 'Other', prompt: 'Other.' } },
+  ],
+  edges: [],
+};
+test('a v1 route rule with an empty condition group becomes the fallback; later rules drop', () => {
+  const { snapshot, report } = buildWith({ source: EMPTY_GROUP_ROUTE });
+  const flow = flowOf(snapshot);
+  const idOf = (name) => flow.nodes.find((n) => n.data && n.data.name === name).id;
+  const route = flow.nodes.find((n) => n.type === 'route').data;
+  assert.deepEqual(route.rules.map((r) => [r.targetNodeId, r.conditions.map((c) => c.value)]), [
+    [idOf('Gold'), ['gold']],
+    [idOf('Silver'), ['silver']],
+  ]);
+  assert.equal(route.fallbackNodeId, idOf('Silver'));
+  assert.ok(report.warnings.some((w) => /route "Branch": an empty condition group is always true/.test(w)));
+});
+
+// Optional consuming-repository check: the compiled always-true rows match
+// under the real evaluator whatever the call's variables hold, and the route's
+// fallback compiles to the empty group's target.
+test('real v2 compiler and evaluator keep a v1 empty condition group always true', {
+  skip: !process.env.NORM_V2_COMPILER_PATH && 'requires consuming SERVER compiler and TypeScript loader',
+}, async () => {
+  const imported = await import(pathToFileURL(process.env.NORM_V2_COMPILER_PATH).href);
+  const compile = imported.agentConfigToPathway ?? imported.default?.agentConfigToPathway;
+  const compilerDir = dirname(process.env.NORM_V2_COMPILER_PATH);
+  const validationModule = await import(pathToFileURL(join(compilerDir, 'validateSnapshot.ts')).href);
+  const validate = validationModule.validateSnapshot ?? validationModule.default?.validateSnapshot;
+  const evaluatorModule = await import(pathToFileURL(resolve(compilerDir, '../pathways/variableComparison/variableComparison.ts')).href);
+  const evaluate = evaluatorModule.evaluateConditions ?? evaluatorModule.default?.evaluateConditions;
+  const verdict = validate(buildWith({ source: emptyGroupSource([{ field: 'status', operator: 'equals', value: 'active' }, { isGroup: true, conditions: [] }]) }).snapshot);
+  assert.equal(verdict.ok, true, JSON.stringify(verdict));
+  const graph = compile(verdict.snapshot);
+  const edge = graph.edges.find((e) => e.data && e.data.label === 'Go on');
+  for (const vars of [{}, { v1_empty_group: null }, { v1_empty_group: 'x' }, { status: 'closed' }]) {
+    assert.equal(evaluate(edge.data.condition, () => vars), true, JSON.stringify(vars));
+  }
+  const routeVerdict = validate(buildWith({ source: EMPTY_GROUP_ROUTE }).snapshot);
+  assert.equal(routeVerdict.ok, true, JSON.stringify(routeVerdict));
+  const routeGraph = compile(routeVerdict.snapshot);
+  const routeNode = routeGraph.nodes.find((n) => n.type === 'Route');
+  const silver = routeGraph.nodes.find((n) => n.data && n.data.name === 'Silver');
+  assert.equal(routeNode.data.fallbackNodeId, silver.id);
+  assert.deepEqual(routeNode.data.routes.map((r) => r.targetNodeId), [routeGraph.nodes.find((n) => n.data && n.data.name === 'Gold').id, silver.id]);
+});
+
 // Optional consuming-repository check, as above: the save validator accepts
 // the carried voice/language and importWarnings, and a by-reference tool
 // compiles to the library id with nothing embedded.

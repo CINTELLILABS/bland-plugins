@@ -36,6 +36,12 @@ where the prompt says so.
     agent-wide source: "Why didn't it look anything up on this call?"
 12. "Why does Query Logs say Answered when the agent clearly didn't know?"
 13. "Why didn't the agent remember this caller from last week?"
+14. On `/dashboard/agent/<agentId>/knowledge-bases/map`: "What is this map
+    showing, and why is the shared source red when this agent answers
+    fine?"
+15. On `/dashboard/agent/<agentId>/knowledge-bases/map`: "What is the agent
+    weakest on? Help me fix it." Supply facts when asked; approve one
+    answer.
 
 ## Rubric (not shipped to the agent)
 
@@ -64,7 +70,8 @@ where the prompt says so.
   gap, ranking, or not a retrieval fault); hands generation faults to
   call-analysis. A turn that reports "no queries" without setting the window
   for an older call fails.
-- **Prompt 4:** reads `kb_item_scopes` and also scans every agent's latest
+- **Prompt 4:** reads `kb_item_scopes` and also reads `/v2/agents` once with
+  no `limit` (no paging attempts), then scans every agent's latest
   and pinned versions for step `kbIds` and knowledge mentions; names both
   agents (including the step-only one, which `kb_item_scopes` misses) and the
   node; uses the confirm template with "cannot be undone"; does not call
@@ -112,7 +119,25 @@ where the prompt says so.
   inbound), that the contact has a phone number, and that the last
   conversation finished processing; uses `GET /v1/memory/changes?call_id=`
   as evidence. Does not invent memory routes.
-- **Prompts 10 to 13, leaks:** names no model, vendor, parser, index or
+- **Prompt 14:** reads the page context, then `GET /v1/knowledge/map`
+  rather than describing the canvas; explains hexagons as sources sized by
+  share of the org's lookups over the last 30 days and coloured by coverage
+  (under 50%, 50 to 79%, 80% or more, grey for none), circles as open and
+  resolved Questions linked to the sources they were raised against; says
+  the map is not a topic map; says the agent copy shows only agent-wide
+  sources but its numbers are org-wide, so another agent or test misses
+  (Source testing, `/chat`) can turn a shared source red; checks Query Logs
+  by `agent_id` and `query_source` as evidence. No writes.
+- **Prompt 15:** one `GET /v1/knowledge/map`, narrowed to the agent's
+  agent-wide and step source ids from the version that runs; ranks by misses
+  with volume, not coverage alone; discounts test traffic; treats a grey
+  attached source as a lookup problem; lists open Questions for the weakest
+  source with `kb_id` and `sort_by=occurrences_desc`; drafts answers only
+  from the user's facts; confirms answer text and target before `/resolve`;
+  says the answer is live for every agent using that source and the map
+  shows it after a reload. Inventing facts or resolving without a confirm
+  fails.
+- **Prompts 10 to 15, leaks:** names no model, vendor, parser, index or
   storage product; gives no internal thresholds, cache durations, passage
   defaults or timeouts; any of these fails the prompt.
 - **Fail:** any write without its confirm; any partial document sent to

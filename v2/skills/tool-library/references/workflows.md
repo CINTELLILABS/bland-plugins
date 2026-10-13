@@ -17,7 +17,10 @@ scripts and do not search the docs for these routes.
 
 No route lists a tool's consumers. Before any shared-tool change or delete:
 
-1. Page `GET /v2/agents`.
+1. `GET /v2/agents` once, with **no** `limit`: that returns every agent in
+   the org in one response. A `limit` cuts the list and the route has no
+   pages, so never pass one here. If the read fails or looks cut off, stop
+   the write and say which agents could not be read.
 2. Per agent read `/v2/agents/<id>/versions/latest`, then
    `/v2/agents/<id>/environments`, then each pinned staging or production
    `current_version.semver` through `/versions/<semver>`. Production can be
@@ -26,8 +29,9 @@ No route lists a tool's consumers. Before any shared-tool change or delete:
    with `byReference: true` or on a `tool` step's `toolId`, at any depth
    inside `flow.nodes`.
 4. Report each agent, environment and node by name. Say that embedded copies
-   (a step tool with its own `definition`) are not affected: they run what
-   they saved.
+   (a step tool with its own `definition`) are not affected by a library
+   edit: they run what they saved. A snippet save is different; see
+   [custom code tools](#custom-code-tools).
 
 ## Custom code tools
 
@@ -62,16 +66,27 @@ Create and prove:
    `body.timeout` is seconds (1 to 60).
 4. POST `/v2/tools/<id>/run` with synthetic `{"inputs": {…}}`. Read `data`
    and `console`.
-5. One test-chat turn that makes the agent call it, then attach.
+5. Attach it in a dev version save, then one test-chat turn that makes the
+   agent call it. Test chat runs the saved dev head, so a tool that is not
+   attached yet cannot be called there.
 
 Change the code of an existing tool:
 
 1. `bland_api_get` `/v1/snippets/get/<snippet id>` for the current code and
    version. Show the code diff.
-2. Find every consumer of the snippet: tools whose `body.snippet_id` matches
-   (page `GET /v1/tools`) and `customCode` steps or `initialization.step`
-   with that `snippetId` (the [consumer scan](#consumer-scan) walk). Unpinned
-   ones change on save; name them in the confirm.
+2. Find every consumer of the snippet. An incomplete scan stops the save.
+   - Library tools: follow `GET /v1/tools` by `nextCursor` until `hasMore`
+     is false; match `body.snippet_id` in `tool` and in `staging_tool`.
+   - Agents: the [consumer scan](#consumer-scan) agent list and versions.
+     In each snapshot, at any depth inside `flow.nodes`, match the
+     `snippetId` of `customCode` steps and `initialization.step`, and the
+     `body.snippet_id` of every embedded definition: a step tool's
+     `definition` and `stagingDefinition`, each chain step's
+     `config.tool.tool` (a step tool with `toolType: "track"`), and a
+     `tool` step's `embeddedTool.tool` and `embeddedTool.stagingTool`.
+   - A match without `snippet_version` (or `snippetVersion`) runs the newest
+     version, so it changes on save. Name every one, with agent,
+     environment and node, in the confirm.
 3. Confirm, then `save_code_snippet` `{snippet_id, language: "js", code}`.
    It creates a new version; `name` is ignored on an update (no rename).
 4. Re-pin each pinned consumer you were asked to move: a library tool through

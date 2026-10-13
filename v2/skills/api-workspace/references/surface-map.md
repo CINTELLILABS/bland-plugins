@@ -33,6 +33,10 @@ not replaced with guessed routes, model names, or private platform code.
 | Outbound calls, scheduling, batches | [Outbound calls](../../outbound-calls/SKILL.md) | Agent version selector, caller id, recipients, rate limits, DNC. |
 | Issues (triage) | [Triage issues](../../triage-issues/SKILL.md) | Agent scope, evidence ids, open duplicates, who is assigned. |
 | Voices and spoken language | [Voices](../../v2-lifecycle/references/voices.md) | Voice id resolves and is live, language code, production pin. Preview, cloning, studio: dashboard only. |
+| Active calls, live end and transfer, contacts | [Live calls and contacts](../../call-analysis/references/live-calls-and-contacts.md) | Call still live, do-not-call on the transfer target, contact match and merge direction. Listening and the live transcript are dashboard only. |
+| Agent identity: contact card, branded caller ID, RCS sender | [Identity](../../agent-channels/references/identity.md) | Application status, numbers in the application, sender per number. |
+| Pathways page: library, copies, folders | [Pathway library](../../v2-lifecycle/references/pathway-library.md) | Owning agent, newest save versus pin, copies are independent. |
+| Overview pages (org and agent) | [Overview pages](../../analytics-cohorts/references/how-it-works.md#overview-pages) | Window (30 days on the globe, 90 on Analytics). |
 | Headline metric tiles, aggregate questions | [Metric tiles](../../analytics-cohorts/references/metrics.md), [measurement](../../analytics-cohorts/references/measurement.md) | Agent, window, attached `metric` target, backfill scope. |
 
 Every feature also has a conceptual page; the index lists them under

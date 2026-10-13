@@ -36,6 +36,9 @@ dispositions, external resources and operational surfaces, read the
 | Set up or diagnose a trigger, alert or post-call webhook; test without dialing | [Automations](../../automations/SKILL.md), [testing order](../../automations/references/testing.md) |
 | Create and prove a tool, including custom code; change a shared tool safely; debug a tool run; delete a tool safely; secrets by id; connect or disconnect an integration | [Tool library](../../tool-library/SKILL.md), [procedures](../../tool-library/references/workflows.md), [tool contract](../../v2-runtime/references/tool-library.md) |
 | Set up post-call outputs on every call (outcome categories, fields, verdicts); test and publish them; calibrate; backfill past calls; diagnose blank or missing results; migrate v1 citations and outcomes | [Dispositions](../../dispositions/SKILL.md), [API](../../dispositions/references/api.md) |
+| Who is on a call now; end or transfer a live call; everything about a caller; merge contacts | [Live calls and contacts](../../call-analysis/references/live-calls-and-contacts.md) |
+| Set up branded caller ID, the contact card or an RCS sender | [Identity](../../agent-channels/references/identity.md) |
+| Pathways page: reuse or copy a pathway across agents, pathway versions, folders | [Pathway library](../../v2-lifecycle/references/pathway-library.md) |
 | File an issue from a bad call; work, link, close issues | [Triage issues](../../triage-issues/SKILL.md), [triage API](../../triage-issues/references/api.md) |
 | Run a staged or A/B rollout and decide; read experiment results | [Rollouts](../../v2-lifecycle/references/rollouts.md) |
 | Choose, set or debug an agent's voice and language | [Voices](../../v2-lifecycle/references/voices.md) |
@@ -56,7 +59,7 @@ map.
 | Which version answers and why a change did not take: environments, pins, variables, checks, branches, rollouts | [Environments](../../agent-environments/references/how-it-works.md) |
 | How voice and language are chosen for each call | [Voices](../../v2-lifecycle/references/voices.md#how-voice-and-language-work) |
 | From a ring to the agent picking up: number ownership, caller screening, caller ID, SIP | [Phone numbers](../../phone-numbers/references/how-it-works.md) |
-| From an uploaded source to the answer a caller hears; open questions; agent memory | [Knowledge](../../knowledge-sources/references/how-it-works.md) |
+| From an uploaded source to the answer a caller hears; open questions; the Knowledge map; agent memory | [Knowledge](../../knowledge-sources/references/how-it-works.md) |
 | How a tool call runs mid-conversation, what the caller hears, why it failed | [Tools](../../tool-library/references/how-it-works.md) |
 | Which version answers texts, web chat and API chat; session lifetime; why a channel is silent | [Channels](../../agent-channels/references/how-it-works.md) |
 | Why a call or batch behaved as it did: version, voicemail, statuses, batch states | [Outbound calls](../../outbound-calls/references/how-it-works.md) |
@@ -67,6 +70,10 @@ map.
 | How a call becomes a Sankey path; why today's calls are not on the chart | [Analytics Sankey](../../analytics-authoring/references/how-it-works.md) |
 | Why a call is missing from analytics; how fresh tiles, cohorts and metrics are | [Cohorts and metrics](../../analytics-cohorts/references/how-it-works.md) |
 | What evidence a call leaves and when each piece appears | [Call evidence](../../call-analysis/references/how-it-works.md) |
+| What Active calls shows and what a contact is | [Active calls](../../call-analysis/references/how-it-works.md#active-calls), [contacts](../../call-analysis/references/how-it-works.md#contacts) |
+| Branded caller ID, contact card and RCS states; why texts show no logo | [Identity](../../agent-channels/references/how-it-works.md#identity) |
+| What a pathway in the library is and why copies do not update | [Pathway library](../../v2-lifecycle/references/pathway-library.md) |
+| What the Overview pages show and why they differ from Analytics | [Overview pages](../../analytics-cohorts/references/how-it-works.md#overview-pages) |
 | How an issue moves from filed to closed | [Issues](../../triage-issues/references/how-it-works.md) |
 
 ## What this package is—and is not

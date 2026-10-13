@@ -1,12 +1,13 @@
 # Testing an automation
 
 Three stages, in order. Each stage proves something the previous one did
-not. Only the third reaches a person. Routes and step configs are in
+not. Stage 2 swaps out the call only; every other node still runs.
+Routes and step configs are in
 [the API reference](api.md).
 
 ```text
 stage 1  dryRun: true             conditions only        nothing runs
-stage 2  nodes: send_call→mock_call   the whole pipeline     nobody is dialed
+stage 2  nodes: send_call→mock_call   the whole pipeline     nobody is dialed; other nodes run
 stage 3  saved nodes, no dryRun   a real run             a real call or text (confirm)
 ```
 
@@ -66,9 +67,16 @@ dials nobody. Swap it in through `nodes`; the saved pipeline is not changed.
 1. `bland_api_get` `/v1/automation/pipelines/<event_pipeline_id>`. Copy
    `pipeline.pipeline_nodes`.
 2. Keep each node's `node_id`, `type`, `order` and `config` (add `name`
-   only when it is a string). Change `"type": "send_call"` to
+   only when it is a string). Change every `"type": "send_call"` to
    `"type": "mock_call"`. Change nothing else.
-3. Send without `dryRun`:
+3. Check every other node. The test runs each one for real. Only
+   `mock_call`, `schedule_window`, `evaluate_conditions`, `fetch_lead` and
+   `resolve_hubspot_association` have no outside effect. Any other node
+   (`send_sms`, `send_webhook`, `send_slack_message`,
+   `run_connected_custom_code`, `run_eval_judge`) texts, posts, runs code
+   or bills. With one present, stop after stage 1, or send stage 2 only
+   after the stage 3 confirm, naming what that node will do.
+4. Send without `dryRun`:
 
 ```json
 {
@@ -89,27 +97,27 @@ dials nobody. Swap it in through `nodes`; the saved pipeline is not changed.
 }
 ```
 
-4. The response carries `executionId`. Poll `bland_api_get`
+5. The response carries `executionId`. Poll `bland_api_get`
    `/v1/automation/executions/<executionId>` every few seconds until
    `completed` or `failed`.
-5. Check `result`:
+6. Check `result`:
    - `call_id` starts with `mock_`.
    - `resolved_config.phone_number` is the number the real call would dial.
    - `resolved_config.agent_id`, `agent_version`, `from`, `max_duration`
      and `start_time` (set by a `schedule_window` step) are what the user
      expects.
-6. `mock_call` does not echo `request_data` or `metadata` mapped in the
+7. `mock_call` does not echo `request_data` or `metadata` mapped in the
    config. Check each `{"source": "input", "value": "<path>"}` against the
    run's `input` by dot path. A path that is not there resolves to nothing.
-7. `mock_call` only echoes. It does not check that the agent, version or
+8. `mock_call` only echoes. It does not check that the agent, version or
    caller ID would be accepted; stage 3 is the first proof of that. Its
    number comes only from `to` or an input `phone_number`, while
    `send_call` also searches common phone fields (`Phone`, `MobilePhone`,
    …). A missing `phone_number` in a mock run is not always a live failure.
-8. A `failed` run quotes the step and the reason in `error`, for example a
+9. A `failed` run quotes the step and the reason in `error`, for example a
    config that did not resolve. Fix the mapping and repeat stage 2.
 
-Only `send_call` has a mock. A pipeline whose action is `send_sms`,
+Only `send_call` has a mock. A pipeline whose only action is `send_sms`,
 `send_webhook`, `send_slack_message` or `run_connected_custom_code` has no
 stage 2: any non-dry test performs that action. Stop after stage 1, or go to
 stage 3 with confirmation.

@@ -25,11 +25,15 @@ Every agent has exactly three fixed environments: `dev`, `staging` and
 - **dev is never pinned.** It always means the newest version on the trunk
   timeline (the head). Saving a version deploys it to dev.
 - **staging and production are pins**: a pointer at one immutable version row.
-  A new agent has both unpinned. A call to an agent with no production pin
-  fails with `AGENT_ENV_UNPINNED` on outbound calls, tests and simulations;
-  it does not fall back to the head. Inbound calls still connect and run the
-  twin's stored copy, compiled at the last attach or promote (after a fresh
-  attach to a never-promoted agent, that is the latest save), unattributed.
+  A new agent has both unpinned. Anything that resolves production with no
+  production pin (an outbound call with no `agent_version`, or any request
+  that selects `production`) fails with `AGENT_ENV_UNPINNED`; it does not
+  fall back to the head. Draft tests are unaffected: test chat, simulations
+  and test runs default to the dev head and dev variables, so a new agent can
+  be tested before anything is pinned. Inbound calls still connect and run
+  the twin's stored copy, compiled at the last attach or promote (after a
+  fresh attach to a never-promoted agent, that is the latest save),
+  unattributed.
 
 ## The ship pipeline
 
@@ -86,8 +90,11 @@ Selector grammar (`agent_version`, `version_id`): `production` | `staging` |
   promote, or pass an explicit selector, before claiming production parity.
   When the builder tests the Staging or Production version it selects it by
   semver, so it runs with dev variables.
-- A selector value the platform cannot parse (a number, a typo) counts as no
-  selector: the production pin.
+- An unrecognized selector (a number, a typo such as `prod`) depends on the
+  surface. `POST /v1/calls` refuses it with a 400 naming `agent_version`, and
+  nothing dials. The test-chat socket's `version_id` and the builder's test
+  routes treat it as no selector and run the production pin. Send only the
+  grammar above.
 - **API chat** also needs the API chat channel switched on in the version the
   chat runs. The `agent-channels` skill owns that workflow.
 
@@ -243,9 +250,10 @@ production, the dev head for staging.
   inference persists nothing. Inbound and SMS memory follow the twin
   persona's copy, refreshed on promote. Memory records are runtime data; see
   [resource boundaries](resources.md#knowledge-and-memory).
-- **Library**: `GET /library/scenarios` (reusable scenarios read live from
-  other agents' dev heads) and archived nodes (self-contained copies). See
-  [reuse workflows](resources.md#reuse-and-import-workflows).
+- **Library**: `GET /library/scenarios?paginate=true` (each agent's
+  pathways, read live from its newest trunk save) and archived nodes
+  (self-contained copies). How the Pathways page, copies, versions and
+  folders work: [pathway library](pathway-library.md).
 - **Platform migration endpoints**: `POST /v2/agents/migrate` (planner, 10 per
   hour, dry run by default), `/migrate/pathways` (deterministic 1:1, up to 20),
   `/migrate/persona`, and async `/migrate/translations`. These are the

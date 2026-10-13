@@ -103,7 +103,7 @@ Other states:
 
 | Object | States | Moves |
 | -- | -- | -- |
-| Branded Caller ID | `not_submitted` → `submitted` → `pending_review` → `approved` or `rejected` | Submit; carrier review. Resubmitting an approved or in-review application needs `resubmit: true` and restarts review. Branding is active only when `approved` and the identity switch is on. |
+| Branded Caller ID | `not_submitted` → `submitted` → `pending_review` → `approved` or `rejected` | Submit; carrier review. Resubmitting an approved or in-review application needs `resubmit: true` and restarts review. Carriers brand the approved numbers; the identity switch only marks calls as branded in their metadata ([identity](../../agent-channels/references/how-it-works.md#identity)). |
 | Block rule | active ⇄ paused → deleted | Edit `is_active`; delete is permanent. |
 | SIP direction | none → configured → none | Attach; detach deletes that direction's config. Attaching a direction that exists is refused until it is detached. |
 | Gradual cutover | share 0 to 100 percent | 0 percent is a rollback. Owned by [rollouts](../../v2-lifecycle/references/rollouts.md). |
@@ -219,16 +219,18 @@ switch saves on flip and is not part of the agent version.
 | Staging number runs production | Not attached as staging, or routing fell back | `numbers[].agent_env_type` on the agent's binding | Reattach with `"environment": "staging"` |
 | SIP number silent | No owner, no inbound direction, endpoint unreachable, or a `+` added to a DID | The [SIP diagnosis](sip.md#diagnose) reads | Fix the named step |
 | Outbound call refused for caller ID | `from` not on the org | the 400 message | Use a number on the account |
-| No business name on recipients' phones | BCID not `approved`, switch off, number not in the application, or the recipient's carrier not covered | `GET /v2/agents/<id>/identity/bcid`; the call's metadata lacks `branded_caller_id` | Finish review; resubmit with the number. Display is the recipient carrier's decision. |
+| No business name on recipients' phones ([identity](../../agent-channels/references/how-it-works.md#identity)) | BCID not `approved`, number not in the application, or the recipient's carrier not covered | `GET /v2/agents/<id>/identity/bcid`; the call's metadata lacks `branded_caller_id` | Finish review; resubmit with the number. Display is the recipient carrier's decision. |
 
 ## Questions people ask
 
 **Who answers my number right now?** Run the two-read owner check in the
 skill. A persona whose `inbound_numbers` holds it wins over a pathway.
 
-**Do I have to promote before attaching?** Attaching works without it, but the
-number then runs the latest saved version as of the attach, not a release.
-Promote first so calls run a version you chose.
+**Do I have to promote before attaching?** Attaching works without it, but a
+production attach copies the latest saved version, not a release. Texts, the
+widget and API chat run that copy at once, and calls fall back to it while
+production is unpromoted. Promote first so every channel runs a version you
+chose.
 
 **Will publishing change what callers hear?** Publish reaches staging numbers
 only. Production numbers change on promote or rollback.

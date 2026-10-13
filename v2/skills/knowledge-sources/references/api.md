@@ -20,6 +20,7 @@ Confirm column: **R** read. **T** writes telemetry; tell the user.
 - [Retrieval tests](#retrieval-tests)
 - [Questions](#questions)
 - [Query logs](#query-logs)
+- [Knowledge map](#knowledge-map)
 - [Pre-delete scan](#pre-delete-scan)
 - [Errors and fixes](#errors-and-fixes)
 - [Not this skill](#not-this-skill)
@@ -218,6 +219,26 @@ Every retrieval: calls, tests, the Source testing tab and API use.
 For a call older than 7 days, set `start_date` and `end_date` around the
 call, or the list is empty.
 
+## Knowledge map
+
+The data behind the Knowledge map pages. What each number means and how
+the agent page narrows it: [how it works](how-it-works.md#knowledge-map).
+
+| Method and path | Query | Returns | Confirm |
+|---|---|---|---|
+| `GET /map` | none | `{nodes[], links[], total_queries_30d, gaps_truncated}` for the whole org. There is no source or agent filter: narrow by `kb_id` yourself. 500 `KB_MAP_ERROR` when it cannot be built; retry once. | R |
+
+| Row | Fields |
+|---|---|
+| Source node | `id` (`source:<kb_id>`), `kind: "source"`, `kb_id`, `name`, `type`, `status` (`PROCESSING`, `COMPLETED`, `FAILED`), and over the last 30 days `query_count`, `gap_count` (misses), `covered_count` (hits), `coverage_pct` (0 to 100, null with no lookups) |
+| Question node | `id` (`gap:<gap_id>`), `kind: "gap"`, `gap_id`, `status` (`OPEN`, `RESOLVED`), `question`, `occurrence_count`, `resolved_at` |
+| Link | `{source: "source:<kb_id>", target: "gap:<gap_id>", kind: "gap_surfaced_against"}`, one per source the Question was raised against |
+| `total_queries_30d` | Lookups in 30 days that searched any source, each counted once |
+| `gaps_truncated` | True when more than 5,000 open and resolved Questions exist; open ones, newest first, are kept |
+
+The page hides lines to sources with no lookups and Questions left with no
+line; the API returns them all.
+
 ## Pre-delete scan
 
 `kb_item_scopes` on `GET /:id` is incomplete for v2. It lists:
@@ -230,7 +251,10 @@ call, or the list is empty.
 It does not index a `knowledge` step's `kbIds` or a prompt mention. Scan
 those yourself:
 
-1. Page `bland_api_get` `/v2/agents`.
+1. `bland_api_get` `/v2/agents` with no `limit`. That returns every agent;
+   a `limit` caps the list at 500 and the route has no next page. If the
+   read fails or the result arrives cut off, stop: the scan is incomplete,
+   so do not delete.
 2. Per agent, read `/v2/agents/<id>/versions/latest`, then `/environments`
    and each pinned staging or production version by its semver
    ([lifecycle API](../../v2-lifecycle/references/api.md)). Production can
@@ -241,6 +265,8 @@ those yourself:
    cannot be resolved here; list it as "may use".
 4. Report every agent, environment and node by name, plus the v1 personas
    and pathway nodes, plus the 30-day query counts.
+5. Delete only when every read above succeeded. If one failed, name the
+   agent or version you could not read and stop.
 
 ## Errors and fixes
 

@@ -144,9 +144,10 @@ chosen id, one models read, one version save, one read-back.
    `GET /v1/voices` (what the builder's picker lists) or
    `GET /v1/voices/shared` with `search`, `tag` or `gender`.
 3. Check the language. `GET /v1/models` lists each model's `model_id`,
-   `display_name` (V1, V2, V3) and `languages`; a voice's `service` matches a
-   `model_id`. For a non-English target, pick a voice whose model lists that
-   language.
+   `display_name` (V1, V2, V3) and `languages`; a voice's `service` equals
+   the `model_id` of its model. For a non-English target, pick a voice whose
+   model lists that language. A voice whose `service` matches no `model_id`
+   has no published language list: treat its language as unverified.
 4. Verify each chosen id with `GET /v1/voices/:id`. It must return `{voice}`
    (400 `VOICE_NOT_FOUND` means this org cannot use it). If `is_live` is
    `false` it is a draft trained voice: stop, say it would fail calls and that
@@ -235,6 +236,9 @@ number's, when it sets one.
 - Before `DELETE /v1/voices/:id`, a voice settings write
   (`POST /v1/voices/:id/settings`) or demoting a trained voice: list the org's
   agents whose dev head or production version uses the id in `voice` or
-  `voicePool` (`GET /v2/agents`, then each agent's versions), name them, and
-  get explicit confirmation. These change every agent and number that uses the
+  `voicePool`, name them, and get explicit confirmation. Read the agent list
+  once with `GET /v2/agents` and no `limit` (a `limit` caps the list), then
+  each agent's versions. If any read fails or the list looks cut off, stop
+  and say which agents could not be checked; never report "no agents use it"
+  from a partial scan. These change every agent and number that uses the
   voice. Deletion cannot be undone.

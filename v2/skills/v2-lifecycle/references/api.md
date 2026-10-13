@@ -33,7 +33,7 @@ a specific code only where the API sends one.
 | Endpoint | Body / query | Returns | Notes |
 |---|---|---|---|
 | `POST /` | `{name}` (non-empty) | 201 `{agent, environments[3]}` | Nothing else accepted; all config lives in versions. Creates dev, staging and production rows, all unpinned. |
-| `GET /` | `?limit` (1 to 500, default 100) | agent rows + `color` + `twin_pathway_id` (null = no number bound) | Only filter is `limit`; ordered `updated_at desc`. |
+| `GET /` | `?limit` (optional, 1 to 500) | agent rows + `color` + `twin_pathway_id` (null = no number bound) | Ordered `updated_at desc`. No `limit` returns every agent; a `limit` caps the list and there is no paging. For an org-wide scan read once with no `limit`. |
 | `GET /:agentId` | none | agent row + `environments` | No snapshot or settings here; fetch a version for config. |
 | `PATCH /:agentId` | `{name}` | updated row | Rename is the only agent-level mutation. |
 | `DELETE /:agentId` | none | `{id, deleted: true}` | Soft delete; versions and history stay. **Unbinds every inbound number and retires the twin, so live inbound and texting on those numbers stop.** Disables the agent's alert configs. `409 AGENT_HAS_BOUND_WIDGETS` (with `widget_ids`) while a web chat widget runs the agent. List bound numbers first (`GET /:agentId/inbound`) and confirm. |
@@ -210,7 +210,7 @@ Identity page.
 |---|---|
 | `GET /:agentId/memory/schema` | `{entity_schemas, source: settings\|cached_version\|null}`. Resolution: dev head `settings.memorySchema`, then a previously inferred schema, then the twin's production copy. |
 | `POST /:agentId/memory/schema/infer` | `{snapshot?}`. Infers entity schemas from the compiled agent and persists nothing (save the result into `settings.memorySchema` yourself). 6 per minute. An OAuth connection cannot reach it. |
-| `GET /library/scenarios?exclude_agent_id=` | Reusable scenario nodes read live from the org's other agents' dev heads (50 most recent agents); full node payload inline. |
+| `GET /library/scenarios?paginate=true&after=&exclude_agent_id=` | Top-level scenario nodes read live from each agent's newest trunk save, full node inline. With `paginate=true`: `{groups, next_cursor}`, 50 agents per page; follow `after=<next_cursor>` until `null`. Without it, a bare array of the first page only. See [pathway library](pathway-library.md). |
 | `GET /library/archived-nodes` · `POST /:agentId/archived-nodes {node}` · `DELETE /library/archived-nodes/:id` | Self-contained node copies (org-wide, 200 listed). Archiving never edits the canvas; delete is hard but removes only a copy. |
 | `GET /library/scenario-folders` · `PUT /library/scenario-folders {agent_id, node_id, folder_id\|null}` | Which folder each v2 scenario is filed under (shared with v1 pathway folders). `folder_id: null` unfiles. |
 | `GET /library/pathway-migrations` | For each migrated v1 pathway, the newest live v2 agent it went into. An agent built from several pathways records only the first. |

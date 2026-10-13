@@ -62,10 +62,13 @@ number has an owner):
 - Without it, the attach takes the number from whatever owns it, including a
   live v1 pathway, whose direct pathway binding is cleared.
 - A production attach recompiles the agent's latest saved mainline version
-  into its inbound bridge. Calls still resolve the production pin at call
-  time, or the staging pin for a staging number. When that version cannot
-  be served (never promoted, invalid, a production variable unset), the
-  call runs the copy compiled at the last attach or promote instead
+  into its inbound bridge. Texts, the widget and API chat run that copy at
+  once, until the next promote; when the latest save is not the production
+  pin, compare the two and confirm before attaching. Calls still resolve the
+  production pin at call time, or the staging pin for a staging number.
+  When that version cannot be served (never promoted, invalid, a production
+  variable unset), the call runs the copy compiled at the last attach or
+  promote instead
   ([how it works](how-it-works.md#how-it-reaches-a-live-call-or-conversation)).
 - 200: `{ agent_id, persona_id, pathway_id, compiled_from_version, attached }`.
 
@@ -193,7 +196,8 @@ Never call these. Say what the user does and where.
 | Release a number | Settings, Billing, phone subscriptions | Irreversible: the number goes back to the carrier. |
 | Connect a Twilio account, import its numbers | `/dashboard/phone-numbers` | Needs a credential and a header the API tools cannot send. |
 | Port a number in | `/dashboard/sip-trunks?wizard=port` | Carrier submission with a signed authorization and a document upload. |
-| A2P registration, Branded Caller ID | the agent's Channels pages | Carrier review. |
+| A2P registration | the agent's Channels, Messages page | Carrier review. |
+| Branded Caller ID application | Configure, Identity (`/dashboard/agent/<id>/configure/identity`); its switch also shows on Channels, Calls | Carrier review; see [identity](../../agent-channels/references/identity.md). |
 
 ## Auth limits
 

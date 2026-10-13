@@ -39,8 +39,9 @@ Budget: one list per environment, one snapshot read, one write per key.
    letters, digits and underscores. A secret: the user types it on the
    Variables page ("Store as secret"), not into chat.
 3. Pre-flight before a publish, check run or promote: read the candidate
-   snapshot, collect every `{{env.KEY}}`, compare with the target
-   environment's keys ([pre-flight](references/environments.md#variable-pre-flight)).
+   itself (by semver unless it is a head), collect every `{{env.KEY}}`,
+   compare with the target environment's keys
+   ([pre-flight](references/environments.md#variable-pre-flight)).
    Report "N referenced, all set" or each missing key.
 4. `delete_agent_variable` only when the pre-flight shows no version that
    environment runs references the key.

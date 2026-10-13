@@ -15,8 +15,7 @@ or search the docs for these routes.
 
 ## Page context
 
-Call `get_dashboard_page_context` (`mode: "synced"`) first. No target chip
-exists here.
+Call `get_dashboard_page_context` (`mode: "synced"`) first.
 
 - `/dashboard/tools`, `/dashboard/tools/create`: org scope.
 - `/dashboard/tools/$toolId`: tool id.
@@ -28,7 +27,7 @@ Mutate through the API, never the page's forms. After every write say:
 
 ## Workflow: create and prove a tool
 
-Budget: search, create, run, one test-chat turn, attach save.
+Budget: search, create, run, attach save, one test-chat turn.
 
 1. `bland_api_get` `/v1/tools?search=<name>`; reuse a match.
 2. Write the definition per the reference: no top-level `url` or `method` on
@@ -36,9 +35,9 @@ Budget: search, create, run, one test-chat turn, attach save.
    cleanly, then fail every call with HTTP 0.
 3. `call_bland_api` POST `/v2/tools`. Keep the id.
 4. POST `/v2/tools/<id>/run` with `{"inputs": {…}}`, synthetic values.
-5. One test-chat turn that makes the agent call it.
-6. Attach and say why this mode: embedded copy (frozen, this agent),
-   `byReference` or a `tool` step (both follow library edits).
+5. Attach with a dev save; say why this mode: embedded copy (frozen,
+   this agent), `byReference` or a `tool` step (both follow library edits).
+6. One test-chat turn that makes the agent call it.
 
 Custom code: `save_code_snippet`, then the tool pinned to the returned
 version ([custom code tools](references/workflows.md#custom-code-tools)).
@@ -48,7 +47,8 @@ version ([custom code tools](references/workflows.md#custom-code-tools)).
 Budget: read, agent scan, write, read-back, run.
 
 1. `bland_api_get` `/v1/tools/<id>`. Keep the original.
-2. Run the [consumer scan](references/workflows.md#consumer-scan).
+2. Run the [consumer scan](references/workflows.md#consumer-scan). If it
+   is incomplete, stop.
 3. Show the diff and the affected agents. Confirm.
 4. POST `/v2/tools/<id>` with only the changed keys. Never send a partial
    body to POST `/v1/tools/<id>`: it replaces the row unvalidated.
@@ -56,7 +56,7 @@ Budget: read, agent scan, write, read-back, run.
 
 ## Workflow: debug a tool run
 
-Budget: one log read for the call, one stats read, one definition read.
+Budget: log read, stats read, definition read.
 
 1. `bland_api_get` `/v2/tools/logs?call_id=<call id>`, or by `tool_id` (raw
    UUID) with `status=error`.
@@ -70,7 +70,7 @@ Budget: one log read for the call, one stats read, one definition read.
 Budget: read, consumer scan, one stats read, one delete.
 
 1. `bland_api_get` `/v1/tools/<id>`; run the
-   [consumer scan](references/workflows.md#consumer-scan).
+   [consumer scan](references/workflows.md#consumer-scan) (same stop).
 2. Name every agent and node; offer to detach first.
 3. Confirm, then DELETE `/v2/tools/<uuid>`. There is no reference check.
 

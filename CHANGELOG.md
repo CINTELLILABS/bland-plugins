@@ -39,6 +39,20 @@
   dashboard, limits and a cause map. Many existing claims corrected against
   current behavior.
 - The cohort column list is cut to customer-facing columns.
+- Coverage for the remaining dashboard pages: the Knowledge map (with a
+  weakest-spots workflow), Active calls and Contacts (end or transfer a live
+  call, look up a caller, merge contacts), the agent Identity page (contact
+  card, branded caller ID, RCS senders), the Pathways library (copies are
+  independent; copy, update copies, restore), and the Overview pages.
+- Review fixes: compare the latest save with production before a number
+  attach; automation tests stop or confirm when any node has a real effect;
+  prove a tool after it is attached; agent scans read the full list once and
+  stop when incomplete; snippet scans include embedded copies; the batch
+  canary counts against the allowance; judgment metric tiles confirm the
+  billed backfill; `query_analytics` time buckets; chat retries; selector
+  errors by surface; environment pre-flight reads the exact candidate.
+- Migration builder: an empty v1 condition group stays always true; an
+  empty `plan.voice` selects the default voice.
 - New wiki check: shipped pages and benchmarks name no internal vendors,
   models or infrastructure, and state no server weaknesses.
 

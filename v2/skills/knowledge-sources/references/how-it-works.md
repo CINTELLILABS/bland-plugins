@@ -15,6 +15,7 @@ hears, and how agent memory differs. Routes, bodies and errors are in the
 - [Rules and limits](#rules-and-limits)
 - [When it goes wrong](#when-it-goes-wrong)
 - [Questions people ask](#questions-people-ask)
+- [Knowledge map](#knowledge-map)
 - [Agent memory](#agent-memory)
 
 ## What it is
@@ -234,7 +235,7 @@ under `/dashboard/agent/<agentId>/knowledge-bases/`.
 | Questions | Open, Resolved, Dismissed; source filter; occurrences with links to the call or text conversation. The agent copy lists Questions touching its agent-wide sources. | CSV export of every match. |
 | Query Logs | Time, Query, Status, Source, Context, Call; a 7-day default window; detail with the passages and scores. The agent copy lists every lookup attributed to the agent, step lookups included. | |
 | Source testing | A chat over chosen sources: the answer written from the passages, the search written, each passage with its score, "Boosted result" when a boosted field matched, and an Answer banner on a miss. Logged as API. The agent copy tests the agent-wide sources of the environment and branch shown, as loaded in the builder, which may be unsaved. | |
-| Map | Sources as hexagons sized by share of queries and coloured by coverage (under 50%, 50 to 79%, 80% or more); open and resolved Questions as circles linked to their sources. At most the first 5,000 Questions. | The picture itself; the API returns the data. |
+| Knowledge map | Sources as hexagons sized by share of lookups and coloured by coverage; open and resolved Questions as circles linked to their sources. See [Knowledge map](#knowledge-map). | The picture itself; `GET /v1/knowledge/map` returns the data. |
 
 Coverage counts the lookups that were not misses when they ran. Resolved
 coverage also counts misses whose Question was later answered. Contexts
@@ -295,6 +296,134 @@ After a write through the API the page shows it after a refresh.
 - **Can the agent read a file from my desktop?** No. Add it on Sources, Add
   source. A file at a public https link can go through
   `upload_knowledge_file`.
+
+## Knowledge map
+
+The Knowledge map answers "which sources do callers lean on, how often do
+they come up empty, and what are people asking that they miss?" It draws
+the last 30 days of lookups against the org's sources, plus the open and
+resolved Questions raised against them.
+
+It is not a map of what the documents say. It does not cluster topics or
+show how sources relate to each other. Where a shape sits on the canvas
+means nothing beyond the lines drawn to it.
+
+Pages: `/dashboard/knowledge-base/map` (the org) and
+`/dashboard/agent/<agentId>/knowledge-bases/map` (one agent). Both are
+listed as "Knowledge map" in the sidebar.
+
+### What the shapes mean
+
+```text
+  hexagon = a source              circle = a Question
+    size   = its share of the        pale   = Open
+             org's lookups, 30 days  filled = Resolved
+    colour = coverage                size   = times asked
+      red     under 50%
+      amber   50 to 79%            line = the Question was raised
+      green   80% or more                 against that source
+      grey    no lookups in 30 days
+```
+
+- The header reads "<n> sources", "<n> questions" and "<n> queries / 30d".
+  "(of first 5,000 returned)" after the questions count means the org has
+  more than 5,000 open and resolved Questions and the rest are not drawn.
+- Click a hexagon: name, type and status, then **Queries**, **Hits**,
+  **Misses** and **Coverage**, and "View source". Click a circle: its status,
+  the question, "Asked n times", the date it was resolved, and "View
+  question", which opens the Questions list (not that one question).
+- Grey sources gather in one cluster. Their lines are not drawn, and a
+  Question raised only against grey sources is hidden.
+- The Legend button shows or hides the key; the browser remembers the
+  choice.
+
+| Label | Counts | Window |
+|---|---|---|
+| Queries | Lookups that searched this source, from every agent, test and API call in the org. A lookup over three sources counts once for each. | Last 30 days, rolling |
+| Hits | Of those, lookups not flagged as a miss when they ran (Answered in Query Logs). | Last 30 days |
+| Misses | Lookups flagged as a miss. This is not the number of Questions. | Last 30 days |
+| Coverage | Hits divided by Queries; a dash when there were no lookups. The same figure as the Sources Coverage column. Answering a Question later does not raise it; Sources shows that as Resolved coverage. | Last 30 days |
+| queries / 30d | Lookups that searched any of the org's sources, each counted once. | Last 30 days |
+| Questions | Open and Resolved, of any age. Dismissed and deleted ones are left out. Open ones come first, newest first, up to 5,000. | All time |
+
+A source is drawn whatever its status. One stuck in Processing with no
+progress for about a day reads Failed, as on Sources.
+
+### The agent copy
+
+```text
+ org map (every source, every Question)
+      |
+      | keep the sources in this agent's agent-wide list
+      | (the environment and branch in the URL, unsaved edits included)
+      v
+ agent map: those sources + the Questions raised against them
+```
+
+- Only agent-wide sources (`knowledge.kbIds`) are on it. A source the agent
+  uses only on a `knowledge` step is not drawn.
+- The numbers stay org-wide. A shared source's Queries, Hits and Coverage
+  include every agent and every test that searched it, and its size is its
+  share of the whole org's lookups. For this agent's own lookups, read Query
+  Logs with `agent_id`.
+- The Questions shown were raised against those sources by anyone.
+- "No sources attached" means the version shown lists none. Attach on the
+  Sources tab.
+
+### How fresh it is
+
+- Every load computes the map from the lookups and Questions as they are
+  now. There is no nightly snapshot.
+- A lookup counts once its Query Logs row exists, a few seconds after it
+  ran.
+- The page reuses what it loaded for a short while and does not redraw
+  after a write. A Question answered or a source added since appears after
+  a reload.
+- A new source stays grey until something searches it.
+- "No queries in the last 30 days." replaces the drawing when nothing in
+  scope was searched in that window.
+
+### Dashboard and API
+
+The page and `GET /v1/knowledge/map` carry the same data
+([fields](api.md#knowledge-map)). The API returns the whole org; to see one
+agent, keep the source rows whose `kb_id` the agent's version lists. Unlike
+the page, you can include the agent's step sources too. The shapes are
+drawn on a canvas the page context does not read, so read the route.
+Nothing on the map is edited there: answer Questions on Questions, change
+sources on Sources.
+
+### Find the weak spots
+
+When someone asks "what is the agent weakest on?":
+
+1. Read `GET /v1/knowledge/map` and keep the agent's sources, agent-wide and
+   step, from the version that runs (production for live traffic).
+2. Rank by **Misses**, then Coverage. Two lookups at 0% are noise; 300 at
+   60% is a real gap.
+3. Discount test traffic. Source testing and `/chat` misses count. Check
+   `GET /v1/knowledge/queries?state=QUESTION_OPEN&query_source=API` (and
+   `PLAYGROUND`) over 30 days before blaming the source.
+4. For the weak source, list
+   `GET /v1/knowledge/gaps?status=OPEN&kb_id=<id>&sort_by=occurrences_desc`
+   and answer or edit the source from the user's facts.
+5. A grey source the agent lists was never searched. That is a lookup
+   problem, not a content one: see
+   [agent-wide sources](#agent-wide-sources).
+6. High coverage with unhappy callers: Hits include lookups that failed or
+   reused an earlier result. Read the chunks in Query Logs.
+
+### When the map looks wrong
+
+| Symptom | Likely cause | Evidence | Fix |
+|---|---|---|---|
+| A source the agent uses is missing from its map | It is attached on a `knowledge` step only, or the environment shown does not list it | The version's `knowledge.kbIds` and step `kbIds` | Read the org map, or the API with the step ids |
+| Coverage is red but the agent answers well | Test misses (Source testing, `/chat`) or another agent sharing the source | Query Logs by `query_source` and `agent_id` | Judge by this agent's rows; test with `/answer` and `skip_gap_evaluation` |
+| Coverage is green but callers say it did not know | Failed or reused lookups count as hits; or the right passage was spoken wrongly | Row detail: no chunks, or the passage text | Per [When it goes wrong](#when-it-goes-wrong) |
+| An answered Question still looks open | The page has not reloaded | `GET /v1/knowledge/gaps/<id>` reads RESOLVED | Reload the page |
+| The Question count says "(of first 5,000 returned)" | More than 5,000 open and resolved Questions | `gaps_truncated: true` | Use Questions with a source filter; dismiss or resolve old ones |
+| "No queries in the last 30 days." | Nothing in scope was searched in 30 days | Query Logs for the window | Attach, promote, describe the source by what it answers |
+| A Question is on Questions but not on the map | Dismissed; or every source it was raised against is grey or deleted | The Question's status and `kb_ids` | Expected; read Questions |
 
 ## Agent memory
 
@@ -362,8 +491,10 @@ value is stored as is.
 - A conversation's Memory section: **Initial context** (what the agent knew at
   the start) and the changes this conversation made, or "No memory recorded
   for this conversation."
-- No page lists every contact's memory. Use the
-  [memory routes](../../v2-lifecycle/references/api.md#memory-records).
+- The Contacts tab on Conversations shows each contact's memory per agent
+  ([contacts](../../call-analysis/references/how-it-works.md#contacts)); the
+  [memory routes](../../v2-lifecycle/references/api.md#memory-records) read it
+  through the API.
 
 ### When memory goes wrong
 

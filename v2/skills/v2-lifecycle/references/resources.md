@@ -87,8 +87,9 @@ transport for changes.
 
 ## Reuse, history and restoration
 
-- Scenario library entries come from other agents' current dev heads. They are
-  reusable source material, not a promise of continuous synchronization.
+- Scenario library entries (the sidebar Pathways page) are read live from
+  each agent's newest trunk save. A copy is independent: editing the source
+  later never changes it. See the [pathway library](pathway-library.md).
 - Archived nodes are copies. Archiving does not remove the original from its
   canvas. Deleting an archive removes a reusable copy, not an agent's live node.
 - Reusing a subtree requires checking ids, internal references, external tools,
@@ -110,18 +111,10 @@ callers still needs publish and promote. Every save carries the fence
 (`parent_version_id`, `parent_revision`); on `409 STALE_HEAD`, re-read and
 redo the edit, never force it.
 
-**Copy a scenario to another agent.** Call budget: two reads, one save.
-
-1. Read the source scenario: the source agent's `GET …/versions/latest`, or
-   `GET /v2/agents/library/scenarios` for another agent's current one.
-2. Read the target's `GET /v2/agents/<target id>/versions/latest`.
-3. Re-mint every node and edge id in the copied subtree and rewrite internal
-   references to match.
-4. Check what the scenario depends on in the target: saved tools, knowledge
-   ids, snippets, `{{env.KEY}}` keys with values in the target's environments,
-   and an auth-zone `parentId`. Name anything missing; do not invent it.
-5. Insert the scenario under the target's hub and save with
-   `POST /v2/agents/<target id>/versions` and the fence.
+**Copy a scenario to another agent, or carry a change to its copies.**
+Follow the [pathway library workflows](pathway-library.md#workflow-copy-a-pathway-into-another-agent):
+paged library read, target read, id re-mint, snippet and auth-zone handling,
+dependency check, one fenced save per target.
 
 **Import v1 pathways into an existing agent.** Call budget: one convert, one
 read, one save.
@@ -144,7 +137,9 @@ Deleting first loses the only copy if the save fails.
 
 **File a scenario in a library folder.**
 `PUT /v2/agents/library/scenario-folders {agent_id, node_id, folder_id}`;
-`folder_id: null` unfiles it. Folders are shared with v1 pathway folders.
+`folder_id: null` unfiles it. Folders are shared with legacy pathway folders;
+folder create, rename and delete are in the
+[pathway library](pathway-library.md#workflow-file-pathways-in-folders).
 
 ## Operational surfaces
 

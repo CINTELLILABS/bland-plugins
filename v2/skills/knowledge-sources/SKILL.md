@@ -1,15 +1,15 @@
 ---
 name: knowledge-sources
-description: Use when someone wants to "teach the agent", "add this doc / FAQ / website / file", says "the agent doesn't know", asks "what couldn't it answer" or "what did it look up on this call", wants to "answer these questions", "test this source", "update the source", "re-sync" or "delete this source", asks how knowledge works, on the Knowledge pages (Sources, Questions, Query logs, Source testing).
+description: Use when someone wants to "teach the agent", "add this doc / FAQ / website / file", says "the agent doesn't know", asks "what couldn't it answer", "what is it weakest on" or "what did it look up on this call", wants to "answer these questions", "test this source", "update the source", "re-sync" or "delete this source", asks how knowledge works, on the Knowledge pages (Sources, Questions, Query logs, Source testing, Knowledge map).
 ---
 
 # Knowledge sources
 
 A source is an org-wide document, FAQ or website indexed for retrieval. An
 agent uses it only when a saved version lists its id, agent-wide or on a
-`knowledge` step ([knobs](../v2-snapshot/references/knobs.md)). End to end,
-and agent memory: [how it works](references/how-it-works.md). Routes and errors:
-[API](references/api.md). Tests and causes:
+`knowledge` step ([knobs](../v2-snapshot/references/knobs.md)). Mechanism, map
+and memory: [how it works](references/how-it-works.md). Routes:
+[API](references/api.md). Tests:
 [verification](references/verification.md). Promotion:
 [v2-lifecycle](../v2-lifecycle/SKILL.md). Do not write fetch scripts and do
 not search the docs for these routes.
@@ -23,6 +23,8 @@ Call `get_dashboard_page_context` (`mode: "synced"`) first.
   `route.params`. Attached sources may be unsaved; read the latest version.
 - `…/testing`: Source testing; the agent page tests the agent-wide sources
   of the environment shown (`route.search.env`, `branch`).
+- `…/map`: read `/v1/knowledge/map`, not the canvas
+  ([map](references/how-it-works.md#knowledge-map)).
 
 After a source or question write say: "Saved through the API. The page shows
 it after a refresh." A version save refreshes the page itself.
@@ -37,27 +39,24 @@ Budget: search, one ingest, polls, two checks, one version save.
    POST `/v1/knowledge/learn` `type: "text"`; web, POST `/v1/knowledge/crawl`
    (one domain, agree the URLs), then `learn` `type: "web"`; a file at an
    https link, [`upload_knowledge_file`](references/api.md#upload-a-file-by-link).
-   A file only on the user's machine: they add it on Sources; then search
-   for it.
+   A local file: the user adds it on Sources; then search for it.
 3. Poll `/v1/knowledge/<id>` until `COMPLETED` or `FAILED`. On FAILED show
    `error_message` and stop.
 4. Test: one answerable, one absent question.
-5. Attach by scope (`knowledge.kbIds` or a step's `kbIds`) and save a
-   version. Attach only ids read back `COMPLETED`. Say it is on dev until
-   promoted.
+5. Attach ids read back `COMPLETED` by scope (`knowledge.kbIds` or a
+   step's `kbIds`), save a version, say it is on dev until promoted.
 
 ## Workflow: test a source
 
 Budget: one read for the ids, two `/answer` calls per question pair.
 
-1. Ids: the sources attached in the version the page shows, or the one named.
-2. Questions: the user's, or drafted pairs per
-   [Source testing](references/verification.md#source-testing), one
-   answerable and one absent, labelled as drafted.
-3. Run, judge the chunks and report per [verification](references/verification.md#verify-after-ingest),
-   naming the Query Logs rows written.
-4. `oauth_path_not_allowed`: hand the questions to the testing page per the
-   [fallback](references/verification.md#over-oauth). Never claim verified.
+1. Ids: the version the page shows, or the source named.
+2. Questions: the user's, or drafted answerable and absent pairs per
+   [Source testing](references/verification.md#source-testing), labelled.
+3. Run, judge chunks, report per [verification](references/verification.md#verify-after-ingest),
+   naming Query Logs rows written.
+4. On `oauth_path_not_allowed` use the
+   [fallback](references/verification.md#over-oauth); never claim verified.
 
 ## Workflow: update a source
 
@@ -69,13 +68,15 @@ Budget: one detail read, one content read, one write, polls, a re-test.
    re-sync; file, reindex or replace; integration, sync.
 3. Poll to `COMPLETED`, then re-test one changed fact.
 
-## Workflow: open questions
+## Workflow: weak spots and open questions
 
-Budget: one list, one write per approved answer.
+Budget: one map read, one list, one write per approved answer.
 
-1. `bland_api_get` `/v1/knowledge/gaps?status=OPEN&kb_ids=<attached ids>&sort_by=occurrences_desc`.
-2. Group duplicates. Draft answers from the user's facts only.
-3. On approval: POST `/v1/knowledge/gaps/<id>/resolve` `{answer, target_kb_id}`
+1. "Weakest": rank `/v1/knowledge/map` per
+   [weak spots](references/how-it-works.md#find-the-weak-spots).
+2. `bland_api_get` `/v1/knowledge/gaps?status=OPEN&kb_ids=<attached ids>&sort_by=occurrences_desc`.
+3. Group duplicates. Draft answers from the user's facts only.
+4. On approval: POST `/v1/knowledge/gaps/<id>/resolve` `{answer, target_kb_id}`
    (a target from the gap's `kb_ids`); link the rest with `/duplicate`; or
    `/dismiss`.
 
@@ -98,11 +99,11 @@ Reply "yes" to proceed.
 ```
 
 - **Delete a source**, after the [pre-delete scan](references/api.md#pre-delete-scan).
-  Name every agent and node.
+  Name every agent and node. An incomplete scan blocks the delete.
 - **Content, answers, reindex, re-sync, `replace_urls`, restore**: live for
   every agent using the source at once. Show the diff or answer text.
 
 ## Refusals and limits
 
-- Never send part of a document to POST content; it replaces the whole one.
+- POST content replaces the whole document; never send part.
 - `{{variable}}` ids belong only in a step's `kbIds`.

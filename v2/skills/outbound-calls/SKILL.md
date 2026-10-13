@@ -48,19 +48,19 @@ Budget: four reads, one POST, waits.
 
 ## Workflow: run a batch
 
-Budget: five reads, two POSTs (canary, full), polls.
+Budget: six reads, two POSTs (canary, full), polls.
 
 1. Inline `call_objects[]` only; CSV and SMS batches need the Batches page.
 2. `global` needs `agent_id` AND a non-empty `task`, or it is a 400
    ([the trap](references/batches.md#the-global-trap)).
-3. `bland_api_get` `/user/rateLimits`. **Refuse** a batch larger than the
-   remaining hourly or daily allowance, and refuse when the read fails
-   ([pre-flight](references/batches.md#rate-limit-pre-flight)).
+3. `bland_api_get` `/user/rateLimits`. **Refuse** a batch (plus its canary)
+   larger than the remaining hourly or daily allowance, and refuse when the
+   read fails ([pre-flight](references/batches.md#rate-limit-pre-flight)).
 4. DNC pre-flight ([how](references/batches.md#dnc-pre-flight)); drop hits.
 5. Recommend a one-row canary to a number the user controls; confirm, send,
    read the call.
-6. Confirm the full list, POST `/v2/batches/create`, state `batch_id` at
-   once. Offer `status_webhook`.
+6. Re-read `/user/rateLimits`; the list must still fit. Confirm it, POST
+   `/v2/batches/create`, state `batch_id` at once. Offer `status_webhook`.
 7. Watch `/v2/batches/<id>` and `/logs`; calls via
    `GET /v1/calls?batch_id=<id>`, then call analysis.
 

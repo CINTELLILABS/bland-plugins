@@ -47,11 +47,16 @@ documents, not whether any one call succeeds.
   the confirm template naming the pathway, waits for "yes", and only then
   attaches without `only_if_unassigned`. Fails on any attach before the
   warning, or on a `/v1/inbound/<number>` POST with `pathway_id` or `prompt`.
-- **Prompt 3:** owner check, then POST `/v2/agents/<agent id>/inbound/attach`
-  with `only_if_unassigned: true` and no `environment`, then a read-back of
-  `/v2/agents/<agent id>/inbound`, then one `create_call` to the number with
-  `from` set to another number on the account. Says the call runs the
-  production pin. Budget: two reads, one attach, one read-back, one call.
+- **Prompt 3:** owner check; reads `/v2/agents/<agent id>/versions/latest`
+  and `/environments` and compares the latest save with the production pin
+  (if they differ, says texts, the widget and API chat run the latest save at
+  once and confirms, or offers to promote first); then POST
+  `/v2/agents/<agent id>/inbound/attach` with `only_if_unassigned: true` and
+  no `environment`, then a read-back of `/v2/agents/<agent id>/inbound`, then
+  one `create_call` to the number with `from` set to another number on the
+  account. Says the call runs the production pin. Budget: four reads, one
+  attach, one read-back, one call. Fails on an attach that skips the version
+  comparison.
 - **Prompt 4:** one POST `/numbers/get_available_numbers` with
   `area_code: "415"`, `limit: 3`; flags it if `area_code` in the reply
   differs from `requested_area_code`. Sends the confirm template with the

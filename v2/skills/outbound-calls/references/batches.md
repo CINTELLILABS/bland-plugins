@@ -111,10 +111,14 @@ hourly or daily call allowance. Apply the same check before every batch.
 2. Hourly remaining = `hourly_limit - hourlyCount`. Daily remaining =
    `daily_limit - dailyCount`. The windows are the current UTC clock hour and
    the current UTC day.
-3. If the recipient count is greater than either remaining value, **refuse**.
-   Quote both numbers you read. Offer to split the list into batches that
-   fit, sent after the window resets, or to remove recipients.
-4. If the read fails, has no `template`, or answers `oauth_path_not_allowed`,
+3. If the recipient count, plus one for a planned canary, is greater than
+   either remaining value, **refuse**. Quote both numbers you read. Offer to
+   split the list into batches that fit, sent after the window resets, or to
+   remove recipients.
+4. Read the allowance again right before creating the full batch, after the
+   canary, and apply step 3 to the list alone. Calls placed since the first
+   read (the canary, other traffic) count against it.
+5. If a read fails, has no `template`, or answers `oauth_path_not_allowed`,
    do not create the batch. Say the allowance could not be checked and stop.
 
 ## DNC pre-flight
@@ -138,8 +142,9 @@ the confirm states the real count.
 Before a full list, recommend a one-row batch with the same `global`, to a
 number the user controls. Watch it to a terminal status, read the call with
 `get_call_log`, and check that the agent version, caller id, variables and
-voicemail behaved. Only then confirm the full list. A canary is a real call
-and needs its own confirm.
+voicemail behaved. Only then re-run the rate-limit pre-flight and confirm
+the full list. A canary is a real call, counts against the allowance, and
+needs its own confirm.
 
 ## Status lifecycle
 

@@ -48,11 +48,12 @@ scope and confirm tool work, not whether any one tool succeeds.
 - **Prompt 1:** searches `/v1/tools` first; writes the definition from the
   tool library reference; POST `/v2/tools` with an object `input_schema` and
   no top-level `url`/`method`; one POST `/v2/tools/<id>/run` with synthetic
-  inputs; one test-chat turn that triggers the tool; attaches and names the
-  mode with a reason. Fails if it attaches before the run or skips the
+  inputs; attaches in a dev version save and names the mode with a reason;
+  then one test-chat turn that triggers the tool. Fails if it attaches before
+  the run, runs the test-chat turn before the attach save, or skips the
   test-chat turn.
 - **Prompt 2:** reads `/v1/tools/<id>` and keeps the original; lists
-  `/v2/agents`, reads each `/versions/latest`, then `/environments` and the
+  `/v2/agents` once with no `limit` (stops if that read fails), reads each `/versions/latest`, then `/environments` and the
   pinned staging and production `/versions/<semver>`; names the agents that hold
   the tool `byReference` or as a `tool` step and says embedded copies do not
   change; shows the URL diff; sends the confirm template and waits for "yes";
@@ -75,7 +76,8 @@ scope and confirm tool work, not whether any one tool succeeds.
   creates the tool through POST `/v2/tools` with `custom-code` /
   `run_snippet`, `body.snippet_id`, `body.snippet_version` set to the returned
   version, and `variables` mapped to `{{input.<name>}}`; one `/run` with
-  synthetic inputs; one test-chat turn. Never attempts POST
+  synthetic inputs; attaches in a dev version save, then one test-chat
+  turn. Never attempts POST
   `/v1/snippets/create` through `call_bland_api`. On a host without
   `save_code_snippet`, says the code is saved in the builder and offers to
   pin the saved version afterwards.
@@ -90,9 +92,12 @@ scope and confirm tool work, not whether any one tool succeeds.
   confirms with "cannot be undone", then DELETE `/v2/tools/<uuid>` without
   `TL-`. Deleting on the first turn fails.
 - **Prompt 9:** reads `/v1/snippets/get/<id>`, shows the code diff, finds
-  both tools that run the snippet, says the unpinned one changes the moment
-  the snippet is saved, confirms, `save_code_snippet` with `snippet_id`, then
-  re-pins the order tool by POST `/v2/tools/<id>` with the whole `body`.
+  both tools that run the snippet (paging `/v1/tools` to the end) and scans
+  every agent's dev head and pinned versions for embedded definitions,
+  chain steps and `customCode` steps that name it; says every unpinned
+  consumer changes the moment the snippet is saved; confirms;
+  `save_code_snippet` with `snippet_id`; then re-pins the order tool by POST
+  `/v2/tools/<id>` with the whole `body`.
 - **Prompt 10:** answers from `how-it-works.md` with no API calls: the agent
   chooses the tool from its name and description on the current step; inputs
   are filled from the conversation and a missing required input makes the

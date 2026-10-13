@@ -25,9 +25,9 @@ Hand-architected conversion beats automatic converters: a human-quality architec
 | globalPrompt / persona `personality_prompt` | `settings.systemPrompt` VERBATIM (persona: + each pathway's globalPrompt as clearly-scoped sections) |
 | triage node / persona (greets + triages) | The hub. Persona-style sources ARE the natural entry (no re-point); a start code node is carried as `initialization`; connection gating (screener / IVR / voicemail / availability) is the one reason to re-point the inbound edge at an `entryScenario` |
 | functional region of nodes | one complex scenario; the region's entry conditions become `entry.description` VERBATIM (persona: `pathway_conditions[].prompt` verbatim) |
-| Route node | `route` step: one v2 rule per FLAT v1 condition row (flat rows are OR), one rule per `isGroup` block (AND inside); `fallbackNodeId` from the v1 source |
+| Route node | `route` step: one v2 rule per FLAT v1 condition row (flat rows are OR), one rule per `isGroup` block (AND inside); `fallbackNodeId` from the v1 source. An empty `isGroup` block is always true (see traps) |
 | Custom Code node | `customCode` step: same `snippet_id`/`snippet_version` pin + `snippet_variables` |
-| Attached tool `type:"code"` | NOT expressible as a tool — code step (same pin, explicit input map) + route step carrying the tool's responsePathways. See traps. |
+| Attached tool `type:"code"` | No `toolType: "code"` in v2. Migrate it as a code step (same pin, explicit input map) + route step carrying the tool's responsePathways; an attached `custom-code` / `run_snippet` tool is the other form. See traps. |
 | Webhook node | webhook step (carry url/method/headers/body/responsePathways/response mappings verbatim) |
 | End Call | an `end-call` step in the same flow, with v1's edges into it as the flow's routes. It says its line and hangs up; there is no hub turn in between. A root `end-call` is only for a hang-up the hub decides (the caller asks to end the call). Exception: an End Call with a code tool stays a wrap-up prompt step + code step + exit, because an `end-call` step cannot run a snippet; give the hub a root `end-call` to hang up after it. |
 | Variables with `captureKinds` | `captureAs` on each extraction row, verbatim. Capture reads those values back and confirms them at run time. |

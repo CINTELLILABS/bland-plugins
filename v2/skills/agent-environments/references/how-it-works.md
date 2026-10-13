@@ -124,8 +124,10 @@ deleted (closed for good; its versions stay readable).
 Only outbound calls (`agent_version`) and the builder's test chat (its
 version picker) can choose a version per request. Selectors: `production`, `staging`, `dev` or `latest`, a minted `X.Y.Z`, or
 `branch:<name>`. A semver selector reaches any version that was ever
-published, not only the current pins. A value the platform cannot read as a
-selector (a number, a typo) counts as no selector, which means production.
+published, not only the current pins. An unrecognized value (a number, a
+typo such as `prod`) is refused by an outbound call with a 400, and nothing
+dials; the test-chat connection's `version_id` treats it as no selector,
+which means production.
 
 ### Which variables resolve
 
@@ -268,7 +270,7 @@ The page shows it after a refresh."
 | Rule | Limit or behavior | Error |
 |---|---|---|
 | Environments | Exactly `dev`, `staging`, `production` | `INVALID_ENV` |
-| Production must be pinned for outbound calls with no selector | No fallback to the head; inbound falls back to the twin instead | `AGENT_ENV_UNPINNED` |
+| Production must be pinned for outbound calls with no selector, and for anything that selects `production` | No fallback to the head; inbound falls back to the twin instead. Test chat and simulations default to the dev head and need no pin | `AGENT_ENV_UNPINNED` |
 | Variable key | Letters, digits, underscore. A key starting with a digit saves but can never be referenced | `INVALID_KEY` |
 | Variable value | Required | `MISSING_VALUE` |
 | Missing referenced variable | Call never starts | `AGENT_VARIABLE_UNRESOLVED` |

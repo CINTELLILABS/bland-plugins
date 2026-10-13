@@ -15,8 +15,12 @@ Three things on the Analytics page answer "how many" and "which calls":
   to 10 tiles the customer defines.
 - **Cohorts**: a saved, expiring list of call ids that matched a condition in
   a window. Opening one fills the Conversations page with exactly those calls.
-- **Aggregate queries** (`query_analytics`): one-off breakdowns by day,
-  version or column ([measurement](measurement.md)).
+- **Aggregate queries** (`query_analytics`): one-off breakdowns by version,
+  disposition value or column; per-day series need a
+  [time bucket](measurement.md#time-buckets).
+
+The two Overview pages show a caller globe and live lists that people compare
+with these numbers ([Overview pages](#overview-pages)).
 
 They are not:
 
@@ -111,6 +115,8 @@ Consequences worth saying out loud:
   lower. A cohort of `not_connected` calls shows an empty list.
 - **A new customer tile starts empty.** Creating it plans the last 90 days
   automatically; tiles read "no number yet" until those days are computed.
+  For a judgment tile that plan scores calls with the disposition, which is
+  billed, so Norm confirms before saving one.
 - **Windows are in the page's time zone for tiles** (`tz`), but cohort `day`
   and `hour_utc` keys are UTC.
 
@@ -130,6 +136,65 @@ Consequences worth saying out loud:
   finish.
 - Self-serve pages draw six tiles (no Time to transfer) and no Sankey. The API
   returns all seven system entries either way.
+
+### Overview pages
+
+The two Overview pages are where people first see a number, and the one they
+compare with Analytics. Neither has tiles of its own.
+
+```text
+ /dashboard  (org Overview)                  /dashboard/agent/<id>  (agent Overview)
+ ├─ Ask Norm box (or "Welcome, <name>")      └─ opens the agent's Analytics page:
+ ├─ caller globe: whole org, last 30 days        /dashboard/agent/<id>/analytics/analytics
+ ├─ migrations in progress                       (90 days unless ?window= is set)
+ ├─ Your agents: numbers, versions, experiment
+ └─ Your conversations with Norm (Norm on)
+    or Your conversations (Norm off)
+```
+
+`?overview=classic` switches this browser to the classic layout and
+`?overview=new` switches it back; the browser remembers the choice. The
+classic org Overview has the agents, a per-agent chart and the conversations
+list. The classic agent Overview has the agent's card, a setup checklist until
+setup is done, and the agent's conversations list.
+
+| Section | What it shows | Source | Window and freshness |
+| -- | -- | -- | -- |
+| Caller globe (also at the top of each Analytics page) | Connected calls and text conversations by caller area code (country for international callers). Caption: "N connected calls and M messages in the last 30 days, P on the map", then "live calls on map: K". | `GET /v2/analytics/org/geography` or `/v2/analytics/agents/<id>/geography`, `window` and `tz` | Org Overview: 30 days. Analytics page: the page's window. Calls follow the tiles' processing cycle; texts are counted within minutes; live calls come from the active-calls list. |
+| Your agents | Each agent's phone numbers, the version in production and in staging, and a running experiment (enterprise) | The agent, number and environment reads | Current; read again when a pane opens. |
+| Your conversations | Newest calls (in progress included) and text threads; on the agent Overview, web chats too | The Conversations list reads | No window. Live. |
+| Classic chart | Connected calls per day, one line per agent, the first 8 agents by name | The agent summary's `hours[]`, one read per agent | 30 days, browser time zone, same freshness as the tiles. |
+| Setup checklist (classic agent Overview) | Create; talk (a call of at least 5 seconds since the agent was created); promote (production runs a version); view call analysis (this browser opened one of the agent's calls on its Conversations page) | Call log, environments, the browser | Rechecks for the first call every few seconds. |
+
+Every window is whole days in the browser's time zone, today included: "the
+last 30 days" is today and the 29 days before it.
+
+**Why an Overview number can disagree:**
+
+- **Different window.** The org globe counts 30 days. Analytics opens on 90.
+  Compare like with like: read the summary with `window=30`.
+- **Texts.** The caption's message count has no tile. Only its connected-calls
+  figure compares with the Connected calls tile.
+- **Small lag, same definition.** The globe's call count uses the Connected
+  calls definition and stops where the tiles' processed data stops, so for the
+  same scope and window the two normally agree. A few calls can differ: a call
+  that finished after the last processing run, a later correction to an
+  older call, or day edges in time zones offset by a part hour.
+- **Live calls are separate.** Calls in progress draw as rings and are never in
+  the window counts.
+- **The list is not a count.** Your conversations includes calls in progress,
+  calls that never connected, texts and web chats, so its rows never match a
+  tile, and it shows calls the tiles count only after processing.
+- **The chart stops at 8 agents.** With more agents the lines add up to less
+  than the org tile. Each classic paint spends up to 8 of the organisation's
+  60 summary reads a minute.
+- **Not on the map is still counted.** Toll-free, web or withheld callers,
+  and area codes or countries the map cannot place, are in the total but not
+  drawn.
+
+"How is my agent doing" from an Overview: answer from the summary
+([measurement](measurement.md#step-1-the-summary-tiles)), name the window, and
+say why it may differ from what the page shows.
 
 ## Rules and limits
 
@@ -164,6 +229,10 @@ Consequences worth saying out loud:
 | Tile number differs from a query | Different table or fold | Compare with `ai_completion_rate`, not `containment_rate` | Answer tile questions from the summary ([measurement](measurement.md)). |
 | Cohort by disposition value is smaller than expected | Results not processed, or a different disposition version | `version_id` on the predicate | Report it plainly; do not swap in a lookalike `where`. |
 | 403 on create from an API key | The key's creator lacks the role | 403 `UNAUTHORIZED` | Use a key created by an admin, owner or operator. |
+| Overview globe and Analytics tile differ by thousands | Different windows: the org Overview counts 30 days, Analytics opens on 90 | Globe caption names its days; Analytics URL `window` | Read the summary with `window=30` and compare. |
+| Globe a few calls off the Connected calls tile, same window | Processing lag or a later correction | Gap of a handful of calls on recent or corrected days | Explain; neither is wrong. |
+| Overview list shows calls no tile counts | The list is live and includes unconnected and in-progress calls, texts and chats | Row status in the list | Explain; count from the summary. |
+| "Caller locations aren't available here." | No organisation selected, or the read was refused | The globe offers no Retry | Select the organisation. |
 
 ## Questions people ask
 
@@ -193,6 +262,15 @@ calls, then filter on its value.
 **Why is my new metric tile empty?**
 It backfills the last 90 days by itself, and heavy or judgment metrics fill in
 a day at a time. It reads "no number yet" until then.
+
+**Why does my agent's Overview open the Analytics page?**
+That is the agent Overview now. `?overview=classic` shows the classic page
+(agent card, setup checklist, conversations) in this browser.
+
+**Why does the Overview say fewer calls than Analytics?**
+The org Overview's globe counts the last 30 days; Analytics opens on 90. On
+the same window the globe's connected calls match the Connected calls tile
+within a few calls. Its message count has no tile.
 
 **Can a deleted tile come back?**
 No. Deleting removes it for the whole organisation; re-creating it starts a
