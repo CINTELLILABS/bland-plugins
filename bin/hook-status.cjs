@@ -92,8 +92,9 @@ async function main() {
 		const fs = require("node:fs");
 		const os = require("node:os");
 		const path = require("node:path");
+		const configDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
 		const settings = JSON.parse(
-			fs.readFileSync(path.join(os.homedir(), ".claude", "settings.json"), "utf8"),
+			fs.readFileSync(path.join(configDir, "settings.json"), "utf8"),
 		);
 		const configs = (settings && settings.pluginConfigs) || {};
 		// Non-canonical installs register under a different bland@* id; pre-2.0

@@ -21,7 +21,8 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const SETTINGS = path.join(os.homedir(), ".claude", "settings.json");
+const configDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
+const SETTINGS = path.join(configDir, "settings.json");
 const PLUGIN_ID = "bland@bland";
 const PROD_URL = "https://api.bland.ai";
 

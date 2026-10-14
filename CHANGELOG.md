@@ -1,5 +1,14 @@
 # Changelog
 
+## bland 2.2.1 - 2026-10-14
+
+- Respect `CLAUDE_CONFIG_DIR` when showing or switching the Bland API URL and
+  when displaying the SessionStart dev-server banner. Custom profiles no longer
+  read or modify the default profile's settings. Unset or empty values retain
+  the default `~/.claude` location.
+- Add isolated CLI and hook regression tests for custom profiles, alternate and
+  legacy plugin IDs, and missing or malformed settings.
+
 ## norm 1.11.0 – 2026-10-13
 
 - New `agent-environments` skill for the Environments pages: set

@@ -81,6 +81,8 @@ node "${CLAUDE_PLUGIN_ROOT}/bin/norm-config.cjs" --prod                       # 
 
 Remote servers need https. Plain http is accepted only for `localhost` and `127.0.0.1`. Restart the session after a change. On Cursor, set `BLAND_API_URL` in the plugin variables instead. The Codex plugin targets production; `BLAND_API_URL` does not override its URL.
 
+On Claude, the URL command and startup banner use `CLAUDE_CONFIG_DIR/settings.json` when `CLAUDE_CONFIG_DIR` is set, otherwise `~/.claude/settings.json`. Export the same configuration directory when running the command from a separate shell.
+
 ## Rotating the key
 
 Claude Code: `/plugin configure bland@bland` and enter the new key. If a stale keychain entry is reused on reinstall, delete it in Keychain Access (search "claude") before installing again with `--config`. Cursor: update `BLAND_API_KEY` in the plugin variables. Codex: update `BLAND_API_KEY` in its launch environment and restart Codex.
