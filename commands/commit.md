@@ -10,6 +10,8 @@ allowed-tools:
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" rebuild:*)"
 ---
 
+
+Before server work, read [API tool selection](../skills/api/references/tool-selection.md). Prefer available generic proxies; if the required proxy is absent, use an exact named equivalent with its live schema. This overrides proxy-only wording below, not approval or evidence gates. If no equivalent is connected (notably legacy pathway saves/chat), report the missing method + route and blocked step; never invent a tool or substitute v2 agent resources.
 # Commit Bland Pathway Workspace
 
 Persist the current local workspace to the live Bland server. This is the real persistence boundary — a clean local file tree is not a saved pathway. Every write here is a `call_bland_api` POST and must be confirmed with the user before firing.

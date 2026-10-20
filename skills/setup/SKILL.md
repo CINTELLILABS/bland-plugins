@@ -87,4 +87,4 @@ Claude Code: `/plugin configure bland@bland` and enter the new key. If a stale k
 
 ## Verify
 
-On Claude Code, run `/bland:status --check`. On any host, call `get_bland_mcp_setup` and then `bland_api_get { path: "/v1/me" }`. A 401 means the key is missing or wrong on this host; a connection error usually means the URL. Find the tools by their bare names and use the namespace present in the session; hosts prefix plugin tools differently.
+On Claude Code, run `/bland:status --check`. On any host, inspect the live tools and call `get_bland_mcp_setup` if available. Then prefer `bland_api_get { path: "/v1/me" }`, or use `get_account_details {}` if the read proxy is absent. Follow [API tool selection](../api/references/tool-selection.md); named-only tools are not a broken connection. A 401 means the key is missing or wrong on this host; a connection error usually means the URL. Find tools by bare name using this plugin's connected namespace, never another server's credentials.

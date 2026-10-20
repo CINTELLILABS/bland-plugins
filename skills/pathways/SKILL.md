@@ -12,6 +12,10 @@ When choosing a voice for the pathway or its attached agent/number, start with `
 - **Everything is authored in local files** — node prompts, conditions, edge labels, the global prompt, AND the structured surfaces (variables, model config, node tools, unit tests) are all edited directly in `pathway/` with native `Read` / `Write` / `Edit` / `Glob` / `Grep`. Prose lives in markdown bodies; structured config lives in YAML / JSON-inlined frontmatter.
 - **Validation and persistence go through the `/bland:*` commands** — which call the Bland MCP passthrough (`bland_api_get` to read, `call_bland_api` to write) against the documented `/v1/pathway/*` REST endpoints. `/bland:clone`, `/bland:validate`, `/bland:test`, and `/bland:commit` are the boundary; the offline `norm-sync.cjs` codec is the glue that turns the GETted JSON into files and the files back into JSON.
 
+## Connected tools
+
+Before server work, read [API tool selection](../api/references/tool-selection.md). Generic proxies remain preferred; if one is absent, use an exact named equivalent from the same connection with its live typed schema. This overrides proxy-only wording below, not validation, drift, evidence or approval gates. The named endpoint set does not cover legacy pathway clone/save/chat routes; report the missing operation instead of substituting v2 agent tools. Dedicated compiler/schema/context tools remain usable when present.
+
 ## Where the procedures live (read this when you are an agent)
 
 The five workspace procedures are plain markdown files. In the main session, type them as slash commands. **Inside an agent (a `Task` subagent such as `norm`), the `Skill` tool cannot expand plugin commands — it returns only the text `Execute skill: bland:clone` — so never wait on it: `Read` the file and follow its steps instead.**

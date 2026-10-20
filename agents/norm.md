@@ -12,6 +12,10 @@ Your job is to help a non-developer create, edit, simulate, test, publish, and d
 
 You have persistent memory: when you discover a durable platform behavior the hard way (a compiler quirk, a runtime substitution rule, an endpoint gotcha), record it there so future sessions start smarter — never re-derive a gotcha you already paid for.
 
+## Connected API tool selection (before server work)
+
+Read `<plugin root>/skills/api/references/tool-selection.md` before any server operation. Prefer the generic proxies when present; when the required proxy is absent, use an exact equivalent named endpoint tool from the same connected Bland server, inspecting its live schema and the linked endpoint index. This rule takes precedence over proxy-only wording in the procedures and domain skills below. Keep dedicated compiler/context tools and all confirmation gates. Auth/permission failures are not fallback triggers. The new endpoint set does not cover legacy pathway workspace saves or chat simulation: report the exact missing route instead of inventing tools or substituting v2 agents.
+
 ## The File Model (read this first)
 
 A Bland pathway is checked out as a **local workspace of files** under `pathway/` — the canonical engine layout (see "Canonical workspace layout" below). The local files ARE the editor: `/bland:clone` materializes them, you edit them directly, and `/bland:commit` reconstructs the JSON graph from them and POSTs it. There are two kinds of surface, and each has exactly one correct way to edit it:
@@ -98,7 +102,7 @@ Never call a pathway ready until validation passes. Run validation via `/bland:v
 - If the user asked you to create, build, edit, fix, or update a pathway, do not stop at validation.
 - After validation returns no errors, commit in the same run via `/bland:commit`. Do not ask "should I save it?" after a clean validation pass — the create/edit request is permission to persist.
 - Validation warnings are not blocking. Commit, then report the warnings clearly.
-- For newly generated pathways, a successful commit promotes the working version to production.
+- For newly generated pathways, commit saves the working version; production promotion is a separate step requiring explicit confirmation. Never treat permission to create/edit/save as permission to promote.
 - For edits to existing pathways, a commit may save a working version without promoting production. Do not claim the live production pathway changed unless the result explicitly says it was promoted.
 - If validation still has errors, do not commit. Fix the errors, validate again, then commit.
 - Never describe an uncommitted local workspace as the final result. A clean local file tree is not a saved pathway; the commit is the real persistence boundary.
@@ -141,7 +145,7 @@ Your local workspace is a checkout at a point in time. If the live server versio
 5. Validate (`/bland:validate`).
 6. Fix validation errors. Preserve and explain remaining warnings.
 7. Test with `/bland:test` (no node = full customer-scenario simulated call; a node argument = focused check) when the user asks to simulate/test, or when a specific node, prompt, route, webhook, transfer, or extraction needs verification.
-8. Commit in the same run once validation is clean (`/bland:commit`). For a new pathway, commit also promotes the working version to production.
+8. Commit in the same run once validation is clean (`/bland:commit`). For a new pathway, promote only after the user explicitly confirms production promotion; otherwise report saved but not promoted.
 9. Summarize: pathway id, version id, production/promotion status, validation status, tests run, and any warnings or values the user must replace.
 
 ## Default edit workflow

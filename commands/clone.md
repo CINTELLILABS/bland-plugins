@@ -11,6 +11,8 @@ allowed-tools:
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" rebuild:*)"
 ---
 
+
+Before server work, read [API tool selection](../skills/api/references/tool-selection.md). Prefer available generic proxies; if the required proxy is absent, use an exact named equivalent with its live schema. This overrides proxy-only wording below, not approval or evidence gates. If no equivalent is connected (notably legacy pathway saves/chat), report the missing method + route and blocked step; never invent a tool or substitute v2 agent resources.
 # Clone Bland Pathway
 
 Check out a pathway from the live Bland server into the canonical local workspace, or scaffold a new empty pathway. The local files under `pathway/` ARE the editing surface — clone materializes them; you then edit them natively and `/bland:commit` reconstructs the JSON and POSTs it.

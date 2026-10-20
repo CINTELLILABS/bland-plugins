@@ -12,6 +12,8 @@ allowed-tools:
   - "mcp__plugin_bland_bland__*"
 ---
 
+
+Before server work, read [API tool selection](../skills/api/references/tool-selection.md). Prefer available generic proxies; if the required proxy is absent, use an exact named equivalent with its live schema. This overrides proxy-only wording below, not approval or evidence gates. If no equivalent is connected (notably legacy pathway saves/chat), report the missing method + route and blocked step; never invent a tool or substitute v2 agent resources.
 # Validate Bland Pathway
 
 Compile the current local workspace and report the results. Never call a pathway ready until it validates with no errors.

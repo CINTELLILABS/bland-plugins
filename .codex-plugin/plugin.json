@@ -1,6 +1,6 @@
 {
   "name": "bland",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Work with Bland voice agents through the hosted MCP server: inspect agent versions, review calls, query metrics, validate supplied pathway graphs, and evaluate calls.",
   "author": {
     "name": "Bland",

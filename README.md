@@ -8,6 +8,12 @@ One plugin, three layers:
 - **Skills** teach the agent how to use it well: calls, messaging, pathways, analytics, evals, call review, tools, personas, knowledge bases, automations, triage, debugging, the raw API, and setup.
 - **Norm**, the agent builder, plus `/bland:*` commands for the pathway workspace and a self-driving convergence loop that keeps fixing a pathway until a simulated call passes.
 
+Norm prefers the generic MCP proxies when present. If a host exposes only named
+endpoint tools, it uses exact typed equivalents from the same connection; see
+[tool selection](skills/api/references/tool-selection.md). That endpoint set does
+not cover legacy pathway saves/chat, which are reported as blocked rather than
+silently replaced with v2 agent operations.
+
 ## Install
 
 You need a Bland API key from [app.bland.ai/settings/api-keys](https://app.bland.ai/settings/api-keys). Never paste it into the chat; configure it for your host as described below.

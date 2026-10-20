@@ -10,6 +10,8 @@ allowed-tools:
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-config.cjs\")"
 ---
 
+
+Before server work, read [API tool selection](../skills/api/references/tool-selection.md). Prefer available generic proxies; if the required proxy is absent, use an exact named equivalent with its live schema. This overrides proxy-only wording below, not approval or evidence gates. If no equivalent is connected (notably legacy pathway saves/chat), report the missing method + route and blocked step; never invent a tool or substitute v2 agent resources.
 # Bland Workspace Status
 
 Report the state of the local pathway workspace and whether it is in sync with the live server. A `--server` argument adds a live drift check; without it the report is a fast, zero-network local diff.
@@ -38,13 +40,15 @@ When `$ARGUMENTS` contains `--check`, skip the workspace report and run the chec
 
 1. **Namespace** — determine which prefix this session's Bland tools carry: `mcp__bland__*` or `mcp__plugin_bland_bland__*` (both are supported; report which one is live). If NEITHER exists, the MCP connection is down: report it, run check 2 anyway (the URL often explains it), then skip to the matrix.
 2. **Config** — `node "${CLAUDE_PLUGIN_ROOT}/bin/norm-config.cjs"` → report the target URL (prod vs a dev/localhost server) and that the key is stored separately. Never echo any key.
-3. **Auth + account** — `bland_api_get { path: "/v1/me" }` → expect account JSON; report the org context it reflects.
-4. **Calls read** — `bland_api_get { path: "/v1/calls", query: { limit: "1" } }` → expect a call (or a clean empty list on a fresh org). Keep the returned call id for check 8.
+3. **Auth + account** — prefer `bland_api_get { path: "/v1/me" }`; if absent, use `get_account_details {}` → expect account JSON; report the org context it reflects and which tool was used.
+4. **Calls read** — prefer `bland_api_get { path: "/v1/calls", query: { limit: "1" } }`; if absent, use `list_calls { limit: 1 }` after inspecting the live schema → expect a call (or a clean empty list on a fresh org). Keep the returned call id for check 8. If neither equivalent is connected, mark only this check SKIPPED with the missing route.
 5. **Compiler, both directions** — `validate_pathway` on a tiny VALID 2-node graph (Default start → End Call, one edge) expecting `valid: true`, then on a BROKEN graph (single non-start node, no edges) expecting `valid: false` with named errors. A compiler that can't fail is not a pass.
 6. **Contracts** — `get_pathway_schema { surface: "edge" }` and `get_pathway_context` (`scope: "pathway"`) on the tiny valid graph → expect a schema and a context summary.
 7. **Analytics** — `query_analytics` with `{ table: "calls", metrics: [{ fn: "count", label: "calls" }], date_range: { since: "-7d" } }` → expect a numeric row (0 is a pass on a quiet org).
 8. **get_call_log** — on the call id from check 4 (skip with a note if the org has no calls) → expect the call's transcript/metadata. A "not found" for an id that check 4 just returned is a KNOWN bug signature — flag it loudly with both results side by side.
 9. **Docs** — `search_bland_docs` for "send call" → expect results (a docs-proxy outage degrades this without breaking anything else; report it as degraded, not failed).
-10. **Error-path hygiene** — `bland_api_get { path: "/v1/does-not-exist-bland-check" }` → expect a clean 404 error, and then repeat check 4 to prove the session was not poisoned by it.
+10. **Error-path hygiene** — when `bland_api_get` exists, call `{ path: "/v1/does-not-exist-bland-check" }` → expect a clean 404 error, then repeat check 4 to prove the session was not poisoned. With named-only tools mark this check SKIPPED (no exact tool for a deliberately nonexistent route); do not invent a tool or deliberately mutate an account to probe errors.
 
-End with a matrix: `# | check | PASS/FAIL/DEGRADED/SKIPPED | evidence (one line, verbatim errors)`. Then a one-line verdict: fully healthy / degraded (what still works) / broken (the first thing to fix — usually URL or key; see the setup skill, then restart). For any FAIL, include the exact tool call + response so the matrix doubles as a bug report.
+For every check, inspect availability first. An absent dedicated tool is SKIPPED with the missing capability; permission/auth failures are FAIL, not a trigger to switch tools. A healthy named-only connection may have skipped legacy workspace capabilities without being broken.
+
+End with a matrix: `# | check | PASS/FAIL/DEGRADED/SKIPPED | evidence (one safe line)`. Then a one-line verdict: fully healthy / degraded (what still works) / broken (the first thing to fix — usually URL or key; see the setup skill, then restart). For any FAIL, include the tool name, safe request fields, error category and request ID. Redact credentials, signed URLs and private account/call content; do not dump full sensitive responses or internal diagnostics.

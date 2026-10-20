@@ -5,9 +5,12 @@
 1. Identify the resource type and current organization from the connected Bland
    tools. A voice agent, an evaluation judge, and a test scenario are different
    objects even when the dashboard calls all of them an “agent” or “test.”
-2. Inspect available tool schemas. Generic reads commonly use `bland_api_get`;
-   writes use `call_bland_api`. Some hosts expose a combined API primitive.
-   Use the actual advertised contract, not a guessed tool name.
+2. Inspect available tool schemas. Prefer `bland_api_get` for GET and
+   `call_bland_api` for other methods when each is available. Check availability
+   independently. If the needed proxy is absent, use an exact connected named
+   endpoint tool per [named fallback](#named-endpoint-fallback), not a guessed
+   name or a different API generation. Existing curated workflow tools remain
+   valid. This contract overrides proxy-only wording in specialist procedures.
 3. Search official docs with the connected docs tools. Hosts may expose
    `search_bland_docs` / `get_bland_doc`, or `search_bland` /
    `query_docs_filesystem_bland`. Read the endpoint page, not just its snippet.
@@ -36,6 +39,37 @@ appear as files: verify a saved file exists and parses. If the host truncates a
 response, request smaller pages or individual records; never analyze a truncated
 blob as a complete dataset. Do not build a new export service for this workflow.
 
+## Named endpoint fallback
+
+Some hosts hide generic proxy tools while exposing named endpoint tools. Missing
+proxies alone do not mean the MCP connection or authentication is broken.
+Read [the endpoint index](endpoint-tools.md) only for the needed method + route,
+and inspect curated tools for operations not generated there. Use this plugin's
+existing authenticated connection and actual host-qualified namespace; never
+silently switch to another installed server or organization.
+
+Match the exact resource, API generation and operation. Send fields directly at
+the top level using their declared types, not `{ path, query, body }`. For
+example, `get_account_details {}` replaces `GET /v1/me`, and
+`list_calls { limit: 1 }` replaces `GET /v1/calls?limit=1`; the generic proxy
+instead requires `query: { limit: "1" }`. Preserve filters, pagination, version
+pins and concurrency fields. If a needed field cannot be expressed, the tool
+is not equivalent. Generated tools return `{ data: <API JSON> }`; unwrap that
+once before following the endpoint's own response envelope. Curated tools may
+have different outputs. Read back writes and poll asynchronous jobs as usual.
+
+Fallback is only for an absent proxy. Do not switch tools after 401/403,
+`oauth_path_not_allowed`, `insufficient_scope`, disabled writes or approval
+refusal to bypass a restriction. A timed-out write may have succeeded: read
+back before any retry, including a retry through a different tool. The existing
+scope, confirmation and production gates apply equally to named tools.
+
+The generated set does not cover legacy `/v1/convo_pathway/*` workspace saves
+or `/v1/pathway/chat/*` simulation; v2 agent tools are not substitutes. If no
+exact equivalent is connected, report the missing method + route and blocked
+step. Continue independent supported work, but do not use raw network scripts,
+inspect credentials, invent a tool or claim persistence/testing occurred.
+
 ## Connection modes
 
 | Mode | What it reaches |
@@ -47,7 +81,8 @@ blob as a complete dataset. Do not build a new export service for this workflow.
   family>; do it on <dashboard path>" and stop. Do not try another path, the
   browser, or a key pasted into chat.
 - On `insufficient_scope` the message names the scope. Tell the user to
-  reconnect and approve it, or use the dedicated tool it names.
+  reconnect and approve it. Do not switch to a dedicated tool to retry the
+  denied operation without the required authorization.
 - The passthrough sends JSON bodies only. Multipart bodies (file uploads)
   and `text/plain` bodies (raw code) never go through it, on either
   connection. Two dedicated tools cover the common cases:
@@ -89,7 +124,8 @@ progress. API job completion and the task's behavioral success are separate.
 
 ## API availability is a prerequisite
 
-If the required API primitive is missing, say what cannot be done. Browser
+If neither the preferred proxy nor an exact named equivalent is connected,
+say which method + route cannot be executed. Browser
 automation is not an API fallback for constructing agents or evaluation judges.
 If the user specifically asks for browser work, use the available browser
 bridge with fresh page state and its normal permissions; do not claim that
