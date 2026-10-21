@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -76,6 +76,18 @@ test('Norm hands off the fallback contract and every workspace command loads it'
     assert.match(text, /mcp__plugin_bland_bland__\*/);
   }
   assert.match(read('commands/status.md'), /named-only tools mark this check SKIPPED/);
+});
+
+test('every standalone v2 specialist loads tool selection before server work', () => {
+  for (const name of readdirSync(resolve(root, 'v2/skills'))) {
+    const file = `v2/skills/${name}/SKILL.md`;
+    if (name === 'api-workspace' || !existsSync(resolve(root, file))) continue;
+    const text = read(file);
+    assert.match(text, /Before server work, read \[API tool selection\]/, file);
+    assert.match(text, /\.\.\/api-workspace\/references\/api\.md#named-endpoint-fallback/, file);
+    assert.match(text, /Overrides proxy-only instructions/, file);
+  }
+  assert.match(index, /`GET \/v2\/tools\/logs` → `list_tool_execution_logs`/);
 });
 
 test('new local reference links resolve inside each packaged plugin', () => {

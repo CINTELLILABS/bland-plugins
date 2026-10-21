@@ -5,11 +5,13 @@ description: Use when creating or calibrating Bland evaluation judges ("align th
 
 # Evaluation work
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 Use API operations and workspace code, not dashboard clicks, to build and run
 evaluations. Read [workflow and evidence](references/workflows.md) and the
 [API map](references/api.md) for the chosen task. Follow
 [API identity and permission rules](../api-workspace/references/api.md).
-Do not write fetch scripts and do not search the docs for these routes.
+No fetch scripts or route searches.
 To explain how judges, runs, verdicts and scores fit together, or why a run
 ended `PARTIAL`, read [how evaluations work](references/how-it-works.md).
 

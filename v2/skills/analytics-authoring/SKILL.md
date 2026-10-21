@@ -5,6 +5,8 @@ description: "Use when building, editing, simplifying or explaining an agent's a
 
 # Author an agent's analytics Sankey
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 The Sankey on an agent's Analytics page folds real traffic through a
 **waypoint definition**: ordered groups, each naming the compiled waypoints
 (nodes and tools) it contains. You change the chart by publishing a new
@@ -23,16 +25,15 @@ stage to change alone ([contract](references/contract.md#attached-target)).
 
 ## Questions versus changes
 
-A question about the chart ("why are these merged", "what is unclassified",
-"which stage loses the most calls") is answered from reads alone: the
+Chart questions are reads only: the
 definition read and a chart read on the page's `window`. Design groups or save
 a draft only when the user asked for a change; a pending save is a write.
 
 ## Workflow
 
 Routes, bodies and every status are in [the contract](references/contract.md).
-Reads use `bland_api_get`, writes `call_bland_api`; no fetch scripts, docs
-searches or other API families.
+Prefer `bland_api_get` reads, `call_bland_api` writes; no fetch scripts,
+route searches or unrelated APIs.
 
 1. **Read the page** for the agent, window and filters. Ask only if the agent
    is absent.

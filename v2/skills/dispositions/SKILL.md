@@ -5,14 +5,15 @@ description: Use when working on an agent's Dispositions page or post-call outpu
 
 # Dispositions
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 A disposition is an agent's versioned post-call output: a set of typed
 values (an outcome category, fields, verdicts) produced after every
 completed call and delivered with the call's webhook and on the
 Conversations page. Read [how dispositions work](references/how-it-works.md)
 before explaining or diagnosing anything. Routes and bodies:
 [API reference](references/api.md). Values, schemas, transformation:
-[definition](references/definition.md). Do not write fetch scripts and do
-not search the docs for these routes.
+[definition](references/definition.md). No fetch scripts or route searches.
 
 Not this skill: evaluation judges and their rubrics
 ([evaluations](../evaluations/SKILL.md)); call cohorts and counts
@@ -21,7 +22,7 @@ collects during the call ([v2-snapshot](../v2-snapshot/SKILL.md)).
 
 ## Page context
 
-Call `get_dashboard_page_context` (`mode: "synced"`) first. Take `agentId`,
+`get_dashboard_page_context` (`mode: "synced"`) first. Take `agentId`,
 `dispositionId` and `runId` from `route.params`.
 
 - `/dashboard/agent/$agentId/dispositions`: opens the first disposition, or

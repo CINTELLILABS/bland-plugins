@@ -5,6 +5,8 @@ description: Use when working on an agent's Environments or Variables page ("set
 
 # Agent environments
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 Variables per environment, the staging check policy that gates promotion,
 and branches. To explain which version answers and why, read
 [how environments work](references/how-it-works.md); the
@@ -15,7 +17,7 @@ scripts or search the docs for these routes.
 
 ## Page context
 
-Call `get_dashboard_page_context` (`mode: "synced"`) first. Take the agent id
+`get_dashboard_page_context` (`mode: "synced"`) first. Take the agent id
 from `route.params`. No target chip exists here.
 
 - `/dashboard/agent/$agentId/environments`: redirects to `overview`.

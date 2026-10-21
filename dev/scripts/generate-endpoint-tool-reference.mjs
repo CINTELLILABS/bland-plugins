@@ -10,6 +10,11 @@ const dir = resolve(server, 'apps/api/src/lib/blandcode/actions/endpoints/genera
 const rows = [];
 for (const file of readdirSync(dir).filter((name) => name.endsWith('.ts')).sort()) {
   const source = readFileSync(resolve(dir, file), 'utf8');
+  // Generated specs declare literal tool names; schema fields use z.* instead.
+  // Count independently of indentation/property order so format drift fails closed.
+  const declaredNames = [...source.matchAll(/^\s*name:\s*"([^"]+)"\s*,/gm)]
+    .map((match) => match[1]);
+  const parsedNames = [];
   for (const match of source.matchAll(/\n\t\{\n\t\tname: "([^"]+)",([\s\S]*?)(?=\n\t\},)/g)) {
     const [, name, block] = match;
     const field = (key) => new RegExp(`\\n\\t\\t${key}:\\s*"([^"]+)"`).exec(block)?.[1];
@@ -23,7 +28,13 @@ for (const file of readdirSync(dir).filter((name) => name.endsWith('.ts')).sort(
     assert.ok(method && path && docsPage, `Incomplete spec: ${name}`);
     rows.push({ name, method, path, docsPage, pathParams: keys('pathParams'),
       queryParams: keys('queryParams'), bodyParams: keys('bodyParams') });
+    parsedNames.push(name);
   }
+  assert.deepEqual(parsedNames, declaredNames,
+    `Unconsumed endpoint records in ${file}; update the parser for the generated format`);
+  const declaredMethods = [...source.matchAll(/^\s*method:\s*"(?:GET|POST|PUT|PATCH|DELETE)"\s*,/gm)];
+  assert.equal(parsedNames.length, declaredMethods.length,
+    `Unconsumed endpoint methods in ${file}; update the parser for the generated format`);
 }
 assert.ok(rows.length > 250, `Expected full endpoint set, found ${rows.length}`);
 assert.equal(new Set(rows.map((row) => row.name)).size, rows.length, 'Duplicate tool names');

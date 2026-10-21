@@ -5,18 +5,19 @@ description: Use when someone wants to "teach the agent", "add this doc / FAQ / 
 
 # Knowledge sources
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 A source is an org-wide document, FAQ or website indexed for retrieval. An
 agent uses it only when a saved version lists its id, agent-wide or on a
 `knowledge` step ([knobs](../v2-snapshot/references/knobs.md)). Mechanism, map
 and memory: [how it works](references/how-it-works.md). Routes:
 [API](references/api.md). Tests:
 [verification](references/verification.md). Promotion:
-[v2-lifecycle](../v2-lifecycle/SKILL.md). Do not write fetch scripts and do
-not search the docs for these routes.
+[v2-lifecycle](../v2-lifecycle/SKILL.md). No fetch scripts or route searches.
 
 ## Page context
 
-Call `get_dashboard_page_context` (`mode: "synced"`) first.
+`get_dashboard_page_context` (`mode: "synced"`) first.
 
 - `/dashboard/knowledge-base/*`: org scope; `sources/$sourceId` is the id.
 - `/dashboard/agent/$agentId/knowledge-bases/*`: agent id from
