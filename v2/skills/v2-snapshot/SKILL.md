@@ -5,6 +5,8 @@ description: The Bland v2 agent snapshot dialect, the exact JSON shape of an age
 
 # The v2 Agent Snapshot Dialect
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 > **Server binding:** use only THIS plugin's MCP server (`plugin_norm_bland`); other `bland` servers may be signed in to another org.
 
 An agent version is one JSON snapshot, run as a conversation graph

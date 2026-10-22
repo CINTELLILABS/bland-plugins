@@ -5,16 +5,17 @@ description: Use when someone says "when a call ends, do X", "when a CRM record 
 
 # Automations, alerts and post-call webhooks
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 A **trigger** (event plus conditions) runs a **pipeline** (ordered steps);
-each firing is an **execution**. For "how does it work" or "why did it
-happen", read [how it works](references/how-it-works.md). Read [the API
+each firing is an **execution**. Explanation: [how it works](references/how-it-works.md). Read [the API
 reference](references/api.md) before the first request and
 [testing](references/testing.md) before any test. Hand-offs: outbound-calls,
 agent-channels, tool-library, [call-analysis](../call-analysis/SKILL.md).
 
 ## Page context
 
-Call `get_dashboard_page_context` (`mode: "synced"`) first. No target chip
+`get_dashboard_page_context` (`mode: "synced"`) first. No target chip
 exists here.
 
 - `/dashboard/triggers[/new]`: org scope. `/dashboard/triggers/$automationId[/runs]`:
@@ -23,7 +24,7 @@ exists here.
 - `/dashboard/alerts/**`, `/dashboard/agent/$agentId/alerts/**`: `$alertId`,
   agent id.
 
-Mutate through the API, never the page's forms. After every write say:
+Mutate through the API, never the page's forms. After writes say:
 "Saved through the API. The page shows it after a refresh."
 
 ## Workflow: set up a trigger safely

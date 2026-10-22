@@ -5,24 +5,24 @@ description: Use when someone wants to "create a tool", "call my API from the ag
 
 # Tools, secrets and connections
 
-A library tool is an org row agents call mid-conversation. Answer "how does
-it work" and "why did it happen" from [how tools work](references/how-it-works.md).
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
+Library tools run mid-conversation. Explain behavior from [how tools work](references/how-it-works.md).
 Read the [tool library reference](../v2-runtime/references/tool-library.md)
 before the first write; steps are in [procedures](references/workflows.md).
 Attaching edits a snapshot ([v2-snapshot](../v2-snapshot/SKILL.md)); test
-chats follow [v2-testing](../v2-testing/SKILL.md). Do not write fetch scripts
-or search the docs for these routes.
+chats follow [v2-testing](../v2-testing/SKILL.md). No fetch scripts or route searches.
 
 ## Page context
 
-Call `get_dashboard_page_context` (`mode: "synced"`) first.
+`get_dashboard_page_context` (`mode: "synced"`) first.
 
 - `/dashboard/tools`, `/dashboard/tools/create`: org scope.
 - `/dashboard/tools/$toolId`: tool id.
 - `/dashboard/tools/secrets`, `/connections`: lists; `/resources/$resourceId`.
 - `/dashboard/agent/$agentId/tools/**`: agent id, plus tool id on `$toolId`.
 
-Mutate through the API, never the page's forms. After every write say:
+Mutate through the API, never the page's forms. After writes say:
 "Saved through the API. The page shows it after a refresh."
 
 ## Workflow: create and prove a tool

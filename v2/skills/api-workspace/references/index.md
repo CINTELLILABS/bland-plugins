@@ -11,6 +11,7 @@ dispositions, external resources and operational surfaces, read the
 | Task / question | Read |
 |---|---|
 | Find an endpoint; use API tools from code; recover a failed request | [API workspace skill](../SKILL.md), [API contract](api.md) |
+| Generic proxy tools are absent; find a typed named tool | [Tool selection](api.md#named-endpoint-fallback), [endpoint index](endpoint-tools.md) |
 | Which state am I editing? Why does the dashboard look stale? | [Workspace and page state](workspace.md) |
 | Why do nodes look disconnected? What does this JSON edit change in the UI? | [Builder JSON → runtime → canvas](../../v2-runtime/references/builder-runtime-map.md) |
 | Is this audio barge-in, a topic change, or a global-node jump? | [Interruption mechanisms and setting scope](../../v2-runtime/references/interruptions.md) |

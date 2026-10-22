@@ -5,6 +5,8 @@ description: Use when finding, reviewing, categorizing, or analyzing Bland calls
 
 # Call analysis in the workspace
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 Use existing API primitives and local code. No separate call-export service is
 required. Follow [API identity and privacy](../api-workspace/references/api.md).
 For what evidence a call leaves, where, and when each piece appears, read

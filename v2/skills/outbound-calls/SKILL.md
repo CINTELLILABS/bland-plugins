@@ -5,7 +5,9 @@ description: Use when placing or scheduling outbound calls with a v2 agent ("cal
 
 # Place outbound calls with a v2 agent
 
-A call rings a real person and bills the org. Selectors:
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
+Calls ring people and bill the org. Selectors:
 [lifecycle](../v2-lifecycle/SKILL.md); live-integration safety:
 [testing](../v2-testing/SKILL.md); bulk review:
 [call analysis](../call-analysis/SKILL.md).
@@ -22,9 +24,8 @@ fetch scripts and do not search the docs for these routes.
      offer them as the draft body. Never submit the page's form.
    - `/dashboard/agent/<agentId>/batches`: the agent is `route.params.agentId`.
      `/dashboard/batches` is org-wide.
-2. No attached-target chip exists here; do not wait for one.
-3. After a write say: "Placed through the API. The Batches page shows it
-   after a refresh." Never claim the page updated.
+2. No target chip; do not wait.
+3. After a write say: "Placed through the API. Batches shows it after refresh." Never claim the page updated.
 
 ## Workflow: call one person with a v2 agent
 

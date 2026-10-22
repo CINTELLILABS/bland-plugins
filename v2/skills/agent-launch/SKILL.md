@@ -5,10 +5,11 @@ description: Use when someone wants to take a v2 agent from built to live end to
 
 # Launch an agent
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 One ordering rule: a number or channel answers through the **production
 pin**, so publish and promote before attaching anything. Each step names the
-skill that owns it; read that skill at the step, not all up front. Do not
-write fetch scripts and do not search the docs for these routes.
+skill that owns it; read that skill at the step, not all up front. No fetch scripts or route searches.
 
 ## Page context
 

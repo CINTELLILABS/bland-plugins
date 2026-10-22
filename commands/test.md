@@ -11,6 +11,8 @@ allowed-tools:
   - "Bash(node \"${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs\" generate:*)"
 ---
 
+
+Before server work, read [API tool selection](../skills/api/references/tool-selection.md). Prefer available generic proxies; if the required proxy is absent, use an exact named equivalent with its live schema. This overrides proxy-only wording below, not approval or evidence gates. If no equivalent is connected (notably legacy pathway saves/chat), report the missing method + route and blocked step; never invent a tool or substitute v2 agent resources.
 # Test Bland Pathway
 
 Run a behavior check against the current pathway. The runtime test is a **Claude-native simulated call**: *you* invent a customer scenario, drive a turn-by-turn text conversation against the pathway through the chat-simulation endpoint, then verify the expected outcomes against the transcript you produced. The offline codec only self-checks structure — it never runs conversations.

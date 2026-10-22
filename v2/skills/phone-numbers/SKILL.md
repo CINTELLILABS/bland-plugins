@@ -5,13 +5,14 @@ description: Use when someone asks "who answers this number", wants to "put my a
 
 # Phone numbers
 
-A number answers through one owner: a v2 agent, a classic persona, or a v1
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
+Numbers have one owner: a v2 agent, classic persona, or v1
 pathway. With none, only its own legacy settings, if any, answer. Pins:
 [v2-lifecycle](../v2-lifecycle/SKILL.md). "How does…" and "why did…"
 questions: answer from [how it works](references/how-it-works.md) and reads.
 
-Routes, bodies and messages: [endpoints](references/endpoints.md). Do not
-write fetch scripts or search the docs for these routes.
+Routes, bodies and messages: [endpoints](references/endpoints.md). No fetch scripts or route searches.
 
 ## Page context
 

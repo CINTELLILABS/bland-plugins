@@ -5,12 +5,14 @@ description: Use when someone wants to "embed chat on my site" or set up a "web 
 
 # Run an agent on chat and text channels
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 A web chat widget, API chat and texts on a bound number all run the agent's
 **production** version, with no pin: promote to change them. Explain how
 or why from [how it works](references/how-it-works.md).
 Attaching a number belongs to
 [phone-numbers](../phone-numbers/SKILL.md),
-reading many threads to [call-analysis](../call-analysis/SKILL.md), choosing
+threads to [call-analysis](../call-analysis/SKILL.md),
 recipients to [analytics-cohorts](../analytics-cohorts/SKILL.md).
 
 ## Page context
@@ -25,7 +27,7 @@ Call `get_dashboard_page_context` (`mode: "synced"`) first; there is no chip.
 - `/dashboard/conversations`: org; search `focus` is one conversation id.
 
 After an API write say: "Saved through the
-API. The page shows it after a refresh."
+API. Visible after a refresh."
 
 ## Workflow: publish a web chat widget
 
@@ -107,5 +109,5 @@ Reply "yes" to proceed.
 
 ## Do not
 
-- Write fetch scripts, search docs for these routes, guess fields, or drive forms.
+- Use fetch scripts, route searches, guessed fields or form writes.
 - Edit a widget's `agent_id` or `settings.webChat`; neither configures chat.

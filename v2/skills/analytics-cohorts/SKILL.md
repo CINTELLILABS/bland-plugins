@@ -5,8 +5,10 @@ description: Use when building a list or cohort of conversations that match a co
 
 # Build a conversation cohort
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 A **cohort** is a materialised, expiring snapshot of call ids, built once from
-a predicate and a window. New calls never join it.
+a predicate and a window. New calls never join.
 
 Use a cohort for "which calls" or "how many calls" on call columns. Journeys
 belong to the [Sankey definition](../analytics-authoring/SKILL.md); what was
@@ -62,7 +64,7 @@ tile: follow [metrics](references/metrics.md#attached-target).
 7. **Ids on request only.** Page `/v2/analytics/cohorts/<id>/ids`, for
    example for a judge run ([evaluations](../evaluations/SKILL.md)).
 
-Use the two API tools; never script fetch or search the docs.
+No fetch scripts or route searches.
 
 ## Refusals
 

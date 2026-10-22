@@ -1,5 +1,16 @@
 # Changelog
 
+## bland 2.2.1 / norm 1.11.1 - 2026-10-20
+
+- Prefer generic MCP proxies when available; otherwise select an exact named
+  endpoint tool from the same connection with its live typed schema. Preserve
+  approval, scope, version, pagination and read-back requirements.
+- Package the endpoint index from SERVER #12407 in both plugins, with a
+  reproducible generator and contract tests. Legacy pathway saves/chat have
+  no equivalent in that set; report the missing capability rather than guess.
+- Norm handoffs, workspace procedures and setup/self-test now handle named-only
+  connections. Correct the old claim that all named integration tools are gone.
+
 ## norm 1.11.0 – 2026-10-13
 
 - New `agent-environments` skill for the Environments pages: set

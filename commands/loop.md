@@ -22,6 +22,8 @@ disallowed-tools:
   - "AskUserQuestion"
 ---
 
+
+Before server work, read [API tool selection](../skills/api/references/tool-selection.md). Prefer available generic proxies; if the required proxy is absent, use an exact named equivalent with its live schema. This overrides proxy-only wording below, not approval or evidence gates. If no equivalent is connected (notably legacy pathway saves/chat), report the missing method + route and blocked step; never invent a tool or substitute v2 agent resources.
 # Norm — Convergence Loop (Claude-native simulated calls)
 
 Keep editing a pathway until it **passes a simulated call**: you invent a customer, drive a text conversation against the pathway turn-by-turn, then verify the expected call outcomes against the transcript. You (the optimizer) edit the pathway *files*; the ground truth is the simulated call you just ran and judged.

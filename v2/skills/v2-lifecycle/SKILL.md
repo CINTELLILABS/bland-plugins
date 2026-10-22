@@ -5,17 +5,19 @@ description: Use when shipping a Bland v2 agent version to real traffic or askin
 
 # v2 Agent Lifecycle
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 > **Server binding:** use only this plugin's MCP server (`plugin_norm_bland`), never the v1 plugin's or a project `bland` server; they may hold another org.
 
 Which version runs where, and how it reaches callers. The
 [lifecycle model](references/lifecycle.md) is the full model; read the
 [endpoint dictionary](references/api.md) before the first request; objects
 outside the snapshot are in [resource boundaries](references/resources.md).
-Do not write fetch scripts or search the docs for these routes.
+No fetch scripts or route searches.
 
 ## Page context
 
-Call `get_dashboard_page_context` (`mode: "synced"`) first.
+`get_dashboard_page_context` (`mode: "synced"`) first.
 
 - `/dashboard/scenarios` (sidebar Pathways), `/dashboard/agent/$agentId/scenarios`
   and `…/scenarios/$scenarioId/$versionId`: pathways, their versions and

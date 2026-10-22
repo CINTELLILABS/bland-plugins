@@ -38,6 +38,10 @@ Steps:
      test:     ${CLAUDE_PLUGIN_ROOT}/commands/test.md
      commit:   ${CLAUDE_PLUGIN_ROOT}/commands/commit.md
      status:   ${CLAUDE_PLUGIN_ROOT}/commands/status.md
+   API tool selection (Read before any server operation; overrides proxy-only wording):
+     ${CLAUDE_PLUGIN_ROOT}/skills/api/references/tool-selection.md
+   Named endpoint index (Read only the operation needed when a proxy is absent):
+     ${CLAUDE_PLUGIN_ROOT}/skills/api/references/endpoint-tools.md
    Codec: node "${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs" <generate|rebuild|validate>
    ```
 
@@ -45,7 +49,7 @@ Steps:
    - Prose surfaces (`node.md`, `condition.md`, edge labels, `.pathways/global_prompt.md`) → native `Read`/`Write`/`Edit`.
    - Structured surfaces (variables, model, node tools, unit tests) → also edited as workspace files (`variables.yaml`, `model.yaml`, `tools.yaml`, `unit-tests.yaml`); they round-trip verbatim and persist as part of the `{ nodes, edges }` graph on `/bland:commit` (`call_bland_api`). There are no per-surface server tools — the file is the edit.
    - Server round-trips (clone, validate, test, commit, status) → the `/bland:*` commands. Each reads/writes the live server through the Bland MCP passthrough; the bundled `${CLAUDE_PLUGIN_ROOT}/bin/norm-sync.cjs` codec is OFFLINE/networkless and only transforms JSON ↔ files (`generate`/`rebuild`/`validate`).
-2. If MCP availability, auth, or environment is unclear, have the agent call `get_bland_mcp_setup` before choosing a workflow.
+2. If MCP availability, auth, or environment is unclear, inspect the live tools and call `get_bland_mcp_setup` if available before choosing a workflow. Missing generic proxies alone do not mean MCP is down: use the tool-selection contract for exact named equivalents. If no equivalent exists, report the missing operation and continue only independent supported work.
 3. Before any real outbound call, message, delete, publish, promote, or other high-impact action, get explicit user confirmation. Simulations, validation, and read-only inspection never need it.
 4. After create/edit/fix work validates with no errors, commit in the same run (`/bland:commit`). Do not stop at a clean local workspace — a clean file tree is not a saved pathway.
 5. Final answer must include the persisted pathway id/version when applicable, production/promotion status, validation status, tests run, and any remaining warnings or placeholder values the user must replace.

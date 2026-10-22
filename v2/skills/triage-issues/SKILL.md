@@ -5,11 +5,12 @@ description: Use when filing or working issues on the Issues page, org-wide or f
 
 # Triage issues
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 An issue is a tracked agent defect. This skill is the hand-off from a [debugging session](../api-workspace/references/debugging.md#report)
 or [call analysis](../call-analysis/SKILL.md): carry their ids, not their
 prose. Read [the API reference](references/api.md) first; [how it
-works](references/how-it-works.md) explains statuses and side effects. Do not
-write fetch scripts or search the docs for these routes.
+works](references/how-it-works.md) explains statuses and side effects. No fetch scripts or route searches.
 
 ## Page context
 
@@ -18,7 +19,7 @@ write fetch scripts or search the docs for these routes.
    default `agent_id` to `route.params.agentId`. `route.search.issue` is the
    open issue.
 3. No target chip exists. Read the page; never drive its forms.
-4. After every write say: "Saved through the API. The page shows it after a
+4. After writes say: "Saved through the API. The page shows it after a
    refresh."
 
 ## Workflow: file an issue from a bad call

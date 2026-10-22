@@ -5,6 +5,8 @@ description: Use when updating, repairing, debugging, or managing an existing Bl
 
 # Maintain an existing v2 agent
 
+Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
+
 Use the existing agent as the baseline, not a new-agent template. Work through
 this plugin's authenticated Bland MCP/API connection; prove the target org and
 agent before writing. Never silently substitute another installed connection.
