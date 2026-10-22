@@ -122,14 +122,17 @@ every feature is enabled or every future endpoint is documented offline.
 - `bland_api_key` is OPTIONAL — but understand the keyless mode: the plugin's own MCP server cannot authenticate without it, so commands run in local-tools mode (builder, audit, loop) and any API phase either needs the key configured or an explicit per-call human approval of a project-supplied Bland connection (such tools are outside the commands' allowlists ON PURPOSE — the human approval prompt IS the cross-org safety gate).
 - Commands run an org-identity smoke check (`list_agents` through the plugin's server, confirm the target lives there) before the first write — identity is validated by evidence, not namespace.
 
-## Cross-host behavior (Claude Code, Codex, Cursor, Grok)
+## Other hosts
 
-Manifests ship for all four hosts (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `.grok-plugin/`), mirroring the v1 plugin's pattern — same skills, same MCP server, per-host auth style (Claude userConfig, Codex `bearer_token_env_var`, Cursor variables, Grok env expansion).
+This release is the Claude Code build. Manifests for Codex, Cursor, and Grok ship from the `v2/` folder of the [main repository](https://github.com/CINTELLILABS/bland-plugins); those hosts don't run hooks, so there the convergence loop is advisory (run `bin/norm-migrate-audit.cjs` and the state manager manually per the /norm:migrate procedure).
 
-Two capabilities degrade gracefully off Claude Code:
+## Security and network access
 
-- **The v1-or-v2 question gate** (`/norm:build` step 0) uses Claude's AskUserQuestion when available; on every other host it's the same gate as a plain question — the instructions say ask ONE question and end the turn, which every interactive host supports.
-- **The enforced convergence loop** (Stop hook) is Claude Code-only — other hosts don't run hooks. There, the loop is advisory: run `bin/norm-migrate-audit.cjs` and the state manager manually per the /norm:migrate procedure; the audit and builder are plain Node scripts and work everywhere.
+- **Network endpoints.** Everything goes to the Bland API at `https://api.bland.ai` (or the server you set in `bland_mcp_url`): the hosted MCP server at `/v1/mcp` and, through its tools, the documented `/v1/*` REST endpoints. The plugin makes no other network calls and sends no telemetry.
+- **Credentials.** One Bland API key, held by the host's plugin config and sent only as a `Bearer` header to that server. It is never printed or written into the conversation.
+- **Local scripts.** Everything under `bin/` is plain, unminified Node with no dependencies and no network access. The scripts read v1 exports and snapshot JSON from the project directory and write only the snapshot and the loop state file (`.norm/migration.json`).
+- **Hooks.** One Stop hook (`bin/hook-migrate-loop.cjs`) reads `.norm/migration.json`, re-runs the local audit script, and blocks the turn only while a `/norm:migrate` loop is active. It never runs commands from tool input.
+- **Privacy.** See the [Bland privacy policy](https://www.bland.ai/legal/privacy).
 
 ## Relationship to the `bland` plugin
 
