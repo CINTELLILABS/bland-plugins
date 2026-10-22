@@ -63,7 +63,7 @@ The session discovers the pathway, proposes the scenario architecture for your a
 `/norm:migrate` doesn't rely on the model choosing to iterate — a Stop hook gates the session until the migration is actually complete:
 
 ```
-author snapshot ──► gate 1: AUDIT  (hook re-runs bin/norm-migrate-audit.cjs live:
+author snapshot ──► gate 1: AUDIT  (hook re-runs scripts/norm-migrate-audit.cjs live:
         ▲                          structure + routing-crash + byte-parity vs the v1 source)
         │                 ▼ green
    failures re-fed    gate 2: PUSH  (a version recorded AFTER the last snapshot edit —
@@ -73,11 +73,11 @@ author snapshot ──► gate 1: AUDIT  (hook re-runs bin/norm-migrate-audit.cj
         └────────────  RELEASE (complete)
 ```
 
-- `bin/norm-materialize.cjs` — the deterministic BUILDER: the agent authors only judgment (a small `plan.json` — scenario membership, entries, hub + system prompt) and this script carries every byte of content from the v1 export(s) into the snapshot: prompts, extraction variables, route rules (flat = OR, isGroup = AND, fallbacks from source), transfers, webhooks, snippet pins, attached tools, automatic code-tool re-representation, id namespacing, per-label exit edges. Proven by rebuilding a shipped production migration from raw JSON alone: byte-class identical structure (same step census, same pins), passes the platform's own validator, and compiles to the identical graph (82 nodes / 143 edges) the in-repo pipeline produced.
+- `scripts/norm-materialize.cjs` — the deterministic BUILDER: the agent authors only judgment (a small `plan.json` — scenario membership, entries, hub + system prompt) and this script carries every byte of content from the v1 export(s) into the snapshot: prompts, extraction variables, route rules (flat = OR, isGroup = AND, fallbacks from source), transfers, webhooks, snippet pins, attached tools, automatic code-tool re-representation, id namespacing, per-label exit edges. Proven by rebuilding a shipped production migration from raw JSON alone: byte-class identical structure (same step census, same pins), passes the platform's own validator, and compiles to the identical graph (82 nodes / 143 edges) the in-repo pipeline produced.
 - **Hardening hooks in the plan** — `promptAppends`, `variableAppends`, `silentPills`: evidence-based fixes discovered during the sim loop live in plan.json (reviewable), never as hand-edits to the snapshot. `silentPills` is the construct fix for a carried silent-router that fabricates speech as an in-flow step — proven in production when escalating prompt rules failed four runs straight.
-- `bin/norm-migrate-audit.cjs` — the deterministic checker: 20 machine checks including pin-presence against every v1 snippet/tool id, OR-collapse and null-fallback scans, code-tool re-representation, verbatim prompt carriage. No model judgment.
-- `bin/norm-migration-state.cjs` — loop state (`.norm/migration.json`): `init` / `record-push` / `record-sims` / `ack-uncovered` / `status` / `stop`.
-- `bin/hook-migrate-loop.cjs` — the Stop gate. Fail-soft (never wedges a session); releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — any release other than "complete" is reported as an incomplete migration.
+- `scripts/norm-migrate-audit.cjs` — the deterministic checker: 20 machine checks including pin-presence against every v1 snippet/tool id, OR-collapse and null-fallback scans, code-tool re-representation, verbatim prompt carriage. No model judgment.
+- `scripts/norm-migration-state.cjs` — loop state (`.norm/migration.json`): `init` / `record-push` / `record-sims` / `ack-uncovered` / `status` / `stop`.
+- `scripts/hook-migrate-loop.cjs` — the Stop gate. Fail-soft (never wedges a session); releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — any release other than "complete" is reported as an incomplete migration.
 
 ## Skills (the knowledge base)
 
@@ -124,14 +124,14 @@ every feature is enabled or every future endpoint is documented offline.
 
 ## Other hosts
 
-This release is the Claude Code build. Manifests for Codex, Cursor, and Grok ship from the `v2/` folder of the [main repository](https://github.com/CINTELLILABS/bland-plugins); those hosts don't run hooks, so there the convergence loop is advisory (run `bin/norm-migrate-audit.cjs` and the state manager manually per the /norm:migrate procedure).
+This release is the Claude Code build. Manifests for Codex, Cursor, and Grok ship from the `v2/` folder of the [main repository](https://github.com/CINTELLILABS/bland-plugins); those hosts don't run hooks, so there the convergence loop is advisory (run `scripts/norm-migrate-audit.cjs` and the state manager manually per the /norm:migrate procedure).
 
 ## Security and network access
 
 - **Network endpoints.** Everything goes to the Bland API at `https://api.bland.ai`: the hosted MCP server at `/v1/mcp` and, through its tools, the documented `/v1/*` REST endpoints. The plugin makes no other network calls and sends no telemetry.
 - **Credentials.** One Bland API key, held by the host's plugin config and sent only as a `Bearer` header to that server. It is never printed or written into the conversation.
-- **Local scripts.** Everything under `bin/` is plain, unminified Node with no dependencies and no network access. The scripts read v1 exports and snapshot JSON from the project directory and write only the snapshot and the loop state file (`.norm/migration.json`). `bin/norm-materialize.cjs` copies webhook header rows from the v1 export file you give it into the snapshot as data; it never reads a credential from your machine or environment.
-- **Hooks.** One Stop hook (`bin/hook-migrate-loop.cjs`) reads `.norm/migration.json`, re-runs the local audit script, and blocks the turn only while a `/norm:migrate` loop is active. It never runs commands from tool input.
+- **Local scripts.** Everything under `scripts/` is plain, unminified Node with no dependencies and no network access. The scripts read v1 exports and snapshot JSON from the project directory and write only the snapshot and the loop state file (`.norm/migration.json`). `scripts/norm-materialize.cjs` copies webhook header rows from the v1 export file you give it into the snapshot as data; it never reads a credential from your machine or environment.
+- **Hooks.** One Stop hook (`scripts/hook-migrate-loop.cjs`) reads `.norm/migration.json`, re-runs the local audit script, and blocks the turn only while a `/norm:migrate` loop is active. It never runs commands from tool input.
 - **Privacy.** See the [Bland privacy policy](https://www.bland.ai/legal/privacy).
 
 ## Relationship to the `bland` plugin

@@ -7,9 +7,9 @@ allowed-tools:
   - "Read"
   - "Glob"
   - "Grep"
-  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs *)"
-  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migrate-audit.cjs *)"
-  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/bin/norm-materialize.cjs *)"
+  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migration-state.cjs *)"
+  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migrate-audit.cjs *)"
+  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-materialize.cjs *)"
 ---
 
 # /norm:migrate — v1 → v2 hand migration
@@ -37,7 +37,7 @@ This command runs under a Stop-hook gate: once you initialize the loop, **the se
 Initialize it as soon as the snapshot file exists (end of phase 3):
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs init \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migration-state.cjs init \
   --snapshot snapshot.json --source v1-export.json [--persona persona.json] \
   --agent <agentId> --max 12
 ```
@@ -45,15 +45,15 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs init \
 Record progress as it happens (the hook trusts only these records):
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs record-push --head <versionId>
-node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs record-sims --head <versionId> --passed true|false [--failing "a;b"]
-node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs ack-uncovered --lane "<lane>: <why untestable>"
+node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migration-state.cjs record-push --head <versionId>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migration-state.cjs record-sims --head <versionId> --passed true|false [--failing "a;b"]
+node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migration-state.cjs ack-uncovered --lane "<lane>: <why untestable>"
 ```
 
 Any snapshot edit after a push automatically stales the head (gate 2) and resets the sim gate — that is the point: no result counts unless it ran on the bytes you're shipping. The audit itself is runnable any time:
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migrate-audit.cjs --snapshot snapshot.json --source v1-export.json [--persona persona.json]
+node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migrate-audit.cjs --snapshot snapshot.json --source v1-export.json [--persona persona.json]
 ```
 
 Never game the gates: recording `--passed true` for a sweep you didn't run, or ack-ing a lane that was merely inconvenient, defeats the migration's only proof. The loop releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — a release by anything other than "complete" goes in the report as an incomplete migration.
@@ -65,7 +65,7 @@ Never game the gates: recording `--passed true` for a sweep you didn't run, or a
 3. **Author.** You author only JUDGMENT — a small `plan.json` (scenario membership, entry descriptions, hub prompt, system prompt assembled verbatim from the sources). The builder does ALL mechanical carriage:
 
    ```bash
-   node ${CLAUDE_PLUGIN_ROOT}/bin/norm-materialize.cjs --plan plan.json --out snapshot.json
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-materialize.cjs --plan plan.json --out snapshot.json
    ```
 
    It carries every byte from the v1 export(s): prompts, extraction variables, route rules (flat rows = OR, isGroup = AND, fallbacks from source), transfers with warm-transfer config, webhooks (headers/response mappings converted to the snapshot dialect), snippet pins, attached tools — and automatically re-represents `type:"code"` node tools as code step + route step. It namespaces node ids when merging multiple graphs, emits one exit edge per distinct label, appends the scenario directory to the hub prompt, and prints warnings you MUST read (uncovered nodes, code-tool input maps to review, cross-scenario tool targets cleared). Never hand-write flow JSON when the builder can carry it; edit the plan (or, for genuine hardening, the built snapshot) — not the mapping.

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/hook-migrate-loop.cjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hook-migrate-loop.cjs\""
           }
         ]
       }
