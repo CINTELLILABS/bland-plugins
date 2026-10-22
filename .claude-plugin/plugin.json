@@ -13,6 +13,9 @@
   "repository": "https://github.com/CINTELLILABS/bland-plugins",
   "license": "MIT",
   "privacyPolicyUrl": "https://www.bland.ai/legal/privacy",
+  "termsOfServiceUrl": "https://www.bland.ai/legal/terms",
+  "supportUrl": "mailto:hello@bland.ai",
+  "documentationUrl": "https://docs.bland.ai",
   "keywords": [
     "bland",
     "voice-ai",
