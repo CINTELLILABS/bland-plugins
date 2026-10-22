@@ -130,7 +130,7 @@ This release is the Claude Code build. Manifests for Codex, Cursor, and Grok shi
 
 - **Network endpoints.** Everything goes to the Bland API at `https://api.bland.ai` (or the server you set in `bland_mcp_url`): the hosted MCP server at `/v1/mcp` and, through its tools, the documented `/v1/*` REST endpoints. The plugin makes no other network calls and sends no telemetry.
 - **Credentials.** One Bland API key, held by the host's plugin config and sent only as a `Bearer` header to that server. It is never printed or written into the conversation.
-- **Local scripts.** Everything under `bin/` is plain, unminified Node with no dependencies and no network access. The scripts read v1 exports and snapshot JSON from the project directory and write only the snapshot and the loop state file (`.norm/migration.json`).
+- **Local scripts.** Everything under `bin/` is plain, unminified Node with no dependencies and no network access. The scripts read v1 exports and snapshot JSON from the project directory and write only the snapshot and the loop state file (`.norm/migration.json`). `bin/norm-materialize.cjs` copies webhook header rows from the v1 export file you give it into the snapshot as data; it never reads a credential from your machine or environment.
 - **Hooks.** One Stop hook (`bin/hook-migrate-loop.cjs`) reads `.norm/migration.json`, re-runs the local audit script, and blocks the turn only while a `/norm:migrate` loop is active. It never runs commands from tool input.
 - **Privacy.** See the [Bland privacy policy](https://www.bland.ai/legal/privacy).
 

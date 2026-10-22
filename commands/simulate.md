@@ -5,8 +5,6 @@ allowed-tools:
   - "mcp__plugin_norm_bland__*"
   - "Task"
   - "Read"
-  - "Write"
-  - "Bash"
 ---
 
 # /norm:simulate — verification loop

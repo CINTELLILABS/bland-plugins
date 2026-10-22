@@ -4,7 +4,6 @@ argument-hint: "<path to snapshot JSON (and optionally the v1 source JSON to aud
 allowed-tools:
   - "mcp__plugin_norm_bland__*"
   - "Read"
-  - "Bash"
   - "Glob"
   - "Grep"
 ---

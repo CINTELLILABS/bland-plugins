@@ -5,11 +5,9 @@ allowed-tools:
   - "Task"
   - "AskUserQuestion"
   - "Read"
-  - "Write"
-  - "Edit"
   - "Glob"
   - "Grep"
-  - "Bash"
+  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs *)"
   - "mcp__plugin_norm_bland__*"
 ---
 
@@ -42,7 +40,7 @@ Multiple Bland connections can coexist in one session; namespace alone proves no
 3. **Audit**: `/norm:validate` structural + routing-crash checks (skip the vs-source parity checks — there is no v1 source).
 4. **Create + push**: `create_agent` (or the user's existing agent id) → `save_agent_version` / `POST /v2/agents/:id/versions` with a named version.
 5. **Verify**: `/norm:simulate` — full-coverage suite from the design's lanes + the standard conduct probes (no invented times/numbers/bookings, no callback promises, AI disclosure, chant escalation), write-tool temptation probes, green sweep on one head.
-6. **Convergence loop (recommended)**: the migrate loop works in BUILD MODE — init the state with NO `--source` (`node "${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs" init --snapshot snapshot.json --agent <id>`): the Stop-hook then gates on the STRUCTURAL audit (parity checks skip with no source) + push-after-edit + sims-green-on-head, same as migrations.
+6. **Convergence loop (recommended)**: the migrate loop works in BUILD MODE — init the state with NO `--source` (`node ${CLAUDE_PLUGIN_ROOT}/bin/norm-migration-state.cjs init --snapshot snapshot.json --agent <id>`): the Stop-hook then gates on the STRUCTURAL audit (parity checks skip with no source) + push-after-edit + sims-green-on-head, same as migrations.
 7. **Lifecycle**: load [v2-lifecycle](../skills/v2-lifecycle/SKILL.md) and follow
    the supported release mode: publish to staging then promote, or an explicitly
    selected exact-version promotion. State the org and exact candidate before
