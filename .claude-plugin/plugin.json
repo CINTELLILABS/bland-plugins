@@ -30,13 +30,6 @@
       "description": "Your Bland API key from app.bland.ai/settings/api-keys (org that owns the agents). OPTIONAL: leave unset for a keyless install when the project supplies its own Bland connection — commands then verify org identity before any write.",
       "sensitive": true,
       "required": false
-    },
-    "bland_mcp_url": {
-      "type": "string",
-      "title": "Bland MCP URL (optional)",
-      "description": "Optional. Defaults to production (https://api.bland.ai/v1/mcp); only set this to point at a dev/staging server's /v1/mcp endpoint. Not a secret.",
-      "default": "https://api.bland.ai/v1/mcp",
-      "required": false
     }
   }
 }

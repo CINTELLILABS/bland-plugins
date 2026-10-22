@@ -2,7 +2,7 @@
   "mcpServers": {
     "bland": {
       "type": "http",
-      "url": "${user_config.bland_mcp_url}",
+      "url": "https://api.bland.ai/v1/mcp",
       "headers": {
         "Authorization": "Bearer ${user_config.bland_api_key}"
       }
