@@ -102,12 +102,19 @@ input with its revision; the host's instructions name the file.
 - To change the draft: copy the input to a separate workspace JSON file, edit
   it with code, then call the host's builder-draft tool
   (`apply_builder_draft`) with the file path, `agentId` and `baseRevision`
-  from the input. It validates the snapshot and applies one undoable edit.
-- It applies only in the dev environment, only to an editable draft, and only
-  when `baseRevision` still matches. On refusal, start a new turn for a fresh
-  input. It never saves; the builder's autosave does that.
-- Never call `draft.begin`, `draft.append` or `draft.apply` yourself, and
-  never print the candidate JSON into chat. They are the tool's transport.
+  from the input, plus `branchId` when the host names a Branch. It validates
+  the snapshot, saves it through the API as an unpublished development
+  version (compare-and-set on the current head), then adopts it into the open
+  builder as one undoable edit when the tab is visible.
+- The save is durable even when the builder tab is hidden or reloaded. A
+  result with `projected: false` means the builder has not shown it yet: say
+  so and tell the user to reload the builder before editing further. A
+  head-moved refusal means someone else saved different content during the
+  turn: rebuild the candidate from the current head and retry once.
+- It never publishes or promotes; the development save is the whole write.
+- Never call `draft.begin`, `draft.append`, `draft.apply` or `draft.adopt`
+  yourself, and never print the candidate JSON into chat. They are the tool's
+  transport.
 - The draft carries no selection. Before a node-targeted edit, execute
   `canvas.list_nodes` through `control_dashboard_ui` for the open flow's
   path and node ids, or ask the user which node.
@@ -117,10 +124,10 @@ input with its revision; the host's instructions name the file.
 - Deep links reveal a change: `?focusNode=<node id>` selects a node,
   `?openFlow=<node id>` opens a container, `?env=staging|production` and
   `?branch=<branch id>` pick what is shown. No `env` means dev.
-- Saving through `POST /v2/agents/<id>/versions` instead is a different
-  write. It refreshes the agent's version list, but the open draft does not
-  absorb it, and unsaved edits on the page can conflict with it. Say which
-  one you used.
+- Saving through `POST /v2/agents/<id>/versions` by hand is the fallback
+  only when the tool is unavailable. It is the same kind of write, but the
+  open builder adopts a version only through the tool, so tell the user to
+  reload the builder before editing further. Say which path you used.
 
 ## Edit through code, then synchronize deliberately
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## norm 1.12.0 - 2026-10-23
+
+- `api-workspace`: `apply_builder_draft` now saves the candidate through the
+  API as an unpublished development version (compare-and-set on the head) and
+  then adopts it into the open builder; the save no longer depends on the
+  builder tab staying visible. Documents `branchId`, `projected: false`
+  (reload the builder) and the head-moved refusal. Never publishes.
+
 ## bland 2.2.1 / norm 1.11.1 - 2026-10-20
 
 - Prefer generic MCP proxies when available; otherwise select an exact named
