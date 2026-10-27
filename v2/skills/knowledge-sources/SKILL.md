@@ -7,13 +7,16 @@ description: Use when someone wants to "teach the agent", "add this doc / FAQ / 
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-A source is an org-wide document, FAQ or website indexed for retrieval. An
-agent uses it only when a saved version lists its id, agent-wide or on a
+A source is an org-wide document, FAQ or website. An
+agent uses it only when its saved version lists the id, agent-wide or on a
 `knowledge` step ([knobs](../v2-snapshot/references/knobs.md)). Mechanism, map
 and memory: [how it works](references/how-it-works.md). Routes:
 [API](references/api.md). Tests:
 [verification](references/verification.md). Promotion:
 [v2-lifecycle](../v2-lifecycle/SKILL.md). No fetch scripts or route searches.
+
+Use sources, not mini-pathways; read
+[knowledge versus scenarios](../v2-authoring/SKILL.md#knowledge-reference-or-scenario).
 
 ## Page context
 
@@ -49,7 +52,7 @@ Budget: search, one ingest, polls, two checks, one version save.
 
 ## Workflow: test a source
 
-Budget: one read for the ids, two `/answer` calls per question pair.
+Budget: one id read, two `/answer` calls per pair.
 
 1. Ids: the version the page shows, or the source named.
 2. Questions: the user's, or drafted answerable and absent pairs per

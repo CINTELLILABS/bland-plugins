@@ -1,5 +1,15 @@
 # Changelog
 
+## norm 1.11.2 - 2026-10-27
+
+- Separate knowledge references from workflows during new-agent design:
+  FAQs, policies and docs use knowledge sources, not a mini-pathway per topic.
+  Keep ordered tasks and live tool operations in scenarios.
+- Load knowledge guidance in the build flow, choose retrieval scope by channel,
+  and verify answerable, absent and mid-task questions with retrieval evidence.
+  Use knowledge steps when agent-wide retrieval is not verified.
+- Link existing-agent maintenance to the same design rule.
+
 ## bland 2.2.1 / norm 1.11.1 - 2026-10-20
 
 - Prefer generic MCP proxies when available; otherwise select an exact named

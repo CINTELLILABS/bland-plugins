@@ -48,10 +48,41 @@ root siblings. Write concrete, mutually-distinguishing criteria, not marketing
 copy. Explicit incoming routes change auto-entry eligibility. Preserve one
 intent per exit edge on the way out.
 
+## Knowledge reference or scenario?
+
+Classify content before drawing the graph. **Facts belong in knowledge;
+workflows belong in scenarios.** A caller intent is not automatically a
+scenario. FAQs, policies, opening hours, product details and reference docs
+usually need retrieval, not a mini-pathway for each topic.
+
+- Use [knowledge sources](../knowledge-sources/SKILL.md) for reference-only
+  answers. Search for an existing source before ingesting; attach only ids
+  read back `COMPLETED`. Keep instructions and routing rules in prompts.
+- Use agent-wide `knowledge.kbIds` for references needed across phases;
+  accept that scope only after verifying a saved candidate on the intended
+  channel. Inbound phone calls, builder
+  test chat and simulations may not consult agent-wide sources. For those
+  channels, or when a phase must consult a source, use a `knowledge` step
+  with `kbIds` in the existing flow. If Q&A is a standalone job, use ONE
+  shared "Answer questions" scenario, not one scenario per FAQ or source.
+  Read the [channel and scope behavior](../knowledge-sources/references/how-it-works.md#how-it-reaches-a-live-call-or-conversation).
+- Use scenarios for ordered collection, decisions, live tool lookups,
+  writes, scheduling or transfers with distinct outcomes. "What is the
+  returns policy?" is knowledge; "return my order" needs a workflow.
+- For mixed requests, keep reference answers available within the task;
+  do not split an interleaved conversation just because a question arises.
+  Step-scoped retrieval works only while on that step: make conversational
+  phases that need reference answers knowledge-capable. One knowledge step
+  elsewhere is not enough. The hub routes questions to answering steps;
+  agent-wide attachment does not turn the hub into a content handler.
+  Verify one answerable and one absent question, plus a question mid-task
+  that continues without restarting the task. Check Query Logs and chunks;
+  attachment alone is not proof of retrieval. Missing facts stay unknown.
+
 ## Standard skeleton for a new agent
 
 1. **Start** (only if something must happen before the hub routes): pick one row from the table below. Most agents need none.
-2. **Hub**: thin. Greeting/persona live in systemPrompt or the entry flow; hub prompt = routing rules only ("route between turns; the scenarios own all lookups/transfers/closes; never handle content at the hub") + hard rules SCOPED to what they protect.
+2. **Hub**: thin. Greeting/persona live in systemPrompt or the entry flow; hub prompt = routing rules only ("route between turns; the scenarios own workflow tool lookups/transfers/closes; never handle content at the hub") + hard rules SCOPED to what they protect. Reference questions use the knowledge scope chosen above; they do not each require a hub entry.
 3. **Scenarios** per the boundary rule, each: entry description → steps → one exit edge per distinct outcome.
 4. **Root end-calls**: "End call — goodbye" + "End call — silent" (for after a flow already spoke its close). In-flow goodbyes can be wrap-up steps; verify continuation reaches a real termination action instead of assuming a fixed extra turn.
 
