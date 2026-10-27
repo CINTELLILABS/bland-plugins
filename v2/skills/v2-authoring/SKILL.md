@@ -41,6 +41,17 @@ Boundary rule: **draw scenario boundaries only at one-way seams.**
   vehicle" jumps) → ONE scenario containing all of them. Ordinary wrapper entry
   follows the configured Start edge; splitting a loop across scenarios does not
   preserve an arbitrary mid-flow resume point.
+- Reference content is knowledge, not a scenario. FAQs, policies, hours,
+  pricing, product facts: when answering only reads facts (no tool, no
+  variable write, no outcome of its own), the content goes into a knowledge
+  source, and many topics share one source. Never one scenario per FAQ topic.
+  A topic earns a scenario only when it needs its own steps, tools, writes,
+  or exit. Where to attach the source: agent-wide `knowledge.kbIds` for
+  reference any phase may need; a `knowledge` step when a phase must always
+  consult it. Inbound phone calls, test chat and simulations may not consult
+  agent-wide sources, so an inbound voice agent answers questions from one
+  "Answer questions" scenario holding a single `knowledge` step
+  ([how knowledge reaches a call](../knowledge-sources/references/how-it-works.md)).
 - Scenario count is not a quality metric. A single-scenario agent with a thin hub is correct when the call is one continuous task. The hub still buys you: root end-call semantics, a fixed entry pathway when every call opens the same way, and additive growth (new lanes later = new scenarios, no surgery).
 
 Entries are routing contracts for eligible generated routes from the hub and
@@ -51,7 +62,7 @@ intent per exit edge on the way out.
 ## Standard skeleton for a new agent
 
 1. **Start** (only if something must happen before the hub routes): pick one row from the table below. Most agents need none.
-2. **Hub**: thin. Greeting/persona live in systemPrompt or the entry flow; hub prompt = routing rules only ("route between turns; the scenarios own all lookups/transfers/closes; never handle content at the hub") + hard rules SCOPED to what they protect.
+2. **Hub**: thin. Greeting/persona live in systemPrompt or the entry flow; hub prompt = routing rules only ("route between turns; the scenarios own all tool/system lookups, transfers and closes; never handle content at the hub") — reference questions are answered from knowledge sources per the boundary rule, not by a scenario per topic + hard rules SCOPED to what they protect.
 3. **Scenarios** per the boundary rule, each: entry description → steps → one exit edge per distinct outcome.
 4. **Root end-calls**: "End call — goodbye" + "End call — silent" (for after a flow already spoke its close). In-flow goodbyes can be wrap-up steps; verify continuation reaches a real termination action instead of assuming a fixed extra turn.
 
