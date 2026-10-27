@@ -37,7 +37,7 @@ Multiple Bland connections can coexist in one session; namespace alone proves no
 
 ## v2 build phases
 
-1. **Design interview.** Nail the call's real structure before JSON: what the agent owns end-to-end, the distinct caller intents, which parts are one continuous task (ONE scenario) vs genuinely separate one-way lanes (scenario per lane), every integration (read vs write), the per-call data contract (request data), transfer destinations, close conditions. Present the scenario architecture in a short table and get a nod before authoring.
+1. **Design interview.** Nail the call's real structure before JSON: what the agent owns end-to-end, the distinct caller intents, which parts are one continuous task (ONE scenario) vs genuinely separate one-way lanes (scenario per lane), which content is reference material (FAQs, policies, hours, product facts → knowledge sources, not scenarios; see the `v2-authoring` boundary rule), every integration (read vs write), the per-call data contract (request data), transfer destinations, close conditions. Present the scenario architecture in a short table and get a nod before authoring.
 2. **Author the snapshot** per `v2-authoring` + `v2-snapshot`: settings.systemPrompt (persona + conduct rules — include the standard no-fabrication set), hub prompt + entries, scenario flows (steps, edges, tools), root end-calls. For anything mechanical that exists as v1 JSON already, use `bin/norm-materialize.cjs` instead of hand-writing.
 3. **Audit**: `/norm:validate` structural + routing-crash checks (skip the vs-source parity checks — there is no v1 source).
 4. **Create + push**: `create_agent` (or the user's existing agent id) → `save_agent_version` / `POST /v2/agents/:id/versions` with a named version.
