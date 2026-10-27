@@ -19,6 +19,7 @@ The host enforces permissions; this skill does not grant them.
 | Discover endpoints, use code and workspace files | [API workspace](../api-workspace/SKILL.md) |
 | Edit prompts, steps, tools, variables, edges, settings | [Snapshot dialect](../v2-snapshot/SKILL.md) |
 | Diagnose routing, repetition, interrupts, hidden canvas routes | [Runtime](../v2-runtime/SKILL.md) and [debugging procedure](../api-workspace/references/debugging.md) |
+| Add FAQs/docs or simplify reference-only mini-pathways | [Knowledge sources](../knowledge-sources/SKILL.md) and [knowledge versus scenarios](../v2-authoring/SKILL.md#knowledge-reference-or-scenario); preserve existing workflows and stable IDs |
 | Reproduce safely with text, simulation, or actual speech | [Testing](../v2-testing/SKILL.md) |
 | Judges, test cases, calibration, run results | [Evaluations](../evaluations/SKILL.md) |
 | Find patterns across historical calls | [Call analysis](../call-analysis/SKILL.md) |

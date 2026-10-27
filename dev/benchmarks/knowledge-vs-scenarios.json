@@ -1,0 +1,26 @@
+{
+  "skill_name": "v2-authoring",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Design a new v2 inbound phone agent that answers opening hours, returns policy, product FAQs and shipping questions from our help center. Only propose the architecture; do not call APIs.",
+      "expected_output": "Reference topics use knowledge sources and one shared Answer questions scenario with a knowledge step, not four mini-pathways. Explain that agent-wide knowledge alone requires verification on inbound calls.",
+      "files": [],
+      "assertions": ["No scenario per FAQ topic", "Uses step kbIds for unverified inbound retrieval", "Plans answerable and absent question checks with Query Logs/chunks"]
+    },
+    {
+      "id": 2,
+      "prompt": "Design a new v2 appointment agent: collect service and contact details, check live availability, confirm and book. Callers may ask pricing and cancellation-policy questions halfway through booking. Only propose the architecture; do not call APIs.",
+      "expected_output": "One continuous booking workflow owns live tools and confirmation. Reference content uses knowledge within the flow rather than separate pricing/cancellation scenarios. Verify Q&A followed by continuation without restarting booking.",
+      "files": [],
+      "assertions": ["Preserves ordered booking workflow and tool gates", "No standalone scenario per reference topic", "Plans a mid-task reference question and continuation check"]
+    },
+    {
+      "id": 3,
+      "prompt": "Design a new v2 support agent that answers published returns-policy questions and can return a caller's order: identify the order, check live eligibility, confirm, submit the return, or transfer to a person. Only propose the architecture; do not call APIs.",
+      "expected_output": "Policy facts use knowledge, while returning an order remains an ordered workflow with live lookups, a confirmed write and distinct outcomes. Do not replace operational steps with static knowledge answers.",
+      "files": [],
+      "assertions": ["Separates static policy from returning an order", "Keeps live eligibility and confirmed submission as tools", "Preserves transfer and terminal outcomes"]
+    }
+  ]
+}
