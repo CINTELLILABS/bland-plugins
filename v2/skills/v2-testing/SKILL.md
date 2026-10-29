@@ -1,6 +1,6 @@
 ---
 name: v2-testing
-description: Use when verifying Bland v2 agents with simulations, test chat, or speech-to-speech tests; testing a text or messaging reply ("preview the SMS reply", "test the API chat"); placing a real test call to the agent's number; measuring interruptions or response latency; grading engine traces; or deciding whether a test is safe. Covers fixtures, the agent-testing API, messaging probes, voice evidence, and live-integration safety.
+description: Use when verifying Bland v2 agents with simulations, test chat, or speech-to-speech tests; driving an agent turn by turn from an external harness; testing a text or messaging reply ("preview the SMS reply", "test the API chat"); placing a real test call to the agent's number; measuring interruptions or response latency; grading engine traces; or deciding whether a test is safe. Covers fixtures, the agent-testing API, messaging probes, voice evidence, and live-integration safety.
 ---
 
 # Testing v2 Agents
@@ -17,6 +17,7 @@ runs, which version, and why results differ:
 |---|---|---|
 | Platform simulations | latest saved version, simulated caller plus judges | [simulations](references/simulations.md) |
 | Test-chat socket | dev head or `version_id`, node by node | [probes](references/probes.md#test-chat-the-builder-websocket) |
+| Pathway chat API | `agent_version`, node by node, over HTTP | [probes](references/probes.md#pathway-chat-api-turn-by-turn-from-an-external-driver) |
 | Messaging preview | the named version, the real messaging runtime; texts nobody | [probes](references/probes.md#messaging-preview-version-pinned-sends-nothing) |
 | API chat (`POST /v1/chat`) | production; creates real records, fires webhooks | [probes](references/probes.md#api-chat-the-production-messaging-path) |
 | Live text (`POST /v1/sms/trigger`) | the bound number; texts the reply to a phone | [probes](references/probes.md#live-text-a-number-the-user-owns) |
