@@ -84,9 +84,12 @@ no socket target.
 
 `variable_changes` is `{added, modified, removed}`: the agent variables this
 turn changed compared with the turn before. Runtime keys (`now`, `call_id`,
-the channel keys) and the keys you sent in `request_data` are left out.
-Servers released before the field existed omit it; then diff consecutive
-`variables` snapshots yourself and ignore those same keys.
+the channel keys) and the keys you sent in `request_data` are left out,
+including the fields of a `request_data` that is one `data` field. It is
+`null` when the server cannot tell request data from agent output (a chat
+created before the field existed, past its first turn). Servers released
+before the field existed omit it. In both cases diff consecutive `variables`
+snapshots yourself and ignore those same keys.
 
 - It is not side-effect free: webhook, tool and custom-code steps run for
   real. Classify them before the first turn, and use a synthetic `from`.
