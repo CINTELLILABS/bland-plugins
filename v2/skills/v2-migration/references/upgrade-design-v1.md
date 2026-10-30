@@ -195,8 +195,9 @@ or pasted `kb`. Source-level knowledge uses `node_id: "$agent"`. Preserve every
 source knowledge capability and classify its scope with evidence:
 
 - `agent`: source evidence establishes conversation-wide access. The snapshot
-  must attach the IDs at root `knowledge.kbIds`. The runtime compiler now injects
-  a global knowledge search tool into the compiled graph for these root IDs.
+  must attach the IDs at root `knowledge.kbIds`. These use the existing
+  call-level retrieval path and runtime capability controls. Do not inject
+  replacement tools or assume that saving IDs proves retrieval on every channel.
   Freeze question probes before, during and after the primary task; assert that
   questions are answered from the reference material and the task continues.
 - `scoped`: attach knowledge only to the relevant native `knowledge` steps,
