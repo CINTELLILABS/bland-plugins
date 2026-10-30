@@ -1272,3 +1272,35 @@ test('upgrade entry permits an explicit press-button action but rejects business
   delete step.data.embeddedTool;
   assert.equal(a1(), false);
 });
+
+
+test('upgrade automatic prompt and simple scenario inspect active attached tools and chains', () => {
+  for (const type of ['prompt', 'scenario']) {
+    const snapshot = rewrittenCandidate();
+    const root = snapshot.behavior.nodes.find(n => n.type === 'complex-scenario');
+    snapshot.behavior.edges[0].target = root.id;
+    const definition = { name: 'Business', description: 'Run snippet', integration: 'custom-code', action: 'run_snippet', body: { snippet_id: 'lookup', variables: {} } };
+    const attached = { id: 'tool', name: 'Business', toolType: 'custom_tool', behavior: 'feed_context', definition };
+    const data = { name: 'Screen', prompt: 'Wait for a human', variables: [], loopWhile: '', tools: [attached] };
+    if (type === 'scenario') { root.type = 'scenario'; root.data = { ...data, entry: root.data.entry }; }
+    else root.data.flow = { nodes: [{ id: 'start', type: 'start', data: {} }, { id: 'screen', type: 'prompt', data }, { id: 'exit', type: 'end', data: {} }], edges: [{ id: 'a', source: 'start', target: 'screen' }, { id: 'b', source: 'screen', target: 'exit' }] };
+    const a1 = () => upgradeAudit(snapshot, { nodes: [], edges: [] }, ['--upgrade']).checks.find(c => c.id === 'A1').passed;
+    assert.equal(a1(), false, type);
+    attached.stagingDefinition = { name: 'Button', description: 'IVR navigation', integration: 'bland', action: 'press_button', body: { buttons: '1' } };
+    attached.isStaging = true;
+    assert.equal(a1(), true, type);
+    attached.byReference = true; attached.toolId = 'TL-unknown';
+    assert.equal(a1(), false, type);
+    delete attached.byReference;
+    attached.toolType = 'track';
+    attached.steps = [{ type: 'custom_tool', config: { tool: { tool: definition } } }];
+    assert.equal(a1(), false, type);
+    attached.steps[0].config.tool.tool = attached.stagingDefinition;
+    assert.equal(a1(), true, type);
+    const activeData = type === 'scenario' ? root.data : data;
+    activeData.channelConfig = { shared: false, overrides: { sms: { tools: [{ ...attached, toolType: 'custom_tool', isStaging: false, definition }] } } };
+    assert.equal(a1(), false, type);
+    activeData.channelConfig.shared = true;
+    assert.equal(a1(), true, type);
+  }
+});

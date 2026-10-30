@@ -66,6 +66,24 @@ function isConnectionToolStep(step) {
 	return definition && definition.integration === "bland" && definition.action === "press_button";
 }
 
+// Mirror the compiled attached-tool selection, including chains and active staging.
+function hasBusinessAttachedAction(step) {
+	if (!["prompt", "scenario"].includes(step.type)) return false;
+	const data = step.data || {};
+	const channel = data.channelConfig || {};
+	const variants = [data, ...(channel.shared === false ? Object.values(channel.overrides || {}).map(patch =>
+		channel.mode === "independent" ? patch : { ...data, ...patch }) : [])];
+	const connection = (wrapper, staging) => {
+		const definition = staging && wrapper?.staging_tool ? wrapper.staging_tool : wrapper?.tool || (wrapper?.name ? wrapper : null);
+		return definition?.integration === "bland" && definition?.action === "press_button";
+	};
+	return variants.some(variant => (Array.isArray(variant.tools) ? variant.tools : []).some(tool => {
+		if (tool.toolType === "track") return (tool.steps || []).some(member => !connection(member.config?.tool, member.config?.isStaging));
+		if (tool.byReference === true && tool.toolId) return true;
+		return !connection({ tool: tool.definition, staging_tool: tool.stagingDefinition }, tool.isStaging);
+	}));
+}
+
 // Does the snapshot's pin (`got`) satisfy the source's (`want`)? Pins arrive
 // as numbers or numeric strings ("3" and 3 are the same version). An unpinned
 // source accepts anything; a pinned source needs the same version — a missing
@@ -856,7 +874,7 @@ function main() {
 			const problems = [];
 			for (const automatic of autoFlows) {
 			const st = flowSteps(automatic);
-			const core = st.filter((x) => CORE_LOGIC.has(x.type) || (upgrade && ["webhook", "tool", "customCode"].includes(x.type) && !isConnectionToolStep(x)));
+			const core = st.filter((x) => CORE_LOGIC.has(x.type) || (upgrade && ["webhook", "tool", "customCode"].includes(x.type) && !isConnectionToolStep(x)) || (upgrade && hasBusinessAttachedAction(x)));
 			const share = totalSteps ? st.length / totalSteps : 0;
 			const hasExit = exitReachable(automatic);
 			if (core.length) problems.push(`core-logic step(s) in Start: ${core.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")} — knowledge, scheduling, verification and transfers (department handoffs included) are hub children`);
