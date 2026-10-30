@@ -14,6 +14,12 @@
  *                     (snapshot mtime newer than the recorded push = stale head).
  *   gate 3  SIMS    — the sim suite must be recorded green ON the pushed head
  *                     (any snapshot change resets this via record-push).
+ *   upgrade DESIGN — responsibilities and knowledge scope recorded for that
+ *                     head; detailed runtime/coverage checks are platform-owned.
+ *
+ * Upgrade uses a capability audit and frozen evaluation suite. Its successful
+ * local release is `local_complete`: sim records are advisory; the platform
+ * independently verifies persisted evidence before managed completion.
  *
  * Termination is OUR job (no automatic infinite-loop guard exists): releases on
  * COMPLETE, max_iter, stall (identical failure signature 3 evaluations in a
@@ -114,12 +120,25 @@ async function main() {
 	}
 
 	const failures = [];
+	const upgrade = s.mode === "outcomes-v1";
+	if (upgrade && !(s.evaluation || {}).scenario_ids?.length) failures.push("EVALUATION: create reusable test scenarios and record-evaluation --scenario <id> before the first candidate push; the platform freezes this suite.");
+	if (upgrade) {
+		const design = s.design || {};
+		if (!design.head_version_id || design.head_version_id !== (s.push || {}).head ||
+			!Array.isArray(design.responsibilities) || !design.responsibilities.length ||
+			!Array.isArray(design.knowledge)) {
+			failures.push("DESIGN: run record-design --file <json> with head_version_id matching the current pushed head, a non-empty responsibilities array and a knowledge array. Map source requirements, native steps and frozen scenarios per outcomes-v1.md; the platform independently checks compiled reachability and coverage.");
+		} else if (design.knowledge.some((row) => !row || !["agent", "scoped"].includes(row.scope))) {
+			failures.push("DESIGN: knowledge scope is unresolved or invalid. Establish source evidence and record-design again; a start/global flag alone cannot justify agent-wide knowledge. Unresolved scope cannot complete.");
+		}
+	}
 
 	// gate 1 — live audit
 	let auditOk = false;
 	try {
 		const auditBin = path.join(__dirname, "norm-migrate-audit.cjs");
 		const cmd = ["--snapshot", s.snapshot];
+		if (upgrade) cmd.push("--upgrade");
 		for (const src of s.sources || []) cmd.push("--source", src);
 		if (s.persona) cmd.push("--persona", s.persona);
 		// Drop declarations belong to one migration: `init` clears the file,
@@ -173,8 +192,9 @@ async function main() {
 		const sims = s.sims || {};
 		if (!(sims.passed === true && sims.head && sims.head === s.push.head)) {
 			const failing = (sims.failing || []).join("; ");
-			failures.push(
-				sims.at
+			failures.push(upgrade
+				? `SIMS: run at least 3 repetitions of every frozen scenario in simulation-sets pinned with agent_version_id=${s.push.head}; count ALL attempts, inspect metadata.agent_version_id and assertion_results. Failures require a new candidate version and full sweep, never retry-to-green on this version. record-sims is a local advisory record; the platform independently verifies persisted evidence.`
+				: sims.at
 					? `SIMS not green on head ${s.push.head}${failing ? ` — failing: ${failing}` : sims.head !== s.push.head ? ` — last recorded on ${sims.head || "none"}` : ""}. Fix (harness artifact vs real bug — classify from the engine trace), rerun the FULL suite, then: norm-migration-state.cjs record-sims --head ${s.push.head} --passed true`
 					: `SIMS: no simulation results recorded for head ${s.push.head} — run the /norm:simulate suite and record the sweep result`,
 			);
@@ -183,7 +203,7 @@ async function main() {
 
 	if (failures.length === 0) {
 		s.active = false;
-		s.released = "complete";
+		s.released = upgrade ? "local_complete" : "complete";
 		saveState(stateFile, s);
 		return;
 	}
@@ -210,7 +230,9 @@ async function main() {
 		reason:
 			`Migration loop ${s.iter}/${s.max_iter} — NOT complete. Fix these, in order, then end the turn again:\n- ` +
 			failures.slice(0, 12).join("\n- ") +
-			`\n\nRules: edit ONLY the snapshot/harness per the v2-migration skill (traps.md); content stays verbatim from the v1 source; after any snapshot change push a new version (record-push) — that resets the sim gate on purpose. Uncoverable lanes (data-gated/write-gated) must be recorded with ack-uncovered, not simulated around.`,
+			(upgrade
+				? `\n\nRules: follow v2-migration/references/outcomes-v1.md. Preserve business requirements, exact mandated wording and integration contracts; rewrite conversational defects using native v2 design. Flag suspected business-rule mistakes. Any snapshot change requires a new version and full frozen-suite sweep; assertion edits invalidate earlier evidence. Report required pass counts separately from optional quality, and voice/audio behavior as unverified. Record uncovered lanes with ack-uncovered.`
+				: `\n\nRules: edit ONLY the snapshot/harness per the v2-migration skill (traps.md); content stays verbatim from the v1 source; after any snapshot change push a new version (record-push) — that resets the sim gate on purpose. Uncoverable lanes (data-gated/write-gated) must be recorded with ack-uncovered, not simulated around.`),
 	});
 }
 

@@ -17,6 +17,19 @@ Target:
 $ARGUMENTS
 ```
 
+For a migration with `mode: "outcomes-v1"`, first read
+`skills/v2-migration/references/outcomes-v1.md` and `upgrade-design-v1.md`.
+Their frozen repeated-suite contract overrides the legacy single-run/retry
+procedure below. Before launching, audit the exact saved candidate and record
+its design: the hub owns ordinary conversation, Start only handles necessary
+screening/automated pickup, and strict workflows return to the hub. Mirror the
+design and end the managed turn for platform preflight. Never run around a
+failed architecture or capability check. Use the frozen cases on the exact
+version, three repetitions each; count every attempt. Read independent outcome
+and SERVER Bland Tone hook verdicts separately. Add correction, intent-change,
+workflow-completion-then-new-request and state-resume probes before freezing;
+node visits alone do not establish a good call.
+
 Load the `v2-testing` skill (API contracts, WS recipe, grading discipline) and `v2-runtime` (to predict correct behavior). Then:
 
 1. **Fixture discovery.** List the org's EXISTING test scenarios and group by target pathway/agent: the request data their own suites use for this system is the valid fixture (tenant keys, test caller numbers with seeded records). Verify it hydrates end-to-end (trace the bootstrap step's own debug/HTTP calls) before trusting any verdict. Never invent tenant keys.

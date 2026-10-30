@@ -10,6 +10,20 @@ Before server work, read [API tool selection](../api-workspace/references/api.md
 > **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
 
+**Select the migration contract first.** For `/norm:migrate --upgrade` or state
+`mode: "outcomes-v1"`, read [the upgrade contract](references/outcomes-v1.md)
+and follow it instead of conflicting instructions below or in the traps. It
+explicitly replaces verbatim/source-bug preservation, materializer-only authoring,
+arbitrary scenario counts and latest-green verification with hub-first native v2
+design, preserved business requirements and integrations, and a frozen repeated
+outcome suite. Suspected business-rule mistakes need owner review. Without that
+mode, the following legacy doctrine applies unchanged. Native building shares
+the hub-first authoring guidance, not the upgrade acceptance contract. For upgrades,
+the hub owns most conversation and simple business logic; scenarios are strict bounded
+workflows, not one per question or caller goal. Start is connection gating only.
+The upgrade contract's consolidation rule overrides legacy region-per-scenario
+and separate-conversational-owner instructions below.
+
 Hand-architected conversion beats automatic converters: a human-quality architecture (which nodes form which scenarios, what the hub says, what each entry means) plus **mechanical, verbatim carriage of every byte of content**. This skill is the doctrine; `references/traps.md` is the accumulated trap catalog — read it in full before authoring, and again before pushing.
 
 **Everything is additive.** The v1 pathway keeps serving live traffic untouched. The migration produces a new agent version in the owning org; number cutover is a separate, explicitly-human decision and is NOT part of this skill.
@@ -19,6 +33,22 @@ Hand-architected conversion beats automatic converters: a human-quality architec
 - The v1 pathway export: `{name, description, nodes[], edges[]}` — node types Default, Route, Webhook, Custom Code, Custom Tool, Transfer Call, SMS, Knowledge Base, End Call, plus a synthetic `global-prompt` node (no type/data/position — guard every walker).
 - For persona migrations: the persona config — `personality_prompt`, `pathway_conditions[] {name, prompt, pathway_id, start_node_id, pathway_version}`, `call_config` — plus each attached pathway's export.
 - Treat every v1 resource as **read-only and live**: exported secrets are real credentials (never print them; flag rotation), webhooks point at real systems, transfer numbers dial real people.
+
+## Verify executable code separately from editor display
+
+For a pinned custom-code step, inspect the exact snippet ID/version's executable
+source and the editor's `customCode.code` separately. Preserve readable source in
+the editor with credential literals redacted and a clear display-only annotation.
+Do not replace it with a comment-only claim that the functionality or credential
+was removed. A matching pin ID or an edited display does not verify pin contents.
+
+Redacting display code neither removes a credential from the executable pin nor
+proves rotation. If the pin contains a hardcoded credential, keep that finding
+unresolved for live readiness until an authorized secure replacement pin is
+supplied or created and its contents/input contract verified. Never silently
+rewrite the live source pin. Local fixture code and generated tool responses
+prove only simulated behavior, not that the real integration or credential has
+been repaired. Report these evidence boundaries explicitly.
 
 ## The mapping
 
