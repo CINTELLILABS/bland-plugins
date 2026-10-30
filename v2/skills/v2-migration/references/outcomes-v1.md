@@ -2,7 +2,8 @@
 
 Use this contract only for `/norm:migrate --upgrade` or a migration state whose
 `mode` is `outcomes-v1`. A state without that mode retains the legacy contract;
-resume it without changing acceptance criteria. Native `/norm:build` is unchanged.
+resume it without changing acceptance criteria. Native `/norm:build` shares the
+hub-first authoring guidance, not this upgrade acceptance contract.
 
 This contract overrides conflicting verbatim-carriage, source-bug-preservation,
 scenario-count, hub-shape, materializer-only authoring and retry-to-green guidance
@@ -37,6 +38,13 @@ Before authoring, write a requirement map with these slots:
   tags, timing and failure handling.
 - Suspected business-rule mistakes for owner review; do not silently change policy.
 - Required test lanes, recovery behavior and lanes that cannot be safely tested.
+
+Apply the migration skill's separate executable/display-code inspection to every
+pinned custom-code step. Carry readable, credential-redacted editor source and
+verify the actual pin contents; a comment-only placeholder is not implementation
+evidence. Display redaction and successful local fixtures do not resolve a
+hardcoded credential in a live executable pin. Keep that readiness finding open
+until the authorized secure replacement pin and its contract have been verified.
 
 Design a native v2 agent around that map. Rewrite prompts, merge repetitive
 questions, move extraction, and change scenario boundaries and routing where they
@@ -83,8 +91,9 @@ additional requirements, not substitutes for executable capability checks.
 Read [upgrade-design-v1.md](upgrade-design-v1.md) before authoring. Map every
 source responsibility to reachable native steps and frozen tests, classify every
 knowledge source with evidence, and preserve scoped retrieval without root
-leakage. Ordinary goals may share the hub. Only strict workflows need separate
-conversational ownership; no goal needs an artificial split. Unresolved scope prevents completion.
+leakage. Ordinary goals may share the hub. Strict workflows retain separate
+conversational ownership; optional boundaries require the comparative evidence in
+the design reference. No goal needs an artificial split. Unresolved scope prevents completion.
 
 After every candidate push, run `record-design --file design.json` with the
 returned `head_version_id` and mirror `state.design` into managed state. Run the audit and mirror the design before simulations. End the managed turn

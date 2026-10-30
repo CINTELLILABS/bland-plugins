@@ -69,11 +69,13 @@ phone-call flags without completed-call evidence. Keep evidence unscored when
 missing. Preserve all four metrics separately; do not invent an aggregate score
 or optimize away valid policy refusals to reduce bad_call.
 
-Then compare a compact design with a more separated design on paper. Choose the
-simplest design that makes the required state, tool, permission and recovery
-boundaries explicit. Explain the tradeoff; do not generate or run several
-candidates just to satisfy a comparison quota. Extra nodes, fewer nodes, more
-scenarios and fidelity to the source canvas are not quality measures.
+Start with the hub owning ordinary conversation and simple actions. A paper
+comparison may identify a candidate boundary, but does not prove that an extra
+scenario improves calls. Retain a separate flow for a required ordered control
+boundary, or demonstrate its reliability benefit on the same frozen outcome
+suite as the consolidated version. Do not build alternatives merely to satisfy
+a comparison quota. Extra nodes, fewer nodes, more scenarios and fidelity to the
+source canvas are not quality measures.
 
 ## Choose hub, simple scenario, complex scenario or step
 
@@ -84,7 +86,7 @@ scenarios. Existing `responsibilities[].scenario_ids` refer to evaluation IDs.
 | Construct | Use it when | Example |
 |---|---|---|
 | Hub (`agent`) | Most conversation, ordinary business logic, questions, simple actions, intent changes and follow-ups. Multiple goals can share it. | Answer hours, identify what the caller needs, look up status, then offer the next useful action. |
-| Simple scenario (`scenario`) | A separate compact execution contract is actually required; otherwise absorb it into the hub. | A narrowly scoped action whose eligibility must be isolated. |
+| Simple scenario (`scenario`) | A required control cannot be enforced safely in the hub, or repeated comparative tests demonstrate a reliability benefit. | A narrowly scoped protected action with an explicit permission boundary. Ordinary appointment status stays in the hub. |
 | Complex scenario (`complex-scenario`) | A bounded business use case requires strict ordered steps and protected action/recovery boundaries. | Scheduling: check availability, confirm the selected slot, submit the booking, verify success. Complex authentication. |
 | Step inside a scenario | A required prerequisite, deterministic decision, action or recovery boundary cannot safely be combined. | Confirm immediately before booking; branch on its actual result. |
 | Start | Necessary call screening or automated pickup/IVR navigation, only as a last resort. | Navigate a phone menu, then hand control to the hub. |
@@ -94,6 +96,28 @@ Use the fewest nodes that preserve required behavior. A different question, tool
 department, caller goal or evaluation case is not itself a new scenario. Prefer
 hub instructions and supported attached tools for ordinary conversation. Do not
 force independent goals onto disjoint prompts; several can share the hub.
+
+For every proposed non-hub conversational node, put one of these justifications
+in `upgrade-design-brief.md`:
+
+- **Required control:** name the source requirement, the ordered prerequisite or
+  permission/write boundary, and why a supported hub tool guard cannot enforce
+  it. Keep protected actions deterministic and test attempts to bypass the gate.
+- **Measured reliability:** name the exact consolidated and split version IDs,
+  frozen case IDs, repeated results, and the specific hub failure the split fixes.
+  Run each version at least three times per case with the same request fixtures,
+  tool-response conditions and judges. Include the whole suite, not just the
+  failing case; report every attempt and any regressions. A proposed split is
+  provisional until this evidence exists.
+
+Prompt length, perceived density, a separate source node, and a distinct caller
+goal are not evidence that a split is needed. First remove duplicate instructions,
+clarify tool descriptions and state, and move approved reference material into
+correctly scoped knowledge sources. Retain an optional split only if required outcomes and
+conduct remain satisfied and the repeated comparison supports a reliability
+improvement. With comparable results, keep the consolidated design. A node that
+only reads an appointment status returned by a lookup normally belongs in the
+hub; needing exact approved wording alone does not prove it needs its own node.
 
 Never build a routing-only hub that hands the entire conversation to one large
 flow. Inbound normally targets the hub. Start, `entryScenarioId` and initialization
@@ -108,7 +132,9 @@ and test resume state explicitly instead of assuming it resumes the old step.
 Do not force terminal handoffs or hangups back through a speaking hub turn.
 
 For each selected agent scenario, the brief states its entry, owned outcome,
-working state, completion/failure exits and why this boundary improves the call.
+working state, completion/failure exits and its required-control or measured-
+reliability justification. The brief is review evidence; the structural audit
+does not establish that the justification is true.
 For each internal step state its distinct purpose; combine consecutive prompt
 steps when separation adds no state, action, permission or recovery benefit.
 For ordinary hub actions, use supported attached integration tools rather than

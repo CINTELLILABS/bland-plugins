@@ -46,12 +46,17 @@ authentication, and return to the hub on completion or safe intent change. Use
 the fewest nodes that preserve required behavior. Start is only for necessary
 screening or automated pickup navigation, never the call body. No routing-only
 hub plus catch-all workflow, no scenario per question/tool/department. Before
-simulations run the audit, record/mirror the candidate design and end the managed
-turn for platform preflight. Repair failures before launching the repeated suite.
+retaining an optional split, compare it with the consolidated hub on the same
+frozen repeated suite; record exact versions and all attempts. A required ordered
+permission/action boundary can justify a flow upfront. Prompt density alone
+cannot: simplify instructions/tools and use correctly scoped knowledge first.
+Before simulations run the audit, record/mirror the candidate design and end the
+managed turn for platform preflight. Repair failures before launching the repeated suite.
 
 When resuming, honor `.norm/migration.json`'s existing mode. An absent mode means
 legacy migration; do not silently switch an existing run. Without `--upgrade`,
-use the unchanged legacy phases below. Native `/norm:build` remains unchanged.
+use the unchanged legacy phases below. Native `/norm:build` shares the hub-first
+authoring guidance; it does not inherit the upgrade acceptance contract.
 
 For upgrade, create reusable target-agent test scenarios and run
 `record-evaluation --scenario <id>` (repeat for every scenario) **before the first

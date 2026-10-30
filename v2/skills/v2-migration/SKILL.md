@@ -17,8 +17,9 @@ explicitly replaces verbatim/source-bug preservation, materializer-only authorin
 arbitrary scenario counts and latest-green verification with hub-first native v2
 design, preserved business requirements and integrations, and a frozen repeated
 outcome suite. Suspected business-rule mistakes need owner review. Without that
-mode, the following legacy doctrine applies unchanged; native building is unchanged. For upgrades, the hub
-owns most conversation and simple business logic; scenarios are strict bounded
+mode, the following legacy doctrine applies unchanged. Native building shares
+the hub-first authoring guidance, not the upgrade acceptance contract. For upgrades,
+the hub owns most conversation and simple business logic; scenarios are strict bounded
 workflows, not one per question or caller goal. Start is connection gating only.
 The upgrade contract's consolidation rule overrides legacy region-per-scenario
 and separate-conversational-owner instructions below.
@@ -32,6 +33,22 @@ Hand-architected conversion beats automatic converters: a human-quality architec
 - The v1 pathway export: `{name, description, nodes[], edges[]}` — node types Default, Route, Webhook, Custom Code, Custom Tool, Transfer Call, SMS, Knowledge Base, End Call, plus a synthetic `global-prompt` node (no type/data/position — guard every walker).
 - For persona migrations: the persona config — `personality_prompt`, `pathway_conditions[] {name, prompt, pathway_id, start_node_id, pathway_version}`, `call_config` — plus each attached pathway's export.
 - Treat every v1 resource as **read-only and live**: exported secrets are real credentials (never print them; flag rotation), webhooks point at real systems, transfer numbers dial real people.
+
+## Verify executable code separately from editor display
+
+For a pinned custom-code step, inspect the exact snippet ID/version's executable
+source and the editor's `customCode.code` separately. Preserve readable source in
+the editor with credential literals redacted and a clear display-only annotation.
+Do not replace it with a comment-only claim that the functionality or credential
+was removed. A matching pin ID or an edited display does not verify pin contents.
+
+Redacting display code neither removes a credential from the executable pin nor
+proves rotation. If the pin contains a hardcoded credential, keep that finding
+unresolved for live readiness until an authorized secure replacement pin is
+supplied or created and its contents/input contract verified. Never silently
+rewrite the live source pin. Local fixture code and generated tool responses
+prove only simulated behavior, not that the real integration or credential has
+been repaired. Report these evidence boundaries explicitly.
 
 ## The mapping
 

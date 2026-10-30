@@ -34,11 +34,24 @@ knowledge answers, simple tool actions, intent changes and follow-ups there.
 Multiple caller goals may share the hub. Consolidate as far as required behavior
 allows; do not build a node per question, tool call, department or test case.
 
-A scenario is a bounded business workflow that needs strict ordered behavior:
+A scenario normally holds a bounded business workflow that needs strict ordered behavior:
 for example scheduling (check availability, confirm, book) or complex identity
 verification. Its steps exist to enforce a prerequisite, action, decision or
-recovery boundary. Tool use alone does not require a scenario. Use a simple
-scenario only when its separate execution contract adds value beyond the hub.
+recovery boundary. Tool use alone does not require a scenario. For each separate
+conversational node, name the required ordered permission/action boundary that a
+supported hub tool guard cannot enforce, or show repeated comparative evidence
+that the split improves reliability. Ordinary status lookups and simple actions
+stay in the hub by default, including speaking approved tool-returned wording.
+
+Before splitting a hub that seems dense, remove duplicate instructions, clarify
+tools and state, and move reference material into correctly scoped knowledge.
+Density alone is not evidence. Compare an optional split with the consolidated
+version on the same frozen cases, request fixtures, tool-response conditions and
+judges, with at least three runs per case on each exact version. Report every
+attempt, required outcome/conduct regressions and the specific failure improved.
+Until then the split is provisional. Keep the simpler design when results are
+comparable; a mandatory permission or write boundary does not wait for a failure
+before being enforced.
 
 Reference content belongs in knowledge sources: FAQs, policies, hours, pricing
 and product facts can share a source; never create a scenario per FAQ topic.
@@ -61,8 +74,10 @@ Never disable the hub by sending every call into one catch-all scenario.
 2. **Hub:** owns ordinary conversation and simple business actions. Explicitly
    route into a strict workflow when eligible; do not duplicate that workflow's
    protected actions in hub prose or promise success without tool evidence.
-3. **Scenarios:** only the bounded workflows that need strict steps. State each
-   one's entry, outcome, state, cancellation/failure exits and return to hub.
+3. **Scenarios:** bounded workflows that need strict steps, or boundaries with
+   demonstrated reliability benefits under the comparison above. State each
+   one's justification, entry, outcome, state, cancellation/failure exits and
+   return to hub.
 4. **End call:** a real termination action when the caller is finished. Workflow
    completion alone is not a reason to hang up.
 
