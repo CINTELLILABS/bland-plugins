@@ -10,6 +10,19 @@ Before server work, read [API tool selection](../api-workspace/references/api.md
 > **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
 
+**Select the migration contract first.** For `/norm:migrate --upgrade` or state
+`mode: "outcomes-v1"`, read [the upgrade contract](references/outcomes-v1.md)
+and follow it instead of conflicting instructions below or in the traps. It
+explicitly replaces verbatim/source-bug preservation, materializer-only authoring,
+arbitrary scenario counts and latest-green verification with hub-first native v2
+design, preserved business requirements and integrations, and a frozen repeated
+outcome suite. Suspected business-rule mistakes need owner review. Without that
+mode, the following legacy doctrine applies unchanged; native building is unchanged. For upgrades, the hub
+owns most conversation and simple business logic; scenarios are strict bounded
+workflows, not one per question or caller goal. Start is connection gating only.
+The upgrade contract's consolidation rule overrides legacy region-per-scenario
+and separate-conversational-owner instructions below.
+
 Hand-architected conversion beats automatic converters: a human-quality architecture (which nodes form which scenarios, what the hub says, what each entry means) plus **mechanical, verbatim carriage of every byte of content**. This skill is the doctrine; `references/traps.md` is the accumulated trap catalog — read it in full before authoring, and again before pushing.
 
 **Everything is additive.** The v1 pathway keeps serving live traffic untouched. The migration produces a new agent version in the owning org; number cutover is a separate, explicitly-human decision and is NOT part of this skill.

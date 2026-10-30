@@ -963,3 +963,277 @@ test('real v2 validator and compiler accept the carried settings and by-referenc
     assert.deepEqual(ref.config.tool, { tool_id: 'TL-11111111-2222' });
   }
 });
+
+// Exercise the public subprocess boundary: legacy defaults and upgrade gates
+// must differ on the same rewritten candidate, not on a test-only flag setter.
+function upgradeAudit(snapshot, source, extra = []) {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-upgrade-audit-'));
+  try {
+    writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(snapshot));
+    writeFileSync(join(dir, 'source.json'), JSON.stringify(source));
+    writeFileSync(join(dir, 'dropped.json'), JSON.stringify([{ node: 'original', tag: 'qualified' }]));
+    const result = execFileSync(process.execPath, [audit, '--snapshot', join(dir, 'snapshot.json'), '--source', join(dir, 'source.json'), '--dropped-tags', join(dir, 'dropped.json'), ...extra]);
+    return JSON.parse(result);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+function rewrittenCandidate() {
+  const { snapshot } = buildDictation({ prompt: 'Bye.' });
+  const start = flowOf(snapshot).nodes.find(n => n.type === 'prompt');
+  start.data.name = 'Combined intake';
+  start.data.prompt = 'Collect their full name in one question.';
+  start.data.loopWhile = '';
+  return snapshot;
+}
+test('upgrade accepts rewritten, merged prompts and one scenario while legacy parity rejects them', () => {
+  const snapshot = rewrittenCandidate();
+  const source = { nodes: [{ id: 'original', type: 'Default', globalConfig: { globalPrompt: 'Always say this legacy introduction exactly.' }, data: { name: 'Original intake', prompt: 'First ask this old question in many separate turns.', condition: 'Old hold wording must survive.', extractVars: [['first_name', 'string', 'First name']] } }], edges: [] };
+  assert.equal(upgradeAudit(snapshot, source).passed, false);
+  const upgraded = upgradeAudit(snapshot, source, ['--upgrade']);
+  assert.equal(upgraded.passed, true, JSON.stringify(upgraded.checks.filter(c => !c.passed)));
+  for (const id of ['P7', 'P11', 'P12', 'P13', 'P14', 'P16', 'A2', 'A3']) assert.equal(upgraded.checks.find(c => c.id === id).skipped, true, id);
+  flowOf(snapshot).nodes.find(n => n.type === 'prompt').data.variables = [];
+  assert.equal(upgradeAudit(snapshot, source, ['--upgrade']).checks.find(c => c.id === 'P17').passed, false);
+});
+test('upgrade still fails capability loss on renamed or declared-dropped nodes and prose cannot satisfy KB/tools', () => {
+  const snapshot = rewrittenCandidate();
+  const source = { nodes: [{ id: 'original', type: 'Default', data: { name: 'Old integration', prompt: 'Original long prompt never carried.', kbTool: ['kb-123'], tag: { name: 'qualified' }, tools: [{ config: { tool_id: 'TL-11111111-2222' } }] } }], edges: [] };
+  snapshot.settings.systemPrompt += ' kb-123 TL-11111111-2222';
+  let result = upgradeAudit(snapshot, source, ['--upgrade']);
+  for (const id of ['P2', 'P15', 'A6']) assert.equal(result.checks.find(c => c.id === id).passed, false, id);
+  const step = flowOf(snapshot).nodes.find(n => n.type === 'prompt');
+  step.type = 'knowledge';
+  step.data.kbIds = ['kb-123'];
+  step.data.tools = [{ toolId: 'TL-11111111-2222', byReference: true }];
+  step.data.settings = { tag: { name: 'qualified' } };
+  result = upgradeAudit(snapshot, source, ['--upgrade']);
+  for (const id of ['P2', 'P15', 'A6']) assert.equal(result.checks.find(c => c.id === id).passed, true, id);
+});
+test('upgrade capture contract permits merging repeated capture but fails a lost semantic mapping', () => {
+  const snapshot = rewrittenCandidate();
+  const source = { nodes: ['one', 'two'].map(id => ({ id, type: 'Default', data: { name: id, captureKinds: { last_name: 'name.last' } } })), edges: [] };
+  assert.equal(upgradeAudit(snapshot, source).checks.find(c => c.id === 'P9').passed, false);
+  assert.equal(upgradeAudit(snapshot, source, ['--upgrade']).checks.find(c => c.id === 'P9').passed, true);
+  for (const n of flowOf(snapshot).nodes) for (const v of n.data?.variables || []) delete v.captureAs;
+  assert.equal(upgradeAudit(snapshot, source, ['--upgrade']).checks.find(c => c.id === 'P9').passed, false);
+});
+test('upgrade allows code followed by reachable in-flow termination without a root hangup', () => {
+  const snapshot = rewrittenCandidate();
+  const flow = flowOf(snapshot);
+  const step = flow.nodes.find(n => n.type === 'prompt');
+  step.type = 'customCode';
+  step.data.snippetId = 'snip-1';
+  const source = { nodes: [{ id: 'original', type: 'End Call', data: { name: 'Save', tools: [{ name: 'Save', type: 'code', config: { snippet_id: 'snip-1' } }] } }], edges: [] };
+  assert.equal(upgradeAudit(snapshot, source).checks.find(c => c.id === 'P10').passed, false);
+  assert.equal(upgradeAudit(snapshot, source, ['--upgrade']).checks.find(c => c.id === 'P10').passed, true);
+  flow.edges = flow.edges.filter(e => e.target !== flow.nodes.find(n => n.type === 'end-call').id);
+  assert.equal(upgradeAudit(snapshot, source, ['--upgrade']).checks.find(c => c.id === 'P10').passed, false);
+});
+test('upgrade state and Stop hook preserve mode, freeze the suite and give outcome repair guidance', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-upgrade-loop-'));
+  try {
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: dir };
+    const runState = (...args) => spawnSync(process.execPath, [stateBin, ...args], { env, encoding: 'utf8' });
+    const snapshotPath = join(dir, 'snapshot.json');
+    writeFileSync(snapshotPath, JSON.stringify(rewrittenCandidate()));
+    assert.equal(runState('init', '--snapshot', snapshotPath, '--upgrade').status, 0);
+    // Without a precommitted suite this must not advance to a candidate push.
+    assert.equal(runState('record-push', '--head', 'head-1').status, 1);
+    const scenarioId = '11111111-1111-4111-8111-111111111111';
+    assert.equal(runState('record-evaluation', '--scenario', scenarioId).status, 0);
+    assert.equal(runState('record-evaluation', '--scenario', '22222222-2222-4222-8222-222222222222').status, 1);
+    assert.equal(runState('record-push', '--head', 'head-1').status, 0);
+    let hook = spawnSync(process.execPath, [hookBin], { env, input: '{}', encoding: 'utf8' });
+    assert.match(hook.stdout, /three|3 repetitions/);
+    assert.doesNotMatch(hook.stdout, /content stays verbatim|AUDIT A2/);
+    assert.equal(runState('record-sims', '--head', 'head-1', '--passed', 'true').status, 0);
+    hook = spawnSync(process.execPath, [hookBin], { env, input: '{}', encoding: 'utf8' });
+    assert.equal(JSON.parse(hook.stdout || '{}').decision, 'block', 'green sims cannot release without design evidence');
+    assert.match(hook.stdout, /DESIGN.*record-design/);
+    const designPath = join(dir, 'design.json');
+    const design = {
+      head_version_id: 'head-1',
+      responsibilities: [{ id: 'intake', description: 'Collect the caller name.', source_nodes: [], step_ids: ['native-intake'], scenario_ids: [scenarioId] }],
+      knowledge: [],
+    };
+    writeFileSync(designPath, JSON.stringify(design));
+    assert.equal(runState('record-design', '--file', designPath).status, 0);
+    // A later push must invalidate design evidence, just as it invalidates simulations.
+    assert.equal(runState('record-push', '--head', 'head-2').status, 0);
+    assert.equal(runState('record-sims', '--head', 'head-2', '--passed', 'true').status, 0);
+    hook = spawnSync(process.execPath, [hookBin], { env, input: '{}', encoding: 'utf8' });
+    assert.equal(JSON.parse(hook.stdout || '{}').decision, 'block');
+    assert.match(hook.stdout, /DESIGN/);
+    design.head_version_id = 'head-2';
+    writeFileSync(designPath, JSON.stringify(design));
+    assert.equal(runState('record-design', '--file', designPath).status, 0);
+    hook = spawnSync(process.execPath, [hookBin], { env, input: '{}', encoding: 'utf8' });
+    assert.equal(hook.stdout, '');
+    const state = JSON.parse(readFileSync(join(dir, '.norm', 'migration.json'), 'utf8'));
+    assert.deepEqual(state.design, design);
+    assert.equal(state.mode, 'outcomes-v1');
+    assert.deepEqual(state.evaluation, { scenario_ids: [scenarioId] });
+    assert.equal(state.released, 'local_complete');
+    // Mode is opt-in. The same candidate still trips the native/legacy A2 gate.
+    assert.equal(runState('init', '--snapshot', snapshotPath).status, 0);
+    assert.equal(runState('record-push', '--head', 'head-2').status, 0);
+    hook = spawnSync(process.execPath, [hookBin], { env, input: '{}', encoding: 'utf8' });
+    assert.match(hook.stdout, /AUDIT A2/);
+    assert.match(hook.stdout, /content stays verbatim/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('upgrade accepts native code input rows without extraction settings while legacy remains unchanged', () => {
+  const snapshot = rewrittenCandidate();
+  const step = flowOf(snapshot).nodes.find(n => n.type === 'prompt');
+  step.type = 'customCode';
+  step.data.variables = [{ id: 'input-1', key: 'name', value: '{{first_name}}' }];
+  const source = { nodes: [], edges: [] };
+  assert.equal(upgradeAudit(snapshot, source).checks.find(c => c.id === 'S3c').passed, false);
+  const result = upgradeAudit(snapshot, source, ['--upgrade']);
+  assert.equal(result.checks.find(c => c.id === 'S3c').passed, true);
+  assert.equal(result.passed, true);
+});
+test('upgrade does not mistake code inputs for preserved extraction capability', () => {
+  const snapshot = rewrittenCandidate();
+  const step = flowOf(snapshot).nodes.find(n => n.type === 'prompt');
+  step.type = 'customCode';
+  step.data.variables = [{ id: 'input-1', key: 'first_name', value: '{{first_name}}' }];
+  const source = { nodes: [{ id: 'original', data: { extractVars: [['first_name', 'string', 'First name']] } }], edges: [] };
+  assert.equal(upgradeAudit(snapshot, source, ['--upgrade']).checks.find(c => c.id === 'P17').passed, false);
+  // Moving the actual extraction to another native step satisfies the contract.
+  flowOf(snapshot).nodes.find(n => n.type === 'end-call').data.variables = [{ key: 'first_name', type: 'string', accurateSpelling: false }];
+  assert.equal(upgradeAudit(snapshot, source, ['--upgrade']).passed, true);
+});
+
+
+test('upgrade record-design rejects unreadable files, malformed evidence and a different candidate head', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-upgrade-design-'));
+  try {
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: dir };
+    const runState = (...args) => spawnSync(process.execPath, [stateBin, ...args], { env, encoding: 'utf8' });
+    const designPath = join(dir, 'design.json');
+    const scenarioId = '11111111-1111-4111-8111-111111111111';
+    assert.equal(runState('init', '--snapshot', join(dir, 'snapshot.json'), '--upgrade').status, 0);
+    assert.equal(runState('record-evaluation', '--scenario', scenarioId).status, 0);
+    assert.equal(runState('record-push', '--head', 'head-1').status, 0);
+    const valid = { head_version_id: 'head-1', responsibilities: [{ id: 'faq', description: 'Answer the product question.', source_nodes: [{ source_index: 0, node_id: 'faq' }], step_ids: ['answer'], scenario_ids: [scenarioId] }], knowledge: [] };
+    writeFileSync(designPath, JSON.stringify(valid));
+    assert.equal(runState('record-design', '--file', designPath).status, 0);
+    for (const invalid of [null, {}, { ...valid, responsibilities: {} }, { ...valid, responsibilities: [] }, { ...valid, knowledge: {} }, { ...valid, head_version_id: 'other-head' }]) {
+      writeFileSync(designPath, JSON.stringify(invalid));
+      assert.equal(runState('record-design', '--file', designPath).status, 1);
+      assert.deepEqual(JSON.parse(readFileSync(join(dir, '.norm', 'migration.json'), 'utf8')).design, valid);
+    }
+    assert.equal(runState('record-design').status, 1);
+    assert.equal(runState('record-design', '--file', join(dir, 'missing.json')).status, 1);
+    writeFileSync(designPath, 'not json');
+    assert.equal(runState('record-design', '--file', designPath).status, 1);
+    assert.equal(runState('stop').status, 0);
+    assert.equal(runState('init', '--snapshot', join(dir, 'snapshot.json')).status, 0);
+    writeFileSync(designPath, JSON.stringify(valid));
+    assert.equal(runState('record-design', '--file', designPath).status, 1, 'legacy mode keeps its existing contract');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('upgrade Stop hook rechecks design arrays and unresolved knowledge even for edited state', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'norm-upgrade-design-hook-'));
+  try {
+    const snapshotPath = join(dir, 'snapshot.json');
+    writeFileSync(snapshotPath, JSON.stringify(rewrittenCandidate()));
+    const old = new Date(Date.now() - 60_000);
+    utimesSync(snapshotPath, old, old);
+    mkdirSync(join(dir, '.norm'), { recursive: true });
+    const valid = { head_version_id: 'head-1', responsibilities: [{ id: 'faq' }], knowledge: [] };
+    for (const design of [
+      { ...valid, responsibilities: {} },
+      { ...valid, responsibilities: [] },
+      { ...valid, knowledge: {} },
+      { ...valid, knowledge: [{ source_index: 0, node_id: 'faq', scope: 'unresolved', reason: 'Need source evidence.', step_ids: [], scenario_ids: [] }] },
+    ]) {
+      writeFileSync(join(dir, '.norm', 'migration.json'), JSON.stringify({ active: true, mode: 'outcomes-v1', created_at: Date.now(), snapshot: snapshotPath, sources: [], evaluation: { scenario_ids: ['11111111-1111-4111-8111-111111111111'] }, push: { head: 'head-1', at: Date.now() }, sims: { head: 'head-1', passed: true }, design }));
+      const hook = spawnSync(process.execPath, [hookBin], { env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, input: '{}', encoding: 'utf8' });
+      assert.equal(JSON.parse(hook.stdout || '{}').decision, 'block', JSON.stringify(design));
+      assert.match(hook.stdout, /DESIGN/);
+      assert.equal(JSON.parse(readFileSync(join(dir, '.norm', 'migration.json'), 'utf8')).active, true);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('local advisory upgrade audit accepts native tool steps', () => {
+  const snapshot = rewrittenCandidate();
+  const step = flowOf(snapshot).nodes.find(n => n.type === 'prompt');
+  step.type = 'tool';
+  step.data = { name: 'Lookup', toolId: 'TL-11111111-2222', overrides: [], responsePathways: [] };
+  const source = { nodes: [{ id: 'original', type: 'Default', data: { tools: [{ config: { tool_id: 'TL-11111111-2222' } }] } }], edges: [] };
+  const result = upgradeAudit(snapshot, source, ['--upgrade']);
+  assert.equal(result.checks.find(c => c.id === 'P2').passed, true);
+});
+
+test('local advisory upgrade audit normalizes KB spellings but preserves placeholder case', () => {
+  const snapshot = rewrittenCandidate();
+  const source = { nodes: [{ id: 'original', type: 'Knowledge Base', data: { kbTool: 'KB-ABCDEF00-0000-4000-8000-000000000000' } }], edges: [] };
+  snapshot.knowledge = { kbIds: ['abcdef00-0000-4000-8000-000000000000'] };
+  const kbPassed = () => upgradeAudit(snapshot, source, ['--upgrade']).checks.find(c => c.id === 'P15').passed;
+  assert.equal(kbPassed(), true);
+  source.nodes[0].data.kbTool = 'KB-{{AccountKB}}';
+  snapshot.knowledge.kbIds = ['{{AccountKB}}'];
+  assert.equal(kbPassed(), true);
+  snapshot.knowledge.kbIds = ['{{accountkb}}'];
+  assert.equal(kbPassed(), false);
+  delete snapshot.knowledge;
+  const step = flowOf(snapshot).nodes.find(n => n.type === 'prompt');
+  step.type = 'knowledge';
+  step.data.kbIds = ['{{AccountKB}}'];
+  assert.equal(kbPassed(), true);
+});
+
+
+test('upgrade Start gate rejects a call-body flow through inbound or entryScenarioId', () => {
+ for (const entry of ['inbound', 'entryScenarioId']) {
+  const snapshot = rewrittenCandidate();
+  const hub = snapshot.behavior.nodes.find(n => n.type === 'agent');
+  const flow = snapshot.behavior.nodes.find(n => n.type === 'complex-scenario');
+  flow.data.flow.nodes.find(n => n.type === 'prompt').type = 'scheduling';
+  if (entry === 'inbound') snapshot.behavior.edges.find(e => e.source === snapshot.behavior.nodes.find(n => n.type === 'inbound').id).target = flow.id;
+  else hub.data.entryScenarioId = flow.id;
+  assert.equal(upgradeAudit(snapshot, {nodes:[],edges:[]}, ['--upgrade']).checks.find(c => c.id === 'A1').passed, false);
+ }
+});
+
+test('upgrade permits attached snippet tools without forcing separate code nodes', () => {
+ const snapshot=rewrittenCandidate();
+ const hub=snapshot.behavior.nodes.find(n=>n.type==='agent');
+ hub.data.tools=[{id:'lookup',name:'Lookup',description:'Lookup',toolType:'custom_tool',behavior:'feed_context',definition:{name:'Lookup',description:'Lookup',integration:'custom-code',action:'run_snippet',body:{snippet_id:'snip-1',snippet_version:7,variables:{}}}}];
+ const source={nodes:[{id:'legacy',type:'Default',data:{tools:[{type:'code',name:'Lookup',config:{snippet_id:'snip-1',snippet_version:7}}]}}]};
+ assert.equal(upgradeAudit(snapshot,source,['--upgrade']).checks.find(c=>c.id==='P5').passed,true);
+ assert.equal(upgradeAudit(snapshot,source).checks.find(c=>c.id==='P5').passed,false);
+});
+
+
+test('legacy automatic-entry audit preserves its existing contract', () => {
+  for (const entry of ['inbound', 'entryScenarioId', 'initialization']) {
+    const snapshot = rewrittenCandidate();
+    const hub = snapshot.behavior.nodes.find(n => n.type === 'agent');
+    const flow = snapshot.behavior.nodes.find(n => n.type === 'complex-scenario');
+    flow.data.flow.nodes.find(n => n.type === 'prompt').type = 'knowledge';
+    if (entry === 'inbound') snapshot.behavior.edges[0].target = flow.id;
+    else if (entry === 'entryScenarioId') hub.data.entryScenarioId = flow.id;
+    else snapshot.initialization = { enabled: true, step: { snippetId: 'setup', snippetVersion: 1 }, routes: [{ key: 'connected', value: 'true', targetId: flow.id }] };
+    assert.equal(upgradeAudit(snapshot, { nodes: [], edges: [] }).checks.find(c => c.id === 'A1').passed, entry !== 'inbound', entry);
+    assert.equal(upgradeAudit(snapshot, { nodes: [], edges: [] }, ['--upgrade']).checks.find(c => c.id === 'A1').passed, false, entry);
+  }
+});
+
+test('upgrade tool parity counts executable chain members, not unused chain metadata', () => {
+  const snapshot = rewrittenCandidate();
+  const toolId = 'TL-11111111-2222';
+  const chain = { id: 'lookup-chain', name: 'Lookup chain', toolType: 'track', behavior: 'feed_context', steps: [{ type: 'custom_tool', config: { tool: { tool_id: toolId } }, output_schema: [] }] };
+  snapshot.behavior.nodes.find(n => n.type === 'agent').data.tools = [chain];
+  const source = { nodes: [{ id: 'old', type: 'Default', data: { tools: [{ type: 'custom_tool', config: { tool: { tool_id: toolId } } }] } }] };
+  const passed = () => upgradeAudit(snapshot, source, ['--upgrade']).checks.find(c => c.id === 'P2').passed;
+  assert.equal(passed(), true);
+  chain.steps = [];
+  chain.toolId = toolId;
+  chain.metadata = { tool_id: toolId };
+  assert.equal(passed(), false);
+});

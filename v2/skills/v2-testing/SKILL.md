@@ -25,6 +25,14 @@ runs, which version, and why results differ:
 Text tests do not prove audible behavior ([voice](references/voice.md)).
 Persistent judges and `/simulate` scoring: [evaluations](../evaluations/SKILL.md).
 
+For migration upgrades, `outcomes-v1` overrides the legacy differential and
+retry-to-green rules below: freeze cases first, pass candidate architecture and
+capability preflight, then run all repetitions on the exact saved version.
+Use the good-call/bad-call and SERVER Bland Tone references as the independent
+behavioral standards. Include hub → strict workflow → hub → different request,
+correction, cancellation and explicit resume-state cases before freezing.
+Count every attempt; infrastructure failures are unscored evidence, not good calls.
+
 ## Safety before any test
 
 Classify every integration in the agent as read or write:
