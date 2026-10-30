@@ -1073,11 +1073,11 @@ test('upgrade state and Stop hook preserve mode, freeze the suite and give outco
     assert.equal(state.mode, 'outcomes-v1');
     assert.deepEqual(state.evaluation, { scenario_ids: [scenarioId] });
     assert.equal(state.released, 'local_complete');
-    // Mode is opt-in. The same candidate still trips the native/legacy A2 gate.
+    // Native build mode has no source parity and does not require filler scenarios.
     assert.equal(runState('init', '--snapshot', snapshotPath).status, 0);
     assert.equal(runState('record-push', '--head', 'head-2').status, 0);
     hook = spawnSync(process.execPath, [hookBin], { env, input: '{}', encoding: 'utf8' });
-    assert.match(hook.stdout, /AUDIT A2/);
+    assert.doesNotMatch(hook.stdout, /AUDIT A2/);
     assert.match(hook.stdout, /content stays verbatim/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -1236,4 +1236,39 @@ test('upgrade tool parity counts executable chain members, not unused chain meta
   chain.toolId = toolId;
   chain.metadata = { tool_id: toolId };
   assert.equal(passed(), false);
+});
+
+test('native hub and end-call needs no filler scenario while legacy migration retains A2', () => {
+  const snapshot = rewrittenCandidate();
+  snapshot.behavior.nodes = snapshot.behavior.nodes.filter(n => n.type !== 'complex-scenario');
+  snapshot.behavior.nodes.push({ id: 'hangup', type: 'end-call', data: { name: 'Done', prompt: 'Goodbye.', entry: { description: 'Caller is finished.' } } });
+  const dir = mkdtempSync(join(tmpdir(), 'norm-native-audit-'));
+  try {
+    const file = join(dir, 'snapshot.json');
+    writeFileSync(file, JSON.stringify(snapshot));
+    const checks = JSON.parse(execFileSync(process.execPath, [audit, '--snapshot', file])).checks;
+    assert.equal(checks.find(c => c.id === 'A2').passed, true);
+    assert.equal(upgradeAudit(snapshot, { nodes: [], edges: [] }).checks.find(c => c.id === 'A2').passed, false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('upgrade entry permits an explicit press-button action but rejects business and unknown tools', () => {
+  const snapshot = rewrittenCandidate();
+  const flow = snapshot.behavior.nodes.find(n => n.type === 'complex-scenario');
+  snapshot.behavior.edges[0].target = flow.id;
+  const step = flow.data.flow.nodes.find(n => n.type === 'prompt');
+  step.type = 'tool';
+  const definition = { name: 'IVR button', description: 'Navigate pickup menu', integration: 'bland', action: 'press_button', body: { buttons: '1' } };
+  step.data = { name: 'IVR button', toolId: 'TL-screen', isStaging: false, overrides: [], responsePathways: [], embeddedTool: { tool: definition } };
+  flow.data.flow = { nodes: [{ id: 'start', type: 'start', data: {} }, step, { id: 'exit', type: 'end', data: {} }], edges: [{ id: 'a', source: 'start', target: step.id }, { id: 'b', source: step.id, target: 'exit' }] };
+  const a1 = () => upgradeAudit(snapshot, { nodes: [], edges: [] }, ['--upgrade']).checks.find(c => c.id === 'A1').passed;
+  assert.equal(a1(), true, JSON.stringify(upgradeAudit(snapshot, { nodes: [], edges: [] }, ['--upgrade']).checks.find(c => c.id === 'A1')));
+  definition.action = 'book_appointment';
+  assert.equal(a1(), false);
+  definition.action = 'press_button';
+  step.data.embeddedTool.stagingTool = { ...definition, action: 'book_appointment' };
+  step.data.isStaging = true;
+  assert.equal(a1(), false);
+  delete step.data.embeddedTool;
+  assert.equal(a1(), false);
 });

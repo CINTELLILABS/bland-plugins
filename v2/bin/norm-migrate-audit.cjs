@@ -45,11 +45,25 @@ const upgrade = args.includes("--upgrade");
 const upgradeSkipped = new Set(["P7", "P8", "P11", "P12", "P13", "P14", "P16", "A2", "A3"]);
 const checks = [];
 function check(id, name, passed, detail) {
+	if (id === "A2" && !sourcePaths.length && !personaPath) {
+		checks.push({ id, name, passed: true, skipped: true, detail: "Native builds may keep all conversation in the hub; scenarios require a workflow reason." });
+		return;
+	}
 	if (upgrade && upgradeSkipped.has(id)) {
 		checks.push({ id, name, passed: true, skipped: true, detail: "Not a gate in outcomes-v1; verify business requirements through the frozen evaluation suite." });
 		return;
 	}
 	checks.push({ id, name, passed: Boolean(passed), detail: detail || "" });
+}
+
+// Only an explicit active integration action proves that a tool is connection-only.
+// Unresolved library references must be materialized or replaced by a native pressButton step.
+function isConnectionToolStep(step) {
+	if (step.type !== "tool") return false;
+	const data = step.data || {};
+	const embedded = data.embeddedTool || {};
+	const definition = data.isStaging ? embedded.stagingTool : embedded.tool;
+	return definition && definition.integration === "bland" && definition.action === "press_button";
 }
 
 // Does the snapshot's pin (`got`) satisfy the source's (`want`)? Pins arrive
@@ -842,7 +856,7 @@ function main() {
 			const problems = [];
 			for (const automatic of autoFlows) {
 			const st = flowSteps(automatic);
-			const core = st.filter((x) => CORE_LOGIC.has(x.type) || (upgrade && ["webhook", "tool", "customCode"].includes(x.type)));
+			const core = st.filter((x) => CORE_LOGIC.has(x.type) || (upgrade && ["webhook", "tool", "customCode"].includes(x.type) && !isConnectionToolStep(x)));
 			const share = totalSteps ? st.length / totalSteps : 0;
 			const hasExit = exitReachable(automatic);
 			if (core.length) problems.push(`core-logic step(s) in Start: ${core.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")} — knowledge, scheduling, verification and transfers (department handoffs included) are hub children`);
