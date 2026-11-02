@@ -37,11 +37,11 @@ visited node X and then ended" cannot be read as "the same event did both".
 
 ## Scope
 
-- Every cohort is limited to the caller's organisation. `calls` is scoped by
-  its organisation column. A joined table with its own organisation column is
+- Every cohort is limited to the caller's organization. `calls` is scoped by
+  its organization column. A joined table with its own organization column is
   scoped by it too; one without is scoped through the already-scoped call.
 - `agent_key` narrows to one agent. Without it, the cohort spans the
-  organisation.
+  organization.
 - Joined tables are read only inside the window, on their own date column.
   A timestamp date column is read a little past the window end, so rows
   written shortly after a call still count.

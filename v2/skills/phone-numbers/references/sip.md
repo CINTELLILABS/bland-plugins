@@ -23,7 +23,7 @@ stop.
 - Signaling is TLS on port 5061 only. There is no plaintext listener on 5060.
   Media is SRTP over UDP 16384 to 32768. GET `/v1/sip/firewall-ips` returns
   the addresses the customer must allow, with these ports.
-- Identity: only a value sent with a leading `+` is normalised to E.164.
+- Identity: only a value sent with a leading `+` is normalized to E.164.
   DIDs and extensions are stored exactly as sent. Never add a `+`, a country
   code or `sip:` to a DID; that creates a different identity and routing
   breaks. Reads accept either form.

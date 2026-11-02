@@ -24,7 +24,7 @@ with these numbers ([Overview pages](#overview-pages)).
 
 They are not:
 
-- **A judgement of what was said.** "Calls where the caller was angry" needs a
+- **A judgment of what was said.** "Calls where the caller was angry" needs a
   [disposition](../../evaluations/references/dispositions.md) first; a cohort
   can then filter on its value.
 - **The journey chart.** Which stages calls passed through is the
@@ -186,7 +186,7 @@ last 30 days" is today and the 29 days before it.
   calls that never connected, texts and web chats, so its rows never match a
   tile, and it shows calls the tiles count only after processing.
 - **The chart stops at 8 agents.** With more agents the lines add up to less
-  than the org tile. Each classic paint spends up to 8 of the organisation's
+  than the org tile. Each classic paint spends up to 8 of the organization's
   60 summary reads a minute.
 - **Not on the map is still counted.** Toll-free, web or withheld callers,
   and area codes or countries the map cannot place, are in the total but not
@@ -210,9 +210,9 @@ say why it may differ from what the page shows.
 | Customer tiles | 10 per scope, overrides included | 409 `METRIC_CAP` |
 | Metric writes | 30 per minute | 429 |
 | Metric trial scan | one day, under a ceiling | 422 `PROBE_TOO_EXPENSIVE` |
-| Daily metric scan budget | per organisation, resets at the UTC day change | 429 `ORG_BYTE_BUDGET` |
+| Daily metric scan budget | per organization, resets at the UTC day change | 429 `ORG_BYTE_BUDGET` |
 | Backfill | 1 to 399 days; 90 by default | 422 on `days` |
-| Summary reads | 60 per minute per organisation | 429 |
+| Summary reads | 60 per minute per organization | 429 |
 | `query_analytics` with a cohort | `calls` table only, cohort ready, at most 4000 calls | refused with a message naming which |
 
 ## When it goes wrong
@@ -232,7 +232,7 @@ say why it may differ from what the page shows.
 | Overview globe and Analytics tile differ by thousands | Different windows: the org Overview counts 30 days, Analytics opens on 90 | Globe caption names its days; Analytics URL `window` | Read the summary with `window=30` and compare. |
 | Globe a few calls off the Connected calls tile, same window | Processing lag or a later correction | Gap of a handful of calls on recent or corrected days | Explain; neither is wrong. |
 | Overview list shows calls no tile counts | The list is live and includes unconnected and in-progress calls, texts and chats | Row status in the list | Explain; count from the summary. |
-| "Caller locations aren't available here." | No organisation selected, or the read was refused | The globe offers no Retry | Select the organisation. |
+| "Caller locations aren't available here." | No organization selected, or the read was refused | The globe offers no Retry | Select the organization. |
 
 ## Questions people ask
 
@@ -273,5 +273,5 @@ the same window the globe's connected calls match the Connected calls tile
 within a few calls. Its message count has no tile.
 
 **Can a deleted tile come back?**
-No. Deleting removes it for the whole organisation; re-creating it starts a
+No. Deleting removes it for the whole organization; re-creating it starts a
 new backfill. Norm confirms before every delete.

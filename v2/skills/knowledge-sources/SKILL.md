@@ -53,7 +53,7 @@ Budget: one read for the ids, two `/answer` calls per question pair.
 
 1. Ids: the version the page shows, or the source named.
 2. Questions: the user's, or drafted answerable and absent pairs per
-   [Source testing](references/verification.md#source-testing), labelled.
+   [Source testing](references/verification.md#source-testing), labeled.
 3. Run, judge chunks, report per [verification](references/verification.md#verify-after-ingest),
    naming Query Logs rows written.
 4. On `oauth_path_not_allowed` use the

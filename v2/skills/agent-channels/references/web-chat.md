@@ -96,7 +96,7 @@ dashboard shows; keep them in step.
 
 The `config` above is a shape, not a body to send: send every key the read
 returned, with only `published` and `allowedDomains` changed. A partial
-`config` wipes colours, header, timeouts and stored styles.
+`config` wipes colors, header, timeouts and stored styles.
 
 Unpublish: the same PATCH with `"allowed_domains": []` and
 `"published": false`. Keep `config.allowedDomains` so republishing restores it.

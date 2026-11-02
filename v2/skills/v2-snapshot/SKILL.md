@@ -78,6 +78,6 @@ the [field guide](references/knobs.md#attached-tools). A snippet runs two ways:
   the owning org.
 - **A `customCode` step without `snippetId` is inert**; `code` never runs.
 - **Read `channelConfig` before editing a node**; a channel may hold its own copy.
-- **Keep unrecognised fields.** Never invent keys from v1 names.
+- **Keep unrecognized fields.** Never invent keys from v1 names.
 - Validate with [/norm:validate](../../commands/validate.md). Edit existing
   agents through [maintenance](../v2-maintenance/SKILL.md).

@@ -1,7 +1,7 @@
 # Waypoint definition API contract
 
 All routes live under `/v2/analytics/agents/<agentKey>/pathway` and require an
-enterprise organisation. `<agentKey>` is the agent id; the literal `org` is
+enterprise organization. `<agentKey>` is the agent id; the literal `org` is
 refused (400 `ORG_SANKEY_UNSUPPORTED`). An agent that is not the caller's is a
 404, never a hint that it exists elsewhere. Every response is the envelope
 `{ data, errors }`; an error has `data: null` and `errors: [{ error, message }]`.
@@ -77,7 +77,7 @@ waypoints with traffic, for node-level analysis); there is no other value.
   more than 64 groups at the schema layer). The message names the path.
 - 409 `PRODUCTION_VERSION_CHANGED` when `expected_fingerprint` is not the
   production pin's. Read the definition again and resend; nothing was written.
-- 413 over 256 KiB; 429 after 30 writes per minute per organisation.
+- 413 over 256 KiB; 429 after 30 writes per minute per organization.
 - 422 `INVALID_DEFINITION` with a top-level `violations` array. Nothing was
   written.
 

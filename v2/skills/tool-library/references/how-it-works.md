@@ -220,7 +220,7 @@ The conversation always continues.
   is told the call was unsuccessful. Response routing still runs, so a row on
   the status code can route the caller.
 - **The tool could not run** (a required input missing, the library row
-  deleted, no staging definition): the agent is told to apologise and offer
+  deleted, no staging definition): the agent is told to apologize and offer
   another way to help. No response routing runs.
 
 Every call of an attached tool rewrites the call variables `tool_status`
@@ -231,7 +231,7 @@ result. A variable of your own with one of those names is overwritten.
 ### After the call
 
 Tool runs write a log row (`/v2/tools/logs`): status, error, duration,
-sanitised inputs and sizes, not the response body. Runs against a missing or
+sanitized inputs and sizes, not the response body. Runs against a missing or
 disconnected connection, the old HTTP path, and webhook and code steps write
 none; use the call's trace. Each logged run also emits a tool success or
 failure event that automations can listen for.

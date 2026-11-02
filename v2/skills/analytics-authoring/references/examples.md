@@ -39,7 +39,7 @@ Give the sibling groups the same `stage`. Expected shape, 7 groups max:
 ```
 
 Then say what the user will see: Detailed shows the four branches apart;
-Simplified merges them into one column labelled by the largest branch with +3.
+Simplified merges them into one column labeled by the largest branch with +3.
 
 ## "Rebuild it as four categories that each split the same calls, and split the end states by reason"
 
@@ -47,7 +47,7 @@ Expected answer, in this order:
 
 1. Fix what a definition can express: parallel branches via shared stages.
 2. State what it cannot, with the rule: a member belongs to one group, so four
-   independent categorisations of the same calls are not one definition; the
+   independent categorizations of the same calls are not one definition; the
    cap is 7 groups; terminals are the engine's fixed vocabulary, so "transferred
    by design" versus "asked for a person" versus "could not authenticate"
    cannot be split here.

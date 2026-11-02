@@ -87,7 +87,7 @@ where the prompt says so.
   `{"manual_sync": true}` for an immediate re-sync.
 - **Prompt 7:** takes the ids from the version the page's environment
   shows; drafts one answerable question from the source's suggestions or
-  text it has seen and one absent question, labelled as drafted; runs each
+  text it has seen and one absent question, labeled as drafted; runs each
   through `POST /v1/knowledge/answer` with `skip_gap_evaluation: true` (not
   `/chat`); reports a table with the top chunk, score and verdict; says
   Query Logs rows were written. Inventing an "answerable" fact fails.
@@ -121,8 +121,8 @@ where the prompt says so.
   as evidence. Does not invent memory routes.
 - **Prompt 14:** reads the page context, then `GET /v1/knowledge/map`
   rather than describing the canvas; explains hexagons as sources sized by
-  share of the org's lookups over the last 30 days and coloured by coverage
-  (under 50%, 50 to 79%, 80% or more, grey for none), circles as open and
+  share of the org's lookups over the last 30 days and colored by coverage
+  (under 50%, 50 to 79%, 80% or more, gray for none), circles as open and
   resolved Questions linked to the sources they were raised against; says
   the map is not a topic map; says the agent copy shows only agent-wide
   sources but its numbers are org-wide, so another agent or test misses
@@ -130,7 +130,7 @@ where the prompt says so.
   by `agent_id` and `query_source` as evidence. No writes.
 - **Prompt 15:** one `GET /v1/knowledge/map`, narrowed to the agent's
   agent-wide and step source ids from the version that runs; ranks by misses
-  with volume, not coverage alone; discounts test traffic; treats a grey
+  with volume, not coverage alone; discounts test traffic; treats a gray
   attached source as a lookup problem; lists open Questions for the weakest
   source with `kb_id` and `sort_by=occurrences_desc`; drafts answers only
   from the user's facts; confirms answer text and target before `/resolve`;

@@ -26,7 +26,7 @@ or the named tool.
 | `GET /v1/calls/<call id>` | none | The call record. `completed: false` while it runs | read |
 | `stop_call` `{ "id": "<call id>" }`, or `POST /v1/calls/<call id>/stop` | none | Hangs up, or cancels a queued call. Repeating it on an ended call changes nothing. 404 "Call not found." or "SID not found for the given c_id." | **confirm** |
 | `POST /v1/calls/active/transfer` | `{ "call_id": "<call id>", "transfer_number": "<E.164>" }` | Connects the caller to that number; the agent leaves. 400 `VALIDATION_ERROR`, 400 `NOT_FOUND` (ended or never started), 403 (international limit, phone-plan destination, onboarding demo) | **confirm** |
-| `POST /v1/calls/active/stop` | none | Ends every live call in the organisation | **never** |
+| `POST /v1/calls/active/stop` | none | Ends every live call in the organization | **never** |
 | `POST /v1/calls/<call id>/listen` | none | A short-lived audio stream for a browser. Norm cannot play or hear it | dashboard only |
 | `GET /v1/calls/active/stream`, `GET /v1/calls/<call id>/transcript/stream` | none | Live streams that feed the dashboard | do not call |
 
@@ -38,7 +38,7 @@ and stop.
 
 ## Contact routes
 
-Base `/v1/contacts`. Org-scoped: another organisation's contact reads as 404
+Base `/v1/contacts`. Org-scoped: another organization's contact reads as 404
 "Contact not found".
 
 | Route | Body or query | Answer and notes | Gate |
@@ -112,7 +112,7 @@ confirm once naming that count, then stop each by id.
 A question, so reads only. Call budget: one find, one conversations read,
 optionally one do-not-call search, then single-call reads only if asked.
 
-1. Get the identifier. Normalise a phone number to E.164; ask when the
+1. Get the identifier. Normalize a phone number to E.164; ask when the
    country is ambiguous.
 2. `call_bland_api` `POST /v1/contacts/find` with that identifier. The answer
    holds identifiers, name, profile, each agent's memory and CRM status.

@@ -152,7 +152,7 @@ history-exclusion settings work at both scopes.
 | `label` / `description` | ACTIVE (when global) | The fire-condition text. |
 | `returnMode: "previous"` | ACTIVE (default) | After the global speaks, return to the interrupted node. |
 | `returnMode: "redirect"` + `forwardingNode` | ACTIVE | The redirect target generates the response. |
-| `returnMode: "manual"` + `manualReturnLabel?`, `manualReturnDescription?` | ACTIVE | No auto-return; the step's own edges stay live, with an optional labelled route back. |
+| `returnMode: "manual"` + `manualReturnLabel?`, `manualReturnDescription?` | ACTIVE | No auto-return; the step's own edges stay live, with an optional labeled route back. |
 | `returnToPreviousBeforeGlobal` | ACTIVE | Set on a step a global leads to: after its reply, jump back to where the call was before the global. Independent of `isGlobal`. |
 
 Migrations so far preferred systemPrompt folds or hub scenarios over step
