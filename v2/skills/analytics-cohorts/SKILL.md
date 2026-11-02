@@ -7,7 +7,7 @@ description: Use when building a list or cohort of conversations that match a co
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-A **cohort** is a materialised, expiring snapshot of call ids, built once from
+A **cohort** is a materialized, expiring snapshot of call ids, built once from
 a predicate and a window. New calls never join.
 
 Use a cohort for "which calls" or "how many calls" on call columns. Journeys
@@ -44,7 +44,7 @@ tile: follow [metrics](references/metrics.md#attached-target).
 ## Workflow
 
 1. **Scope** from the page context. Omit `agent_key` only when the user asks
-   for the whole organisation.
+   for the whole organization.
 2. **Translate the ask into a predicate.** Prefer the simple keys
    (`outcomes`, `metric`, `day`, `hour_utc`) when they say it exactly. Put
    column conditions in `where`, naming only columns in

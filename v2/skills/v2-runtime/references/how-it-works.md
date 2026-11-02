@@ -230,7 +230,7 @@ it needs no drawn edges.
 |---|---|
 | Go back (default) | The call returns to the step it was on before |
 | Redirect | The chosen step answers instead and the call continues from there |
-| Manual | The global step's own edges decide, with an optional labelled route back |
+| Manual | The global step's own edges decide, with an optional labeled route back |
 
 "Return to node before global" goes on a step a global leads to: after that
 step replies, the call goes back to where it was before the global.

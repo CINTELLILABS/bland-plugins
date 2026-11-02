@@ -331,7 +331,7 @@ test('the Stop hook ignores a dropped-tags file older than the migration it gate
       return r.stdout + r.stderr;
     };
     assert.match(run(), /AUDIT A6 .*vip/);
-    // The same declaration written for this migration (mtime after created_at) is honoured.
+    // The same declaration written for this migration (mtime after created_at) is honored.
     writeFileSync(stale, JSON.stringify(['vip']));
     const fresh = new Date(createdAt + 5_000);
     utimesSync(stale, fresh, fresh);

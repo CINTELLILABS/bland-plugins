@@ -23,7 +23,7 @@ script `fetch` and do not search the docs for these routes.
 }
 ```
 
-- `agent_key` narrows to one agent. Omit it for the whole organisation.
+- `agent_key` narrows to one agent. Omit it for the whole organization.
 - `window` is required. `start` and `end` are ISO-8601 instants; `end` is
   exclusive.
 - `predicate` is optional. An empty or absent predicate means every
@@ -92,7 +92,7 @@ The numbers above are synthetic.
 
 - `status` is `building`, `ready` or `failed`. A row still `building` past the
   build timeout reads as `failed`, so a poll loop always ends.
-- `size` is how many calls the lake build materialised.
+- `size` is how many calls the lake build materialized.
 - `visible_size` is how many of them the Conversations list can show. That
   list shows completed calls only, so a cohort of `not_connected` calls has
   `visible_size: 0`. `null` means not counted yet (still building, failed, or
@@ -174,12 +174,12 @@ calls". Unknown or invalid values are dropped.
 
 ## Access and rate
 
-- Creating a cohort needs the organisation role admin, owner or operator.
-  With an organisation API key, the role checked is the role of the person
+- Creating a cohort needs the organization role admin, owner or operator.
+  With an organization API key, the role checked is the role of the person
   who created the key.
-- Creates are rate limited per organisation. A 429 means wait; do not loop.
-- A cohort belongs to the organisation that created it. Another
-  organisation's id reads as 404, the same as an expired one.
+- Creates are rate limited per organization. A 429 means wait; do not loop.
+- A cohort belongs to the organization that created it. Another
+  organization's id reads as 404, the same as an expired one.
 
 ## Errors
 
@@ -189,7 +189,7 @@ calls". Unknown or invalid values are dropped.
 | 400 | `COHORT_INVALID_REQUEST` | Any other shape error: the window rules, an unknown key, a bad `outcomes`, `day`, `hour_utc`, `metric`, `disposition` or `sampling` value, or a bad `limit` on the ids route. The message names the path. |
 | 400 | `COHORT_PREDICATE_UNSUPPORTED` | `waypoint` was sent. Remove it and hand the journey question to the Sankey. |
 | 403 | `UNAUTHORIZED` | The session's role cannot create cohorts (admin, owner or operator can). Say so; do not retry. |
-| 404 | `COHORT_EXPIRED` | Unknown id, another organisation's id, or past `expires_at`. Build a new cohort if the user still needs it. |
+| 404 | `COHORT_EXPIRED` | Unknown id, another organization's id, or past `expires_at`. Build a new cohort if the user still needs it. |
 | 409 | `COHORT_NOT_READY` | Ids were read before `ready`. Keep polling status. |
 | 429 | `TOO_MANY_REQUESTS` | More than 20 creates in 60 s for this caller. Wait a minute before one more attempt. |
 | 503 | `COHORT_START_FAILED` | The build could not start. The cohort row is marked `failed`. One later resend is reasonable. |

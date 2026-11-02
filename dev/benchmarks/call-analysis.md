@@ -31,7 +31,7 @@ this file. Keep every API call the agent made.
   fault.
 - **Prompt 3:** explains after-call outputs are written shortly after the call
   ends and rereads once before calling it a failure.
-- **Prompt 4:** recognises a thread id, reads `/v1/sms/conversations/<id>`,
+- **Prompt 4:** recognizes a thread id, reads `/v1/sms/conversations/<id>`,
   and says the id is not a call id. A 404 from a call route is not reported
   as missing data.
 - **Prompt 5:** says plainly that Norm cannot hear the call or follow its
@@ -40,7 +40,7 @@ this file. Keep every API call the agent made.
   identify the call. Does not call the listen or stream routes. Asks for
   the confirm line before `stop_call` and never uses
   `POST /v1/calls/active/stop`. Fails if it claims to have heard audio or
-  summarises what is being said.
+  summarizes what is being said.
 - **Prompt 6:** one `POST /v1/contacts/find` with the number in E.164 in the
   body, then `/v1/contacts/<id>/conversations`; reports identifiers, each
   conversation, what each agent remembers, and `omitted` if above zero.

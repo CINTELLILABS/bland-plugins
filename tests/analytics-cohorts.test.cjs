@@ -109,7 +109,7 @@ test('a node carrying a stray wrapper key is checked as a node and refused, not 
   assert.deepEqual(locateWhere({day: '2026-01-01', where: {col: 'call_length', op: '>=', value: 5}}), {where: {col: 'call_length', op: '>=', value: 5}});
 });
 
-test('honours a custom root', () => {
+test('honors a custom root', () => {
   assert.deepEqual(validatePredicate({and: [leaf('to', 'is_null')]}, 'predicate.where'), [
     {path: 'predicate.where.and[0].col', message: 'denied column (may not be used in a predicate): calls.to'},
   ]);

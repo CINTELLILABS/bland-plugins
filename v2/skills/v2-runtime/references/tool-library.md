@@ -248,7 +248,7 @@ pass `start_date` and `end_date`; the same filters apply; `limit` up to 1000.
 - For one call: `GET /v2/tools/logs?call_id=<call id>`.
 - For a failing tool: `GET /v2/tools/logs/stats?group_by=tool_id,error_type&status=error&period=week`.
 - Only the integration path writes these rows, and a row keeps the inputs
-  (sanitised) and sizes, not the response body. No row is written for a run
+  (sanitized) and sizes, not the response body. No row is written for a run
   against a missing or disconnected connection, for webhook and code steps,
   or for a definition demoted to the HTTP path. A tool the trace shows firing
   with "HTTP 0" and no row: read [the HTTP-0 trap](#the-http-0-trap). An

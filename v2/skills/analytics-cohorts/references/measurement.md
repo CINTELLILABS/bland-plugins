@@ -40,7 +40,7 @@ Start here, so the numbers match the Analytics page the user is looking at.
   `prior` values. Fold them as in [metrics](metrics.md#reading-the-numbers).
 - `hours[]` holds the same counts per UTC hour, for a trend inside the window.
 - Take the window from the page context or the attached target. Reads are
-  limited to 60 a minute per organisation.
+  limited to 60 a minute per organization.
 
 Answer from this read when the question is about a tile, its trend against
 the prior window, or a comparison of tiles. Budget: one read.
@@ -49,7 +49,7 @@ the prior window, or a comparison of tiles. Budget: one read.
 
 Go here for a breakdown the tiles do not have: by day, by version, by
 disposition value, by a call column. `query_analytics` runs one aggregate
-query, scoped to the caller's organisation, and needs no confirmation.
+query, scoped to the caller's organization, and needs no confirmation.
 
 ```text
 { table, metrics, dimensions?, filters?, filter_mode?, date_range?,
@@ -100,7 +100,7 @@ Numeric functions apply to `call_length`, `price`, `max_duration`,
 predicate can describe, build a cohort and pass `cohort_id`:
 
 - calls only; another table refuses it;
-- the cohort must be `ready`, belong to the organisation, and hold at most
+- the cohort must be `ready`, belong to the organization, and hold at most
   4000 calls. Otherwise the query is refused with a message saying which.
 
 ### agent_hour_stats
@@ -139,7 +139,7 @@ One row per hour per customer metric series and value bucket. Columns:
   query is refused with `METRIC_KEY_FILTER_REQUIRED`. Each definition's `key`
   is on `GET …/metrics` ([metrics](metrics.md#routes)).
 - Do not filter `agent_key`: refused with `METRIC_AGENT_KEY_NOT_FILTERABLE`.
-  The system pins it to the organisation total row unless the session is
+  The system pins it to the organization total row unless the session is
   scoped to one agent. For an agent-scoped metric, prefer the agent summary
   (Step 1).
 - Rate or count: `sum(n_calls)` where `value_bucket` is a numerator bucket
@@ -151,7 +151,7 @@ One row per hour per customer metric series and value bucket. Columns:
 | Message or code | Fix |
 | -- | -- |
 | `Column "<col>" is not a column of table "<table>"` | Use that table's columns. |
-| `Column "<col>" is reserved` | Remove that column; the system scopes the organisation itself. |
+| `Column "<col>" is reserved` | Remove that column; the system scopes the organization itself. |
 | `Named metric "<name>" is only available on the "agent_hour_stats" table` | Switch table or use `fn`. |
 | `cohort_id is only valid with table "calls"` | Query `calls`. |
 | `Cohort is not ready yet` | Poll the cohort to `ready` first. |
@@ -164,16 +164,16 @@ One row per hour per customer metric series and value bucket. Columns:
 
 For a series by hour, day, week, month or year:
 
-- **Enterprise organisations:** send the same query through `call_bland_api`
+- **Enterprise organizations:** send the same query through `call_bland_api`
   POST `/v2/analytics/query` with body
   `{ "mode": "structured", "query": { …the query_analytics fields… } }`.
   This route applies `{ col, trunc, label? }` with `trunc` one of `hour`,
   `day`, `week`, `month`, `year` on a timestamp column: `created_at`,
   `updated_at`, `started_at` or `transferred_at` on `calls`, `hour_utc` on the
   hourly tables. The POST runs a read and changes nothing; say so if a
-  confirmation prompt appears. Other organisations get 403
+  confirmation prompt appears. Other organizations get 403
   `ENTERPRISE_REQUIRED`.
-- **Every organisation:** group `agent_hour_stats` by `hour_utc` with `sum`
+- **Every organization:** group `agent_hour_stats` by `hour_utc` with `sum`
   of count columns (`connected`, `contained`, `escalated_cold`, …) and a
   `limit` that covers every hour (the default is 100 rows), or read the
   summary's `hours[]`, and add the hours into days yourself. Sum
@@ -205,8 +205,8 @@ Go here for "which calls", or to scope a `calls` query to one agent.
   `agent_key`, then `calls` with `cohort_id`,
   `metrics: [{ "fn": "avg", "col": "call_length", "label": "avg_minutes" }]`,
   `dimensions: ["version_number"]`.
-- **A disposition rate:** `calls`, two metrics (`count` labelled `total`, and
-  `count` with a disposition filter labelled `hits`), `ratio: { "num": "hits",
+- **A disposition rate:** `calls`, two metrics (`count` labeled `total`, and
+  `count` with a disposition filter labeled `hits`), `ratio: { "num": "hits",
   "den": "total" }`. Or save it as a judgment tile ([metrics](metrics.md)).
 - **A customer tile's daily trend:** `metric_hour_stats` with the tile's
   `key`, grouped by `hour_utc` and `value_bucket`, folded into days

@@ -130,13 +130,13 @@ What that means for timing:
 
 The chart lives on the agent's Analytics page,
 `/dashboard/agent/<agent id>/analytics/analytics`, under "Where conversations
-go". It needs an enterprise organisation; self-serve Analytics pages show the
+go". It needs an enterprise organization; self-serve Analytics pages show the
 tiles and heatmap only.
 
 | Control | What it does |
 | -- | -- |
 | Window picker | 7, 14, 30 or 90 days. The chart and the readiness count are separate: readiness ignores the window. |
-| Simplified tab | Stages as columns; parallel branches merged into one column labelled with "+N" ([rendering](rendering.md)). |
+| Simplified tab | Stages as columns; parallel branches merged into one column labeled with "+N" ([rendering](rendering.md)). |
 | Detailed tab | Same stages, each branch drawn apart. |
 | Version picker | Draws another version's structure. |
 | Edit flow / stage chip | Attaches a `pathway` or `stage` target to Norm ([contract](contract.md#attached-target)). The page has no form to edit groups itself. |
@@ -156,10 +156,10 @@ page load shows it.
 | Label | up to 512 characters, non-blank | 400 or 422 `missing_label` |
 | `stage` | all-or-none, dense from 1 | 422 `stage_missing` / `stage_not_dense` |
 | Body size | 256 KiB | 413 |
-| Writes | 30 per minute per organisation | 429 |
+| Writes | 30 per minute per organization | 429 |
 | Window | 7, 14, 30, 90 days | 400 otherwise |
 | Readiness | 5 conversations on the structure | `served: false` until met |
-| Organisation | enterprise | 403 `ENTERPRISE_REQUIRED` |
+| Organization | enterprise | 403 `ENTERPRISE_REQUIRED` |
 | Production pin | required to write | 409 `NO_PRODUCTION_VERSION` |
 | Stale write | `expected_fingerprint` must match | 409 `PRODUCTION_VERSION_CHANGED`, nothing written |
 
@@ -197,7 +197,7 @@ chart falls back to the inferred grouping until you publish a new one.
 
 **Can I count a call as "booked" on the chart?**
 No. A stage means "the call passed through these waypoints". Whether the
-booking worked is an outcome judgement: a disposition.
+booking worked is an outcome judgment: a disposition.
 
 **Why do the stage numbers add up to more than my call count?**
 Bands count transitions. A conversation that loops through a stage twice adds
@@ -207,7 +207,7 @@ two. The count printed under a column counts conversations once.
 No. A definition only regroups how traffic is drawn. It never edits versions,
 deployments or calls.
 
-**Can the whole organisation have one Sankey?**
+**Can the whole organization have one Sankey?**
 No. The chart is per agent; the org scope is refused with
 `ORG_SANKEY_UNSUPPORTED`.
 

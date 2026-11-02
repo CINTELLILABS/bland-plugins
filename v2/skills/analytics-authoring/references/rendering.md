@@ -13,12 +13,12 @@ back to the `view=full` read of compiled waypoints and draws that instead.
   links are transition counts, so a stage visited twice in one conversation
   draws larger; the numbers under a column count conversations once.
 - **Parallel branches are merged.** Groups that share a stage draw as one
-  column labelled by the largest sibling with "+N" (for example "New rental
+  column labeled by the largest sibling with "+N" (for example "New rental
   +3"); hovering the column lists every sibling with its own count. The API's
   `stage_reach` carries the stage's union reach; the column does not show it.
 - Three terminals on the right: completed by AI, transferred to staff, hung up.
   A definition cannot change them. The legend under the chart names those
-  three colours only.
+  three colors only.
 - Whatever no group names draws as "Unclassified". A band that skips a stage
   runs beside that stage's column rather than through it.
 
@@ -44,7 +44,7 @@ The refetch takes a few seconds on a 90-day window.
 ## What to say when you publish parallel branches
 
 "These four branches are parallel (same stage). Detailed shows them side by
-side with their own counts; Simplified merges them into one column labelled
+side with their own counts; Simplified merges them into one column labeled
 by the largest branch with +3."
 
 ## What to say when readiness is not met

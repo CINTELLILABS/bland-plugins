@@ -19,7 +19,7 @@ It is not:
 
 - **A platform evaluation.** A judge run or disposition scores calls on the
   platform ([evaluations](../../evaluations/SKILL.md)). Your own
-  categorisation in a workspace is not that, and must not be presented as it.
+  categorization in a workspace is not that, and must not be presented as it.
 - **Analytics.** Counts and rates across calls come from the Analytics page
   ([cohorts and tiles](../../analytics-cohorts/references/how-it-works.md)).
 - **One id space.** A voice call, a messaging thread and a web chat thread
@@ -46,10 +46,10 @@ It is not:
                      SIP ladder, notes, triage flags
 ```
 
-- Everything is org-scoped. A call id from another organisation reads as not
+- Everything is org-scoped. A call id from another organization reads as not
   found.
 - A call is tied to the agent and agent version that ran it
-  (`agent_id`, `agent_version_id`). Analyse each call against that version,
+  (`agent_id`, `agent_version_id`). Analyze each call against that version,
   not the current one.
 - A warm transfer creates a second call (`is_proxy_agent_call: true`) for the
   leg to the human. Its evidence is separate.
@@ -67,7 +67,7 @@ It is not:
 | Queued or live | The call record | Active calls tab; the top of the Conversations list; the call record shows `completed: false` |
 | Ended | Record, transcript, event timeline, recording (if on) | Conversations list; the call detail read |
 | After the call | Summary, analysis, extracted variables, citations, disposition results, call scores | The call detail read; the detail panel rail |
-| After retention | The record stays; recordings and transcripts older than the organisation's retention policy (14 days at the shortest) are removed | Organisation settings show the policy |
+| After retention | The record stays; recordings and transcripts older than the organization's retention policy (14 days at the shortest) are removed | Organization settings show the policy |
 | Errored or not connected | The record with `queue_status` and `error_message` | The call detail read |
 
 `queue_status` names where an error happened (`pre_queue_error`,
@@ -165,11 +165,11 @@ In the event timeline (`/v1/pathway_calls/<call id>?v=2`), as
 be empty for these calls.
 
 **Why does the call have no recording?**
-Recording was off, the call never connected, or the organisation's retention
+Recording was off, the call never connected, or the organization's retention
 policy removed it. The call record says which of the first two.
 
 **How do I know which version of the agent handled a call?**
-`agent_version_id` on the call record. Analyse against that version.
+`agent_version_id` on the call record. Analyze against that version.
 
 **Can I see why the agent routed where it did?**
 Yes. Each `node.transition` event lists the routes it could take, the one it
@@ -195,7 +195,7 @@ route.
 ## Active calls
 
 The **Active calls** tab of the org Conversations page,
-`/dashboard/conversations?tab=active`, lists the organisation's calls that
+`/dashboard/conversations?tab=active`, lists the organization's calls that
 are queued or in progress, every agent at once. The agent-scoped
 Conversations page has no Active calls tab; there, calls in progress sit at
 the top of the list instead. Routes and bodies are in
@@ -258,7 +258,7 @@ row of the Conversations list.
 - **Transfer one call**, after confirming: `POST /v1/calls/active/transfer`.
   An OAuth connection cannot; send the user to the live panel.
 - **Never** end every call at once (`POST /v1/calls/active/stop`). It hangs
-  up on every live call in the organisation.
+  up on every live call in the organization.
 
 Dashboard only:
 
@@ -279,11 +279,11 @@ Dashboard only:
 | "We couldn't connect to the call" on Listen | The call has not started or just ended (404 `CALL_NOT_FOUND`), or listening is not offered in this deployment (404 `NOT_SUPPORTED_IN_ENVIRONMENT`) | The call's status | Retry once it is In progress |
 | Transfer refused with 403 | International destination for this account type, a phone-plan destination limit, or an onboarding demo call | The error message | Use an allowed destination |
 | Transfer 400 "not found or has already been completed" | The call ended or never started | Call record | Nothing to transfer |
-| Stop answers 404 "SID not found for the given c_id." | The call failed before it dialled | `queue_status` on the call record | Nothing to hang up |
+| Stop answers 404 "SID not found for the given c_id." | The call failed before it dialed | `queue_status` on the call record | Nothing to hang up |
 
 ## Contacts
 
-A contact is one person your organisation has talked to, known by a phone
+A contact is one person your organization has talked to, known by a phone
 number, an email, or your own external id. It is org-wide: the same person
 reached by two agents is one contact. It is not a memory and not a
 do-not-call entry, though it links to the first and never to the second.

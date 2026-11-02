@@ -48,7 +48,7 @@ condition cannot be expressed. Covers …
 ```
 
 - Quote the phrases users type. "Show me the calls where" matches; "cohort
-  materialisation" does not.
+  materialization" does not.
 - Name the objects and pages: "the analytics Sankey", "the Conversations page".
 - Include the refusal case ("explaining why … cannot be expressed"). Users ask
   for the impossible, and the skill should load to say no well.
@@ -175,7 +175,7 @@ Rules for a validator:
 ## Examples
 
 - Synthetic only. Placeholders in angle brackets (`<agent id>`), invented
-  numbers labelled as synthetic.
+  numbers labeled as synthetic.
 - Every `json` fence parses as strict JSON. No comments, no trailing commas.
   Use a `text` fence for annotated shapes.
 - Run every example predicate or definition through the validator before you
@@ -251,7 +251,7 @@ Then run the skill's benchmark by hand with a fresh agent that sees only
 - [ ] Folder name equals `name`; description starts "Use when" and quotes triggers.
 - [ ] `SKILL.md` under about 650 words; every reference linked at its step.
 - [ ] Workflow names the tools, the routes and the call budget; forbids fetch scripts and docs search.
-- [ ] Neighbouring skills named as hand-offs; "cannot express" list present.
+- [ ] Neighboring skills named as hand-offs; "cannot express" list present.
 - [ ] Validator mirrors server messages; tests cover each refusal.
 - [ ] Examples synthetic, validated, strict JSON.
 - [ ] Not-yet-live routes isolated and tagged unverified.

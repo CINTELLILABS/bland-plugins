@@ -293,7 +293,7 @@ whole agent.
 the pathway as it stood in that save.
 
 **Does moving a pathway to a folder change anything on calls?** No. Folders
-only organise the page.
+only organize the page.
 
 **Why can't I edit an old pathway on this page?** Legacy pathways are
 read-only. Migrate one into an agent with

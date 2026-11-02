@@ -59,7 +59,7 @@ of it a week ago. A's pathway was edited yesterday and A was promoted. The
 user is on `/dashboard/scenarios`.
 
 5. "I fixed the Billing questions pathway on the Pathways page. Why do
-   agent B's callers still get the old behaviour?"
+   agent B's callers still get the old behavior?"
 6. "Copy Billing questions into agent C and make sure it actually works
    there."
 
