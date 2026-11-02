@@ -23,6 +23,32 @@ credentials, and optional dashboard/voice bridges.
   must refresh the approved plugin revision/file inventory and test the packaged
   artifact separately. This is not an automatic deployment.
 
+## Upgrade against call outcomes
+
+Use `/norm:migrate --upgrade` to rebuild a v1 source around its business
+requirements using native v2 practices. Prompts, extraction placement and routing
+can change; exact mandated wording and integration capabilities must survive.
+Suspected policy mistakes are reported for owner review. The
+[upgrade contract](skills/v2-migration/references/outcomes-v1.md) overrides legacy
+verbatim and source-bug preservation only in this mode.
+
+State `init --upgrade` records `mode: "outcomes-v1"`. Create target-agent scenarios
+and record the complete suite with `record-evaluation --scenario <id>` (repeatable)
+before the first push. In managed runs, mirror the suite and end the turn for a
+platform checkpoint acknowledgement before pushing. Tests stay frozen for the
+whole job; correcting tests requires a new evaluation/migration run. Each scenario needs required
+`outcome:` and `conduct:` assertions; the suite needs required `recovery:` and can
+include optional `quality:` scores. Run three repetitions per scenario through
+version-pinned simulation sets. All attempts count, including earlier failures;
+changes require a new version and full sweep. Tone placeholders and unimplemented
+webhook assertions provide no evidence. Text runs leave voice/audio unverified.
+
+The local Stop hook checks mode-specific audit and advisory push/sim records;
+upgrade local readiness is recorded as `local_complete`. Managed completion
+independently verifies persisted versions and assertions.
+Without `--upgrade` (including old state without a mode), legacy migration keeps
+its existing contract. `/norm:build` is unchanged.
+
 ## Quickstart: migrate a v1 pathway
 
 One prompt does everything, including installing this plugin. You need a Bland API key for the org that owns the pathway; the pathway ID is in the pathway's URL in the dashboard. Fill in the two blanks and paste into Claude Code:
@@ -61,7 +87,7 @@ The session discovers the pathway, proposes the scenario architecture for your a
 
 ## The convergence loop (enforced)
 
-`/norm:migrate` doesn't rely on the model choosing to iterate — a Stop hook gates the session until the migration is actually complete:
+The Stop hook checks the live audit and local progress records. The following diagram describes legacy migration; upgrade uses its mode-specific audit and releases as `local_complete`, subject to independent platform evaluation:
 
 ```
 author snapshot ──► gate 1: AUDIT  (hook re-runs bin/norm-migrate-audit.cjs live:
@@ -77,8 +103,8 @@ author snapshot ──► gate 1: AUDIT  (hook re-runs bin/norm-migrate-audit.cj
 - `bin/norm-materialize.cjs` — the deterministic BUILDER: the agent authors only judgment (a small `plan.json` — scenario membership, entries, hub + system prompt) and this script carries every byte of content from the v1 export(s) into the snapshot: prompts, extraction variables, route rules (flat = OR, isGroup = AND, fallbacks from source), transfers, webhooks, snippet pins, attached tools, automatic code-tool re-representation, id namespacing, per-label exit edges. Proven by rebuilding a shipped production migration from raw JSON alone: byte-class identical structure (same step census, same pins), passes the platform's own validator, and compiles to the identical graph (82 nodes / 143 edges) the in-repo pipeline produced.
 - **Hardening hooks in the plan** — `promptAppends`, `variableAppends`, `silentPills`: evidence-based fixes discovered during the sim loop live in plan.json (reviewable), never as hand-edits to the snapshot. `silentPills` is the construct fix for a carried silent-router that fabricates speech as an in-flow step — proven in production when escalating prompt rules failed four runs straight.
 - `bin/norm-migrate-audit.cjs` — the deterministic checker: machine checks including hollow by-reference tools, edge-condition vocabularies, pin-presence against every v1 snippet/tool id, OR-collapse and null-fallback scans, code-tool re-representation, verbatim prompt carriage. No model judgment.
-- `bin/norm-migration-state.cjs` — loop state (`.norm/migration.json`): `init` / `record-push` / `record-sims` / `ack-uncovered` / `status` / `stop`.
-- `bin/hook-migrate-loop.cjs` — the Stop gate. Fail-soft (never wedges a session); releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — any release other than "complete" is reported as an incomplete migration.
+- `bin/norm-migration-state.cjs` — loop state (`.norm/migration.json`): `init` / `record-evaluation` (upgrade) / `record-push` / `record-sims` / `ack-uncovered` / `status` / `stop`.
+- `bin/hook-migrate-loop.cjs` — the Stop gate. Fail-soft (never wedges a session); releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — legacy releases other than "complete" are incomplete. Upgrade "local_complete" is advisory readiness, not platform acceptance.
 
 ## Skills (the knowledge base)
 
@@ -95,7 +121,7 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 - **call-analysis** — bounded call retrieval, offset pagination, reproducible
   cohorts, workspace analysis, evidence-linked categories, and report artifacts.
 
-- **v2-authoring** — building NEW agents: what scenarios represent (boundaries at one-way seams), hub/entry authoring, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
+- **v2-authoring** — building NEW agents: hub-first consolidation and bounded strict business workflows, optional connection-gating Start, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
 - **[v2-maintenance](skills/v2-maintenance/SKILL.md)** — update and debug existing
   agents: minimal stable-ID edits, unsaved-draft reconciliation, concurrency
   fences, ambiguous-write recovery, exact-version tests, and lifecycle guidance.

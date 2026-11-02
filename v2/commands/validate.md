@@ -30,6 +30,16 @@ schema requirements. Do not rebuild a valid agent merely to satisfy them. Check
 the actual Start edge and intended termination behavior instead. Source-carriage
 checks apply only when migrating; intentional requested edits are allowed.
 
+For `/norm:migrate --upgrade`, apply `outcomes-v1.md` and
+`upgrade-design-v1.md`. A1 is mandatory for all automatic entry paths, including
+`entryScenarioId` and initialization routes. Start only handles necessary
+screening or automated pickup; the hub owns ordinary business conversation.
+There is no minimum scenario count or node-ratio quota. Review each remaining
+scenario for a strict business workflow, each step for a required execution
+boundary, and each completion/intent-change exit for safe return to the hub.
+Do not accept a routing-only hub with the entire call in one catch-all flow.
+The SERVER design gate also binds hub ownership to reachable compiled nodes.
+
 ## Structural
 
 1. Top level has `behavior.nodes`, `behavior.edges`, `settings.systemPrompt` (non-empty).
