@@ -75,7 +75,7 @@ inspect credentials, invent a tool or claim persistence/testing occurred.
 | Mode | What it reaches |
 |---|---|
 | API-key install (the host holds an org API key) | Every route the generic caller allows |
-| OAuth-connected host (keyless install, app connector) | An allowlist of everyday families: agents, calls (read), knowledge, evaluations, agent testing, analytics, dispositions, contacts, memory. Everything else is refused, including tools, messaging, web chat, exports, settings, credentials and purchases |
+| OAuth-connected host (keyless install, app connector) | An allowlist of everyday families: agents, pathways, personas, prompts, voices, calls (read), knowledge, evaluations, agent testing, analytics, dispositions, guard rails, citation schemas, contacts, memory, triage, texts (`/v1/sms`), widgets, and post-call webhooks (read and create). Everything else is refused, including tools, snippets, secrets, integrations, `/v1/chat`, automations, exports, settings, credentials and purchases. Inside allowed families, routes that run a model Bland pays for, mint a session or token, or share outside the org are refused too |
 
 - On `oauth_path_not_allowed` say "this connection cannot reach <route
   family>; do it on <dashboard path>" and stop. Do not try another path, the

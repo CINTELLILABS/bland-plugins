@@ -103,8 +103,9 @@ Reply "yes" to proceed.
 
 ## Refusals and limits
 
-- `oauth_path_not_allowed`: say "this connection cannot reach texts, chats,
-  widgets or identity; use the page" and stop.
+- `oauth_path_not_allowed`: say "this connection cannot reach chats or
+  identity; use the page" and stop. Texts (`/v1/sms/**`) and widgets
+  (`/v1/widget/**`) stay reachable over OAuth.
 - Many recipients: a cohort, then `/dashboard/batches`. Never loop sends.
 
 ## Do not

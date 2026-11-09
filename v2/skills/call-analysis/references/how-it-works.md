@@ -140,7 +140,7 @@ Notes:
 | Call scores | 400 `CALL_NOT_COMPLETED` for a live call; 404 `METRICS_NOT_FOUND` when none were computed |
 | Recording | only when recording was on; a 404 "no recordings found" otherwise |
 | Exports | 20 per hour; the file is emailed, not returned |
-| OAuth-connected hosts | cannot reach `/user/logs`, `/v1/sms/**`, `/v1/widget/**`, `/exports/**`, `/v2/tools/**`, `/v1/sip/**`, `POST /v1/calls/active/**`, live listen, or the live streams |
+| OAuth-connected hosts | cannot reach `/user/logs`, `/exports/**`, `/v2/tools/**`, `/v1/sip/**`, `POST /v1/calls/active/**`, live listen, or the live streams |
 
 ## When it goes wrong
 

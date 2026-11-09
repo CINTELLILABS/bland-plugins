@@ -161,8 +161,9 @@ For thousands of rows with the same filters, the server can build the file.
 
 ## Connection limits
 
-An OAuth-connected host cannot reach `/user/logs`, `/v1/sms/**`,
-`/v1/widget/**` or `/exports/**`. On `oauth_path_not_allowed` say "this
+An OAuth-connected host cannot reach `/user/logs` or `/exports/**`
+(text and widget conversations under `/v1/sms/**` and `/v1/widget/**` stay
+reachable). On `oauth_path_not_allowed` say "this
 connection cannot reach <route family>; open it on /dashboard/conversations"
 and stop. `GET /v1/calls/**` stays reachable, but it cannot scope to a v2
 agent, so say that too.

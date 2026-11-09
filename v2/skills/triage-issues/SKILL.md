@@ -85,8 +85,9 @@ Reply "yes" to proceed.
 
 ## Refusals and limits
 
-- `oauth_path_not_allowed`: say "this connection cannot reach issues; do it on
-  the Issues page" and stop.
+- `oauth_path_not_allowed` (comments, eval analysis and agent sessions over
+  OAuth): say "this connection cannot do that step; do it on the Issues page"
+  and stop.
 - File evidence is a multipart upload: attach files on the Issues page.
 - Other statuses: [errors](references/api.md#errors).
 
