@@ -30,8 +30,8 @@ the docs for these routes.
 - Bodies are strict. An unknown key answers 400 `Invalid params: …`.
 - Every write takes effect at once. Confirm each one as the skill says
   before you send it.
-- OAuth-connected hosts are refused on all of `/v1/triage` with
-  `oauth_path_not_allowed`.
+- OAuth-connected hosts reach `/v1/triage`, except posting a comment, eval
+  analysis, and agent sessions, which answer `oauth_path_not_allowed`.
 
 ## Issues
 
@@ -237,7 +237,7 @@ never through a comment.
 | 400 `AGENT_NOT_FOUND` | That agent is not in this org | Recheck the agent id. |
 | 409 `ANALYSIS_ALREADY_RUNNING` | A run from this issue is still live | Report its run id; do not retry. |
 | 409 `INVALID_BODY` `No calls to analyze…` | No attached calls and no recent calls | Attach calls first. |
-| `oauth_path_not_allowed` | OAuth host | Say the connection cannot reach issues; use the Issues page. |
+| `oauth_path_not_allowed` | OAuth host posting a comment, running eval analysis, or starting an agent session | Say the connection cannot do that step; use the Issues page. |
 
 ## Not available here
 

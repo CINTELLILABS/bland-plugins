@@ -110,6 +110,5 @@ live side effects under the read/write classification. The contract is in the
 ## Keyless installs
 
 A keyless (OAuth) connection refuses `/v1/pathway/session`, the
-`/v1/pathway/test_agent/**` routes, `/v1/chat/**`, `/v1/sms/**` and the tool
-routes with `oauth_path_not_allowed`. Say which probe is unavailable on this
+`/v1/pathway/test_agent/**` routes, `/v1/chat/**` and the tool routes with `oauth_path_not_allowed`. Say which probe is unavailable on this
 connection, fall back to platform simulations, and report the gap.

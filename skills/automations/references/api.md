@@ -276,7 +276,8 @@ call, or by its agent or inbound number), else the org default.
 ## Access
 
 OAuth-connected hosts cannot reach `/v1/automation/**`, `/v1/alerts/**`,
-`/v1/postcall/**` or the `/user` webhook routes. On
+the `/user` webhook routes, or `/v1/postcall/**` beyond listing and creating
+post-call webhooks. On
 `oauth_path_not_allowed` stop and name the dashboard page: Triggers,
 Alerts, or Settings, Organization for the org webhook. API-key connections
 reach all of them.

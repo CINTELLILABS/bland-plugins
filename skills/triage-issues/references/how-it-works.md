@@ -123,7 +123,7 @@ Calls are also flagged into issues from the Conversations page detail panel
 | Duplicate category | refused | 409 `Category already exists` |
 | Eval analysis on an issue with no agent | refused | 400 `AGENT_REQUIRED` |
 | Second eval analysis while one runs | refused | 409 `ANALYSIS_ALREADY_RUNNING` |
-| OAuth-connected host | refused on every issue route | `oauth_path_not_allowed` |
+| OAuth-connected host | refused on posting comments, eval analysis and agent sessions; other issue routes work | `oauth_path_not_allowed` |
 
 ## When it goes wrong
 
