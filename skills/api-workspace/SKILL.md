@@ -1,6 +1,6 @@
 ---
 name: api-workspace
-description: Use when working with the Bland API from a coding workspace, finding product documentation, editing agent JSON instead of clicking the dashboard, reconciling unsaved page context with saved versions, or debugging a failed Bland operation. Covers API discovery, workspace evidence, and page synchronization; not v1 pathway authoring.
+description: Use when working with the Bland API from a coding workspace, finding product documentation, using named endpoint tools because bland_api_get or call_bland_api is unavailable, editing agent JSON instead of clicking the dashboard, reconciling unsaved page context with saved versions, or debugging a failed Bland operation. Covers API discovery, workspace evidence, and page synchronization; not v1 pathway authoring.
 ---
 
 # API-first workspace work
@@ -16,8 +16,10 @@ substitute for missing API access.
 - [Wiki index](references/index.md): task → relevant skill/reference.
 - [Full v2 surface map](references/surface-map.md): product families, state ownership,
   node/runtime semantics, operations and capability limits.
-- [API contract](references/api.md): discovery, authentication, bounded retries,
-  asynchronous operations, and write verification.
+- [API contract](references/api.md): discovery, proxy-preferred named endpoint
+  fallback, authentication, bounded retries, and write verification.
+- [Named endpoint index](references/endpoint-tools.md): exact method/route lookup
+  only when the required generic proxy is absent; inspect the live schema.
 - [Workspace and page state](references/workspace.md): local files, unsaved draft,
   saved version, version conflicts, and UI read-back.
 - [Debugging playbook](references/debugging.md): diagnosis from evidence.

@@ -43,4 +43,6 @@ order, not a second competing implementation specification.
 Call/run ID; target agent and version; channel/selector; initial fixture;
 current node and chosen edge; variables before the decision; tool arguments,
 status and relevant response; next node; observed output. Capture only fields
-needed for diagnosis. Redact secrets and minimize personal information.
+needed for diagnosis. Redact secrets and minimize personal information. Read
+tool logs, knowledge retrievals and the SIP ladder with
+[evidence for one call](../../call-analysis/references/retrieval.md#evidence-for-one-call).

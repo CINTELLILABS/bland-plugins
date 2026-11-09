@@ -18,7 +18,10 @@ editing and UI reveal; verification limits.
 | Executable pathway / call trace | Flattened components, generated connections, selected nodes and actions | The user's current unsaved draft or which inspector is open |
 
 The root overview and the nested flow canvas are different surfaces. Context or
-entry-label connections can be presentation aids, not authored execution edges.
+entry-label connections can be presentation aids, not authored execution edges:
+the return loops from a Pathway's End pills back to the agent card picture the
+generated Default return and are not editable edges. The whole-call picture is
+in [how it works](how-it-works.md#what-the-canvas-shows-versus-what-runs).
 Hidden inspector fields can configure real routing without producing arrows.
 
 ## Mapping table
@@ -47,16 +50,19 @@ standalone step's row shape into an attached tool.
 The current root mapping has two distinct sets:
 
 - **Auto-entered children:** root scenario, complex-scenario, and end-call
-  children with no incoming nonstructural authored routing edge, excluding the
-  selected call-entry node. The hub gets an entry route using the child's
-  `data.entry`. An inbound/start connector is structural, not an ordinary route.
+  children with no incoming nonstructural authored routing edge, excluding
+  Start's item and the hub's "Starts in" pathway (`entryScenarioId`). The hub
+  gets an entry route using the child's `data.entry`. An inbound/start
+  connector is structural, not an ordinary route.
 - **Returning children:** root scenario and complex-scenario children get a
   default fallback route to the hub, including when explicit outgoing routes
   exist. Root end-call nodes do not get that automatic return.
 
 Returning children also get routes directly to eligible auto-entered siblings,
-using the destination's entry criteria. Self-routes and already-existing
-source/target pairs are not duplicated. Therefore **a scenario transition need
+using the destination's entry criteria; Start's item and the "Starts in"
+pathway get none, so no scenario cuts into a guaranteed start. A Pathway's
+generated routes leave from its End pill, not its inner steps. Self-routes and
+already-existing source/target pairs are not duplicated. Therefore **a scenario transition need
 not take an extra hub turn**; the trace determines what happened.
 
 Adding an incoming authored routing edge changes whether a target is
@@ -104,5 +110,5 @@ Use a current platform validator, compiled representation when exposed, and
 call/test traces together. The bundled migration audit's incoming-target check
 is not a complete graph traversal and does not model every global/guardrail
 route. A pass is not proof of reachability; a finding requires checking the
-actual route mechanism. Do not bypass a failed gate or add a harmful edge just
+actual route mechanism. Do not work around a failed check or add a harmful edge just
 to quiet it—report unsupported validation and obtain the missing evidence.

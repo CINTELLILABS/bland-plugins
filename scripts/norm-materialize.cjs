@@ -21,11 +21,16 @@
  *   "systemPrompt": "<full text — assembled verbatim from v1 sources>",
  *   "hubPrompt": "<hub routing prompt; a scenario directory is auto-appended>",
  *   "sources": [{"file": "v1-export.json", "prefix": "sa"}, ...],
- *   "persona": "persona.json",                    // optional
- *   "entryScenario": "<scenario name>",           // optional inbound re-point
+ *   "persona": "persona.json",                    // optional; its call_config voice + language carry into settings
+ *   "voice": "<voice id>", "language": "<code>",  // optional; override the persona's (e.g. from the number a pathway answers on)
+ *   "entryScenario": "<scenario name>",           // exception: inbound re-point for connection gating (screener / IVR / voicemail / availability); needs entryScenarioReason; no Knowledge Base / Transfer Call members
+ *   "entryScenarioReason": "<≥60 chars: why initialization + hub cannot open this call>",
+ *   "initializationNode": "<legacy id — which isStart Custom Code runs at connect when merged sources have several>",
  *   "scenarios": [{"name","entry":{"label","description"},"rule","members":[ids or unique id prefixes],
  *                  "entryMember": "<id — the step calls START at; defaults to members[0]>"}],
- *   "endCalls": [{"name","entry":{"label","description"},"prompt"}],
+ *   "endCalls": [{"name","entry":{"label","description"},"prompt"}],  // optional: hub-level
+ *                  hang-ups only (e.g. the caller asks to end the call). A v1 End Call becomes an
+ *                  end-call step inside its scenario's flow, so most migrations need none.
  *
  *   // Evidence-based hardening hooks (ship EMPTY on the first build; add only
  *   // when a sim failure's engine trace proves the need — see the migration
@@ -48,6 +53,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
+const { unreachableBehindEmptyGroups } = require("./norm-migrate-audit.cjs");
 
 const args = process.argv.slice(2);
 function flag(name) {
@@ -124,13 +130,18 @@ function varType(raw) {
 	if (t === "json" || t === "object" || t === "array") return "json";
 	return "string";
 }
-function varRows(extractVars) {
-	// tuples [name, type, description] or objects {name, type?, description}
-	return (extractVars || []).map((r) =>
-		Array.isArray(r)
+function varRows(extractVars, captureKinds) {
+	// tuples [name, type, description] or objects {name, type?, description}.
+	// A v1 node's captureKinds ({variable: target}) carry as each row's
+	// captureAs: capture reads those values back and confirms them at run time.
+	const kinds = captureKinds && typeof captureKinds === "object" ? captureKinds : {};
+	return (extractVars || []).map((r) => {
+		const row = Array.isArray(r)
 			? { id: randomUUID(), key: str(r[0]), value: str(r[2]), type: varType(r[1]), accurateSpelling: false }
-			: { id: randomUUID(), key: str((r || {}).name), value: str((r || {}).description), type: varType((r || {}).type), accurateSpelling: false },
-	);
+			: { id: randomUUID(), key: str((r || {}).name), value: str((r || {}).description), type: varType((r || {}).type), accurateSpelling: false };
+		const target = str(kinds[row.key]);
+		return target ? { ...row, captureAs: target } : row;
+	});
 }
 function dictRows(obj) {
 	return Object.entries(obj || {}).map(([key, value]) => ({ id: randomUUID(), key, value: String(value) }));
@@ -164,6 +175,12 @@ function mapRouteOperator(op) {
 }
 
 // ── automatic code-tool surgery (type:"code" node tools) ────────────────────
+// End Calls that carry a code tool. An end-call step hangs up after its line
+// and has no code-tool form, so these keep the wrap-up mapping: a prompt step,
+// then the code step, then the flow's exit to the hub, which ends the call
+// from a root end-call. Every route into the node and its own extraction work
+// as on any prompt step, so the snippet still runs, and runs after extraction.
+const wrapUpEndCalls = new Set();
 for (const node of [...mergedNodes]) {
 	const d = node.data || {};
 	const tools = d.tools;
@@ -183,6 +200,10 @@ for (const node of [...mergedNodes]) {
 	for (const m of cfg.response_data || []) if (m && m.name) inputKeys.add(m.name);
 	const codeId = `${node.id}__codetool`;
 	const routeId = `${node.id}__codetool_route`;
+	if (node.type === "End Call") {
+		wrapUpEndCalls.add(node.id);
+		warn(`End Call "${d.name}" has code tool "${tool.name}": kept as a wrap-up step that returns to the hub so the snippet runs — the hub needs a root end-call to hang up after it`);
+	}
 	mergedNodes.push({
 		id: codeId,
 		type: "Custom Code",
@@ -238,16 +259,37 @@ function resolveMember(idOrPrefix) {
 }
 
 // ── attached custom_tool inversion (non-code tools ride on prompt steps) ────
+// A v1 tool that names a saved library tool and embeds nothing runs that
+// tool's latest version on every call. Carry it the same way: byReference +
+// toolId (+ the node's tool_overrides), with a display-only definition. The
+// runtime runs any embedded definition as-is and fetches by id only when none
+// is embedded, so a stand-in definition here would run an empty tool.
+function plainObject(v) {
+	return v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length > 0 ? v : null;
+}
 function invertAttachedTools(tools) {
 	return (tools || []).map((t) => {
 		const cfg = t.config || {};
+		const name = str(t.name) || "Tool";
+		const toolId = str(cfg.tool_id || (cfg.tool || {}).tool_id);
+		const embedded = (cfg.tool || {}).tool;
+		const byReference = t.type !== "track" && !embedded && toolId !== "";
+		const toolOverrides = byReference ? plainObject(cfg.tool_overrides) : null;
+		if (byReference && plainObject((cfg.tool || {}).overrides)) {
+			warn(`tool "${name}": wrapper overrides on a library tool never ran in v1 (only the node's tool_overrides apply to a fetched tool), so they were not carried`);
+		}
+		if (!embedded && !toolId) {
+			warn(`tool "${name}": no library id and no embedded definition, so it was carried as an empty placeholder that runs nothing; rebuild it or drop it`);
+		}
 		return {
 			id: randomUUID(),
-			name: str(t.name) || "Tool",
+			name,
 			description: str(t.description),
 			behavior: t.behavior === "feed_context_and_route" ? "feed_context_and_route" : "feed_context",
-			toolId: str(cfg.tool_id || (cfg.tool || {}).tool_id),
-			definition: (cfg.tool || {}).tool || { name: str(t.name) || "Tool", integration: "rest_api", action: "get" },
+			toolId,
+			...(byReference ? { byReference: true } : {}),
+			...(toolOverrides ? { toolOverrides: { ...toolOverrides } } : {}),
+			definition: embedded || (byReference ? { name, description: str(t.description) } : { name, integration: "rest_api", action: "get" }),
 			isStaging: cfg.is_staging === true,
 			excludeResponseFromHistory: cfg.excludeResponseFromHistory === true,
 			retryLimit: typeof cfg.retryLimit === "number" ? cfg.retryLimit : 0,
@@ -271,8 +313,49 @@ function toStep(node) {
 	const d = node.data || {};
 	const base = { id: randomUUID(), position: node.position || { x: 0, y: 0 } };
 	switch (node.type) {
+		case "End Call": {
+			if (wrapUpEndCalls.has(node.id)) {
+				return {
+					...base,
+					type: "prompt",
+					data: {
+						name: str(d.name),
+						...promptOrText(d),
+						loopWhile: str(d.condition),
+						variables: varRows(d.extractVars, d.captureKinds),
+						ignorePreviousExtractions: false,
+						useAudioExtraction: false,
+						settings: stepSettings(d),
+						...(Array.isArray(d.tools) && d.tools.length > 0 ? { tools: invertAttachedTools(d.tools) } : {}),
+					},
+				};
+			}
+			// An End call step in the same flow, as the parity import builds it:
+			// it says its line and hangs up (barge-in ignored), with no hub
+			// turn. Edges into it carry over as the flow's routes. One with
+			// nothing to say speaks a static "." so the call still ends.
+			const speech = promptOrText(d);
+			const settings = stepSettings(d);
+			if (settings.global.isGlobal && settings.global.returnMode === "previous") settings.global.returnMode = "manual";
+			return {
+				...base,
+				type: "end-call",
+				data: {
+					name: str(d.name),
+					...(speech.prompt.trim() ? speech : { prompt: ".", useStaticText: true }),
+					entry: { mode: "llm", label: "", description: "", alwaysPick: false, conditions: [] },
+					loopWhile: str(d.condition),
+					variables: varRows(d.extractVars, d.captureKinds),
+					ignorePreviousExtractions: false,
+					useAudioExtraction: false,
+					settings,
+					// Attached tools stay on the End Call, as on a prompt step, so
+					// they can still run during its turn before the hang-up.
+					...(Array.isArray(d.tools) && d.tools.length > 0 ? { tools: invertAttachedTools(d.tools) } : {}),
+				},
+			};
+		}
 		case "Default":
-		case "End Call":
 			return {
 				...base,
 				type: "prompt",
@@ -280,7 +363,7 @@ function toStep(node) {
 					name: str(d.name),
 					...promptOrText(d),
 					loopWhile: str(d.condition),
-					variables: varRows(d.extractVars),
+					variables: varRows(d.extractVars, d.captureKinds),
 					ignorePreviousExtractions: false,
 					useAudioExtraction: false,
 					settings: stepSettings(d),
@@ -306,9 +389,20 @@ function toStep(node) {
 			};
 		case "Route": {
 			const rules = [];
-			for (const route of d.routes || []) {
+			let fallbackNodeId = str(d.fallbackNodeId);
+			// Rules run in order, first match wins. An empty isGroup block is
+			// always true in v1, so its route is taken whenever it is reached:
+			// its target becomes the fallback and everything after it, which
+			// v1 never reaches, is dropped. Steps only those rules led to are
+			// dropped from the flow too (droppedUnreachable below).
+			routes: for (const route of d.routes || []) {
 				const rows = Array.isArray(route.conditions) ? route.conditions : [];
 				for (const row of rows) {
+					if (row && row.isGroup === true && Array.isArray(row.conditions) && row.conditions.length === 0) {
+						fallbackNodeId = str(route.targetNodeId);
+						warn(`route "${str(d.name)}": an empty condition group is always true in v1, so its target is the fallback and the rules after it were dropped (v1 never reaches them)`);
+						break routes;
+					}
 					if (row && row.isGroup === true && Array.isArray(row.conditions)) {
 						rules.push({
 							id: randomUUID(),
@@ -330,7 +424,7 @@ function toStep(node) {
 				data: {
 					name: str(d.name),
 					rules,
-					...(str(d.fallbackNodeId) ? { fallbackNodeId: d.fallbackNodeId } : {}),
+					...(fallbackNodeId ? { fallbackNodeId } : {}),
 					settings: stepSettings(d),
 				},
 			};
@@ -361,13 +455,15 @@ function toStep(node) {
 						optimizeForIVR: wt.optimizeForIVR !== false,
 						agentPromptStatic: wt.isAgentPromptStatic === true,
 						mergePromptStatic: wt.isMergeCallPromptStatic === true,
-						timeout: wt.useTimeout === true && typeof wt.timeout === "number" ? wt.timeout : null,
+						// v1 stores the warm-transfer timeout as a numeric STRING ("600"); a
+						// strict number test silently dropped it (JCB, 2026-10-07).
+						timeout: wt.useTimeout === true && Number.isFinite(Number(wt.timeout)) && String(wt.timeout).trim() !== "" ? Number(wt.timeout) : null,
 						voicemailMessage: wt.useVoicemailMessage === true && wt.voicemailResponseType !== "pathway" ? str(wt.voicemailMessage) : "",
 						...(str(wt.dtmfSequence) ? { dtmfSequence: wt.dtmfSequence } : {}),
 						...(typeof wt.allowMergeControl === "boolean" ? { allowMergeControl: wt.allowMergeControl } : {}),
 						...(wt.retry ? { retry: wt.retry } : {}),
 					},
-					variables: varRows(d.extractVars),
+					variables: varRows(d.extractVars, d.captureKinds),
 					settings: stepSettings(d),
 				},
 			};
@@ -445,24 +541,84 @@ function toStep(node) {
 }
 
 // ── build scenarios ─────────────────────────────────────────────────────────
+// A v2 deterministic edge row is {field, operator: AND|OR (join to the previous
+// row), conditionOperator: the comparison, value}. v1 edges come in two
+// dialects. Rows that join with AND/OR (or carry no comparison in `operator`)
+// are already that shape. Rows with the comparison in `operator` are the
+// variable-comparison dialect: flat rows are ORed, an isGroup block ANDs its
+// rows, and a few comparisons have no exact v2 spelling. Returns one edge data
+// per branch; several branches become parallel edges to the same step.
+function edgeValue(v) {
+	return typeof v === "string" ? v : v === undefined ? "" : String(v);
+}
+function v2Comparison(op, rawValue, notes) {
+	const value = edgeValue(rawValue);
+	if ((op === "equals" || op === "not equals" || op === "equals exact" || op === "not equals exact") && rawValue === null) {
+		return { conditionOperator: "is", value: op.startsWith("not ") ? "not null" : "null" };
+	}
+	if (op === "equals exact") return { conditionOperator: "equals", value };
+	if (op === "not equals exact") return { conditionOperator: "not equals", value };
+	if (op === "is") {
+		const v = value.trim().toLowerCase();
+		if (v === "defined") return { conditionOperator: "is", value: "not undefined" };
+		if (v === "empty" || v === "not empty") {
+			notes.push(`"is ${v}" became "is ${v === "empty" ? "null" : "not null"}"`);
+			return { conditionOperator: "is", value: v === "empty" ? "null" : "not null" };
+		}
+		return { conditionOperator: "is", value: v };
+	}
+	if (op === "equals" || op === "not equals" || op === "contains" || op === "does not contain") notes.push(`"${op}" is case-sensitive in v2`);
+	return { conditionOperator: op, value };
+}
+// Always-true deterministic rows, for a v1 edge that always matches.
+const ALWAYS_TRUE_FIELD = "v1_empty_group";
+function alwaysTrueRows() {
+	return [
+		{ id: randomUUID(), field: ALWAYS_TRUE_FIELD, operator: "AND", conditionOperator: "is", value: "undefined" },
+		{ id: randomUUID(), field: ALWAYS_TRUE_FIELD, operator: "OR", conditionOperator: "is", value: "not undefined" },
+	];
+}
 function edgeData(e) {
 	const d = e.data || {};
-	const detRows = Array.isArray(d.condition) ? d.condition : null;
-	if (detRows && detRows.length > 0) {
-		return {
-			mode: "deterministic",
-			label: str(d.label),
-			description: "",
-			alwaysPick: d.alwaysPick === true,
-			conditions: detRows.map((row) => ({
-				id: randomUUID(),
-				field: str(row.field),
-				operator: str(row.operator || row.conditionOperator) || "is",
-				value: str(row.value),
-			})),
-		};
+	const rows = (Array.isArray(d.condition) ? d.condition : []).filter((r) => r && typeof r === "object");
+	if (rows.length === 0) {
+		return [{ mode: "llm", label: str(d.label), description: str(d.description), alwaysPick: d.alwaysPick === true, conditions: [] }];
 	}
-	return { mode: "llm", label: str(d.label), description: str(d.description), alwaysPick: d.alwaysPick === true, conditions: [] };
+	const deterministic = (conditions) => ({ mode: "deterministic", label: str(d.label), description: "", alwaysPick: d.alwaysPick === true, conditions });
+	const joined = rows.some((r) => r.operator === "AND" || r.operator === "OR");
+	const comparisonDialect = !joined && rows.some((r) => r.isGroup === true || str(r.operator) !== "");
+	if (!comparisonDialect) {
+		return [
+			deterministic(
+				rows.map((r) => ({ id: randomUUID(), field: str(r.field), operator: r.operator === "OR" ? "OR" : "AND", conditionOperator: str(r.conditionOperator) || "equals", value: edgeValue(r.value) })),
+			),
+		];
+	}
+	// An empty isGroup block is always true in v1 (an AND over no rows), and the
+	// rows are ORed, so the whole edge always matches. A v2 deterministic edge
+	// with no rows never matches, so carry it as a pair of rows that is always
+	// true: a field that is undefined OR not undefined.
+	if (rows.some((r) => r.isGroup === true && Array.isArray(r.conditions) && r.conditions.length === 0)) {
+		warn(`edge "${str(d.label)}": an empty condition group is always true in v1, so this edge always matches; carried as "${ALWAYS_TRUE_FIELD} is undefined OR is not undefined"`);
+		return [deterministic(alwaysTrueRows())];
+	}
+	const notes = [];
+	const toRow = (r, join, i) => ({ id: randomUUID(), field: str(r.field), operator: i === 0 ? "AND" : join, ...v2Comparison(str(r.operator), r.value, notes) });
+	const orRows = [];
+	const groups = [];
+	for (const r of rows) {
+		if (r.isGroup !== true) orRows.push(r);
+		else {
+			const inner = (Array.isArray(r.conditions) ? r.conditions : []).filter((x) => x && typeof x === "object");
+			if (inner.length === 0) notes.push("a malformed condition group (no condition list) was dropped");
+			else if (inner.length === 1) orRows.push(inner[0]);
+			else groups.push(inner);
+		}
+	}
+	const branches = [...(orRows.length ? [orRows.map((r, i) => toRow(r, "OR", i))] : []), ...groups.map((g) => g.map((r, i) => toRow(r, "AND", i)))];
+	if (branches.length > 1) notes.push(`${branches.length} ORed condition blocks became parallel edges to the same step`);
+	if (notes.length) warn(`edge "${str(d.label)}": conditions were rewritten for v2: ${[...new Set(notes)].join("; ")}`);
+	return branches.map(deterministic);
 }
 
 function personaCondition(name) {
@@ -472,11 +628,49 @@ function personaCondition(name) {
 }
 
 const seenMembers = new Map();
+// ── Start = the Initialization code step ────────────────────────────────────
+// A v1 pathway whose start node is Custom Code runs that code before anyone
+// speaks. In v2 that is `initialization` (agent-scoped, on the start edge),
+// not a scenario step — it fires at connect, the hub speaks next. Carry it
+// there, and refuse a plan that also files it into a scenario.
+const startCodeNodes = mergedNodes.filter((n) => n && n.type === "Custom Code" && n.data && n.data.isStart === true);
+// Merged sources can each start with code; only one can run at connect. The
+// plan picks it with "initializationNode" (id or unique prefix); the other
+// start code nodes stay ordinary members of their scenarios.
+let startCodeNode = startCodeNodes[0] || null;
+if (plan.initializationNode) {
+	const chosen = resolveMember(plan.initializationNode);
+	startCodeNode = nodeById.get(chosen) || null;
+	if (!startCodeNode || startCodeNode.type !== "Custom Code") throw new Error(`initializationNode "${plan.initializationNode}" is not a Custom Code node`);
+} else if (startCodeNodes.length > 1) {
+	throw new Error(`${startCodeNodes.length} source pathways start with Custom Code (${startCodeNodes.map((n) => n.id).join(", ")}) — set plan.initializationNode to the one that runs at connect; the others stay scenario members`);
+}
+let initialization = null;
+if (startCodeNode) {
+	const { id: _id, position: _pos, type: _type, data } = toStep(startCodeNode);
+	initialization = { enabled: true, step: data };
+	warnings.push(`Start node "${str(startCodeNode.data.name) || startCodeNode.id}" (Custom Code) carried as initialization (runs at connect, before the first sentence); its outgoing edge(s) are the hub's to route`);
+}
+// Nodes v1 never reaches: a route's empty condition group is always true, so
+// the rules after it (and its old fallback) never fire, and a node only they
+// led to is dead in v1 as well. Those nodes are dropped, not carried as steps
+// nothing routes to, and the report lists each with its reason; the audit
+// derives the same set from the source and accepts the drop. A scenario's
+// entry step stays (the hub can enter it).
+const scenarioEntries = (plan.scenarios || []).flatMap((sc) => (sc.entryMember || (sc.members || [])[0] ? [resolveMember(sc.entryMember || sc.members[0])] : []));
+const deadInV1 = unreachableBehindEmptyGroups(mergedNodes, mergedEdges, [...scenarioEntries, ...(startCodeNode ? [startCodeNode.id] : [])]);
+const droppedUnreachable = [...deadInV1].map(([id, routeName]) => ({
+	node: id,
+	name: str((nodeById.get(id).data || {}).name),
+	reason: `unreachable in v1: route "${routeName}" has an always-true empty condition group before every way into this node`,
+}));
+for (const row of droppedUnreachable) warn(`dropped "${row.name || row.node}" (${row.node}): ${row.reason}`);
+
 const scenarioNodes = [];
 const consumedHooks = new Set();
 for (const sc of plan.scenarios || []) {
 	// members: resolve prefixes; auto-insert surgery nodes right after their host
-	const members = [];
+	let members = [];
 	for (const m of sc.members) {
 		const id = resolveMember(m);
 		members.push(id);
@@ -485,10 +679,32 @@ for (const sc of plan.scenarios || []) {
 		}
 	}
 	for (const id of members) {
+		if (startCodeNode && id === startCodeNode.id) throw new Error(`"${sc.name}" lists the Start code node ${id} as a member — it is carried as initialization automatically; remove it from members`);
 		if (seenMembers.has(id)) throw new Error(`${id} in both "${seenMembers.get(id)}" and "${sc.name}"`);
 		seenMembers.set(id, sc.name);
 	}
+	members = members.filter((id) => !deadInV1.has(id));
 	const memberSet = new Set(members);
+	// Start is the Initialization code step, not a scenario. Re-pointing the
+	// inbound edge at a scenario is the exception for CONNECTION gating — call
+	// screeners, IVR / menu navigation, voicemail detection and the voicemail
+	// message, carrier intercepts, availability checks — and needs a written
+	// reason in the plan. Such a scenario may speak for that purpose, but the
+	// call body (knowledge answers, scheduling, verification, pathway
+	// transfers, caller-chosen outcomes) is a hub child; a Start holding it
+	// is the "whole call hanging off Start" shape — refuse to build it. The
+	// step budget and the exit to the hub are audited (A1).
+	if (plan.entryScenario && sc.name === plan.entryScenario) {
+		const reason = str(plan.entryScenarioReason);
+		if (reason.length < 60) {
+			throw new Error(`entryScenario "${sc.name}": Start is the Initialization code step, not a scenario. Re-pointing the inbound edge needs plan.entryScenarioReason (≥60 chars) naming the connection gating it does (screener / IVR / voicemail / availability) — or drop entryScenario and let the hub open the call`);
+		}
+		const CORE_LOGIC_LEGACY = new Set(["Knowledge Base", "Transfer Call"]);
+		const core = members.map((id) => nodeById.get(id)).filter((n) => n && CORE_LOGIC_LEGACY.has(n.type));
+		if (core.length) {
+			throw new Error(`entryScenario "${sc.name}" holds call-body node(s): ${core.map((n) => `${str((n.data || {}).name) || n.id} (${n.type})`).join(", ")}. Start handles connection gating only (screener / IVR / voicemail / availability); knowledge answers, transfers and every caller-chosen outcome are hub children`);
+		}
+	}
 	const startPill = { id: randomUUID(), type: "start", position: { x: 0, y: 0 }, data: {} };
 	const endPill = { id: randomUUID(), type: "end", position: { x: 0, y: 0 }, data: {} };
 	const steps = members.map((id) => toStep(nodeById.get(id)));
@@ -534,7 +750,9 @@ for (const sc of plan.scenarios || []) {
 			const key = `${e.source}->${e.target}::${str((e.data || {}).label)}`;
 			if (seenPairs.has(key)) continue;
 			seenPairs.add(key);
-			flowEdges.push({ id: randomUUID(), type: "pathway", source: newIdByLegacy.get(e.source), target: newIdByLegacy.get(e.target), data: edgeData(e) });
+			for (const data of edgeData(e)) {
+				flowEdges.push({ id: randomUUID(), type: "pathway", source: newIdByLegacy.get(e.source), target: newIdByLegacy.get(e.target), data });
+			}
 		} else {
 			const label = str((e.data || {}).label);
 			const rows = exits.get(e.source) || [];
@@ -546,7 +764,7 @@ for (const sc of plan.scenarios || []) {
 	}
 	for (const id of members) {
 		const t = nodeById.get(id).type;
-		if ((t === "End Call" || t === "Transfer Call") && !exits.has(id) && !mergedEdges.some((e) => e.source === id && memberSet.has(e.target))) {
+		if ((t === "Transfer Call" || wrapUpEndCalls.has(id)) && !exits.has(id) && !mergedEdges.some((e) => e.source === id && memberSet.has(e.target))) {
 			exits.set(id, [{ label: "done", description: "" }]);
 		}
 	}
@@ -649,7 +867,7 @@ for (const k of plan.silentPills || []) {
 	if (!consumedHooks.has(`pill:${k}`)) throw new Error(`silentPills target matched no scenario member: ${k}`);
 }
 
-const uncovered = mergedNodes.filter((n) => !seenMembers.has(n.id)).map((n) => `${n.id} (${(n.data || {}).name || n.type})`);
+const uncovered = mergedNodes.filter((n) => !seenMembers.has(n.id) && !deadInV1.has(n.id) && !(startCodeNode && n.id === startCodeNode.id)).map((n) => `${n.id} (${(n.data || {}).name || n.type})`);
 if (uncovered.length > 0) warn(`NOT covered by any scenario (must each be a deliberate disposition): ${uncovered.join(", ")}`);
 
 // ── assemble ────────────────────────────────────────────────────────────────
@@ -678,7 +896,41 @@ const hub = { id: hubId, type: "agent", position: { x: 0, y: 0 }, data: { prompt
 const entryTarget = plan.entryScenario ? scenarioNodes.find((n) => n.data.name === plan.entryScenario) : null;
 if (plan.entryScenario && !entryTarget) throw new Error(`entryScenario "${plan.entryScenario}" not found`);
 
+// ── voice + language ────────────────────────────────────────────────────────
+// Carried from the source like the platform's own import: the persona's
+// call_config, or plan.voice / plan.language (e.g. read from the number the
+// pathway answers on). A canonical language code carries verbatim; the
+// legacy aliases carry as the code they stand for; blank and the "ENG"
+// unset marker carry nothing. With nothing to carry, the defaults stay and
+// settings.importWarnings says so, so the builder shows it.
+const LEGACY_LANGUAGE = { ESP: "es", POL: "pl", ITA: "it", GER: "de", FRE: "fr", PBR: "pt-BR", "EN-BETA": "auto" };
+function carriedLanguage(raw) {
+	const code = str(raw).trim();
+	if (!code || code.toUpperCase() === "ENG") return "";
+	if (LEGACY_LANGUAGE[code.toUpperCase()]) return LEGACY_LANGUAGE[code.toUpperCase()];
+	return /^[A-Za-z]{2,8}(-[A-Za-z0-9]{2,8})*$/.test(code) ? code : "";
+}
+const callConfig = (persona && persona.call_config) || {};
+// A plan field overrides the persona even when empty: "" picks the default.
+const carriedVoice = str(plan.voice !== undefined ? plan.voice : callConfig.voice).trim();
+const languageSource = plan.language !== undefined ? plan.language : callConfig.language;
+const carriedLang = carriedLanguage(languageSource);
+const importWarnings = [];
+if (!carriedVoice) {
+	const message = "the source sets no voice, so the agent uses the platform default voice; set settings.voice to a voice id";
+	warn(message);
+	importWarnings.push({ code: "voice_not_carried", message, field: "voice" });
+}
+if (!carriedLang) {
+	const message = str(languageSource).trim() && str(languageSource).trim().toUpperCase() !== "ENG"
+		? `the source language "${str(languageSource).trim()}" is not a language code, so the agent uses the default language; set settings.languages`
+		: "the source sets no language, so the agent uses the default language; set settings.languages";
+	warn(message);
+	importWarnings.push({ code: "language_not_carried", message, field: "languages" });
+}
+
 const snapshot = {
+	...(initialization ? { initialization } : {}),
 	behavior: {
 		nodes: [{ id: "inbound", type: "inbound", position: { x: 0, y: 0 }, data: { number: "" } }, hub, ...scenarioNodes, ...endCallNodes],
 		edges: [{ id: "e-inbound-agent", type: "straight", source: "inbound", target: entryTarget ? entryTarget.id : hubId, animated: true, deletable: false, selectable: false }],
@@ -686,8 +938,8 @@ const snapshot = {
 	settings: {
 		displayName: str(plan.displayName) || "Migrated agent",
 		systemPrompt: str(plan.systemPrompt),
-		voice: "",
-		languages: ["english"],
+		voice: carriedVoice,
+		languages: [carriedLang || "english"],
 		enableMemory: false,
 		tapbackReactions: false,
 		reactions: ["👍", "👎", "❤️", "😂", "‼️", "❓"],
@@ -695,6 +947,7 @@ const snapshot = {
 		backgroundNoise: "off",
 		voiceCall: { enabled: true, record: false, fallbackNumber: "", maxDurationMinutes: 30, noiseCancellation: true, ignoreButtonPress: false, requestData: [], metadata: [] },
 		webChat: { enabled: false, widgetTitle: "Support", greetingMessage: "Hi there! How can I help you today?", allowedOrigins: "" },
+		...(importWarnings.length ? { importWarnings } : {}),
 	},
 	contact: { inboundNumbers: [] },
 };
@@ -709,6 +962,7 @@ process.stdout.write(
 			out: outAbs,
 			scenarios: scenarioNodes.map((n) => ({ name: n.data.name, steps: n.data.flow.nodes.length - 2, edges: n.data.flow.edges.length })),
 			endCalls: endCallNodes.length,
+			dropped: droppedUnreachable,
 			globalPromptsFound: globalPrompts.map((g) => `${g.file} (${g.prompt.length} chars — must be inside plan.systemPrompt verbatim)`),
 			warnings,
 		},

@@ -23,6 +23,32 @@ credentials, and optional dashboard/voice bridges.
   must refresh the approved plugin revision/file inventory and test the packaged
   artifact separately. This is not an automatic deployment.
 
+## Upgrade against call outcomes
+
+Use `/norm:migrate --upgrade` to rebuild a v1 source around its business
+requirements using native v2 practices. Prompts, extraction placement and routing
+can change; exact mandated wording and integration capabilities must survive.
+Suspected policy mistakes are reported for owner review. The
+[upgrade contract](skills/v2-migration/references/outcomes-v1.md) overrides legacy
+verbatim and source-bug preservation only in this mode.
+
+State `init --upgrade` records `mode: "outcomes-v1"`. Create target-agent scenarios
+and record the complete suite with `record-evaluation --scenario <id>` (repeatable)
+before the first push. In managed runs, mirror the suite and end the turn for a
+platform checkpoint acknowledgement before pushing. Tests stay frozen for the
+whole job; correcting tests requires a new evaluation/migration run. Each scenario needs required
+`outcome:` and `conduct:` assertions; the suite needs required `recovery:` and can
+include optional `quality:` scores. Run three repetitions per scenario through
+version-pinned simulation sets. All attempts count, including earlier failures;
+changes require a new version and full sweep. Tone placeholders and unimplemented
+webhook assertions provide no evidence. Text runs leave voice/audio unverified.
+
+The local Stop hook checks mode-specific audit and advisory push/sim records;
+upgrade local readiness is recorded as `local_complete`. Managed completion
+independently verifies persisted versions and assertions.
+Without `--upgrade` (including old state without a mode), legacy migration keeps
+its existing contract. `/norm:build` is unchanged.
+
 ## Quickstart: migrate a v1 pathway
 
 One prompt does everything, including installing this plugin. You need a Bland API key for the org that owns the pathway; the pathway ID is in the pathway's URL in the dashboard. Fill in the two blanks and paste into Claude Code:
@@ -56,11 +82,12 @@ The session discovers the pathway, proposes the scenario architecture for your a
 | `/norm:build` | Build a NEW v2 agent — starts with a human-in-the-loop gate (v1 pathway or v2 agent?); v1 answers route to the v1 plugin, v2 answers load the authoring doctrine and drive design → snapshot → push → verify. |
 | `/norm:migrate` | Full v1 pathway/persona → v2 agent hand migration: discover → architect → author verbatim → audit → push → simulate. One-shot oriented; every known trap is a pre-push check. |
 | `/norm:validate` | Mechanical audit of a snapshot JSON: structure, routing-crash checks, pin presence against the v1 source, exit-label discipline. |
+| `/norm:analytics` | Analytics page work for the agent in view: build, edit or simplify the Sankey through a waypoint definition, or build a conversation cohort ("show me the calls where…") and open it on the Conversations page. |
 | `/norm:simulate` | Simulation + test-chat verification loop with safety rails for live integrations and engine-trace grading. |
 
 ## The convergence loop (enforced)
 
-`/norm:migrate` doesn't rely on the model choosing to iterate — a Stop hook gates the session until the migration is actually complete:
+The Stop hook checks the live audit and local progress records. The following diagram describes legacy migration; upgrade uses its mode-specific audit and releases as `local_complete`, subject to independent platform evaluation:
 
 ```
 author snapshot ──► gate 1: AUDIT  (hook re-runs scripts/norm-migrate-audit.cjs live:
@@ -75,9 +102,9 @@ author snapshot ──► gate 1: AUDIT  (hook re-runs scripts/norm-migrate-audi
 
 - `scripts/norm-materialize.cjs` — the deterministic BUILDER: the agent authors only judgment (a small `plan.json` — scenario membership, entries, hub + system prompt) and this script carries every byte of content from the v1 export(s) into the snapshot: prompts, extraction variables, route rules (flat = OR, isGroup = AND, fallbacks from source), transfers, webhooks, snippet pins, attached tools, automatic code-tool re-representation, id namespacing, per-label exit edges. Proven by rebuilding a shipped production migration from raw JSON alone: byte-class identical structure (same step census, same pins), passes the platform's own validator, and compiles to the identical graph (82 nodes / 143 edges) the in-repo pipeline produced.
 - **Hardening hooks in the plan** — `promptAppends`, `variableAppends`, `silentPills`: evidence-based fixes discovered during the sim loop live in plan.json (reviewable), never as hand-edits to the snapshot. `silentPills` is the construct fix for a carried silent-router that fabricates speech as an in-flow step — proven in production when escalating prompt rules failed four runs straight.
-- `scripts/norm-migrate-audit.cjs` — the deterministic checker: 20 machine checks including pin-presence against every v1 snippet/tool id, OR-collapse and null-fallback scans, code-tool re-representation, verbatim prompt carriage. No model judgment.
-- `scripts/norm-migration-state.cjs` — loop state (`.norm/migration.json`): `init` / `record-push` / `record-sims` / `ack-uncovered` / `status` / `stop`.
-- `scripts/hook-migrate-loop.cjs` — the Stop gate. Fail-soft (never wedges a session); releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — any release other than "complete" is reported as an incomplete migration.
+- `scripts/norm-migrate-audit.cjs` — the deterministic checker: machine checks including hollow by-reference tools, edge-condition vocabularies, pin-presence against every v1 snippet/tool id, OR-collapse and null-fallback scans, code-tool re-representation, verbatim prompt carriage. No model judgment.
+- `scripts/norm-migration-state.cjs` — loop state (`.norm/migration.json`): `init` / `record-evaluation` (upgrade) / `record-push` / `record-sims` / `ack-uncovered` / `status` / `stop`.
+- `scripts/hook-migrate-loop.cjs` — the Stop gate. Fail-soft (never wedges a session); releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — legacy releases other than "complete" are incomplete. Upgrade "local_complete" is advisory readiness, not platform acceptance.
 
 ## Skills (the knowledge base)
 
@@ -89,10 +116,12 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 - **evaluations** — judge identity versus rubric versions, calibration, scenario
   attachments, simulation scoring, call-cohort runs, and execution versus verdict
   failures.
+- **[analytics-authoring](skills/analytics-authoring/SKILL.md)** — the agent's analytics Sankey: waypoint groups and stages, parallel branches, the customer waypoint-definition API (read, validate, pending, preview, publish), what each view draws, and the boundary with dispositions.
+- **[analytics-cohorts](skills/analytics-cohorts/SKILL.md)**: conversation cohorts. Covers the `where` predicate grammar over lake columns, an offline predicate validator, create, poll and ids routes, the Conversations page hand-off, what a predicate cannot express, and the customer-metric routes that are not live yet.
 - **call-analysis** — bounded call retrieval, offset pagination, reproducible
   cohorts, workspace analysis, evidence-linked categories, and report artifacts.
 
-- **v2-authoring** — building NEW agents: what scenarios represent (boundaries at one-way seams), hub/entry authoring, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
+- **v2-authoring** — building NEW agents: hub-first consolidation and bounded strict business workflows, optional connection-gating Start, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
 - **[v2-maintenance](skills/v2-maintenance/SKILL.md)** — update and debug existing
   agents: minimal stable-ID edits, unsaved-draft reconciliation, concurrency
   fences, ambiguous-write recovery, exact-version tests, and lifecycle guidance.
@@ -109,6 +138,18 @@ Written for agents WITHOUT access to the Bland platform source — everything is
   policy, rollback, channel/version selection, branches, experiments, variables,
   number binding, identity, memory, library/history and migration endpoints.
   Includes an API map and separate-resource lifecycle guide.
+  Rollouts (the Experiments page) and voice selection live in its references.
+  Variables, checks and branches as workflows: `agent-environments`.
+- **[agent-environments](skills/agent-environments/SKILL.md)** — the Environments page: `{{env.KEY}}` values per environment with an unresolved-key pre-flight before a promote, the staging check policy, runs and verdicts that gate promotion (never forced), and branch, test, rebase and merge.
+- **[agent-launch](skills/agent-launch/SKILL.md)** — take an agent from built to live in the right order: knowledge, tools, voice, staging and simulations, promote, then number and channels, with a nine-item checklist and a read-only "what is left" pass.
+- **[phone-numbers](skills/phone-numbers/SKILL.md)** — who answers a number, putting an agent on a number safely (owner check, v1 cutover warning, `only_if_unassigned`), per-number live settings, blocked callers and DNC, SIP trunk diagnostics; buying, release, porting and carrier submissions are confirm-gated or handed to the dashboard.
+- **[knowledge-sources](skills/knowledge-sources/SKILL.md)** — teach the agent from a document, site or file link (ingest, poll, verify, attach by scope), test a source with answerable and absent questions, update a source by type, close the loop on unanswered questions, explain what was retrieved on a call, delete a source only after naming every agent that uses it.
+- **[agent-channels](skills/agent-channels/SKILL.md)** — publish a web chat widget, turn on API chat (it reads production, so promote), configure a number's texting, send or take over a text with a required confirm.
+- **[outbound-calls](skills/outbound-calls/SKILL.md)** — call a person or run a batch with a v2 agent: version selector and caller id echoed back, rate-limit and DNC pre-flight, one-row canary, watch and stop.
+- **[automations](skills/automations/SKILL.md)** — triggers, alerts and post-call webhooks: create inactive, test with the mock step instead of dialing, diagnose runs, resend deliveries.
+- **[tool-library](skills/tool-library/SKILL.md)** — create and prove a tool (the HTTP 0 trap), custom code saved as a pinned snippet version, change a shared tool only after finding every consumer across latest and pinned versions, debug a run from tool logs, delete a tool only after naming its consumers, secrets by id, connect or disconnect an integration with its blast radius named.
+- **[dispositions](skills/dispositions/SKILL.md)** — the Dispositions page: post-call outputs produced on every completed call, built from extractors, judges, agent variables or custom code, tested on real calls, published with a billing acknowledgement, calibrated with corrections and align, backfilled onto past calls, and migrated from v1 citations and outcomes.
+- **[triage-issues](skills/triage-issues/SKILL.md)** — file an issue from a bad call with its evidence, work and link issues, never write `@norm` into a comment.
 
 The [full v2 surface map](skills/api-workspace/references/surface-map.md) also
 indexes the complete node-family catalog, verification zones, execution phases,
