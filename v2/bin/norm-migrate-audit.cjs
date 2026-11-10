@@ -11,7 +11,7 @@
  * Usage:
  *   norm-migrate-audit.cjs --snapshot snap.json [--source v1.json]... \
  *     [--persona persona.json] [--allow-missing-fallback <routeName>]... \
- *     [--dropped-tags .norm/dropped-tags.json]   (rows: "tag" | {tag} | {node: id|name, reason}) [--json]
+ *     [--upgrade] [--dropped-tags .norm/dropped-tags.json]   (rows: "tag" | {tag} | {node: id|name, reason}) [--json]
  *
  * Check families: S (structure), R (routing crashes), P (parity with the v1
  * source), A (v2 architecture). Two checks need no source:
@@ -41,9 +41,47 @@ const personaPath = flagAll("persona")[0];
 const allowedMissingFallback = new Set(flagAll("allow-missing-fallback"));
 const droppedTagsPath = flagAll("dropped-tags")[0];
 
+const upgrade = args.includes("--upgrade");
+const upgradeSkipped = new Set(["P7", "P8", "P11", "P12", "P13", "P14", "P16", "A2", "A3"]);
 const checks = [];
 function check(id, name, passed, detail) {
+	if (id === "A2" && !sourcePaths.length && !personaPath) {
+		checks.push({ id, name, passed: true, skipped: true, detail: "Native builds may keep all conversation in the hub; scenarios require a workflow reason." });
+		return;
+	}
+	if (upgrade && upgradeSkipped.has(id)) {
+		checks.push({ id, name, passed: true, skipped: true, detail: "Not a gate in outcomes-v1; verify business requirements through the frozen evaluation suite." });
+		return;
+	}
 	checks.push({ id, name, passed: Boolean(passed), detail: detail || "" });
+}
+
+// Only an explicit active integration action proves that a tool is connection-only.
+// Unresolved library references must be materialized or replaced by a native pressButton step.
+function isConnectionToolStep(step) {
+	if (step.type !== "tool") return false;
+	const data = step.data || {};
+	const embedded = data.embeddedTool || {};
+	const definition = data.isStaging ? embedded.stagingTool : embedded.tool;
+	return definition && definition.integration === "bland" && definition.action === "press_button";
+}
+
+// Mirror the compiled attached-tool selection, including chains and active staging.
+function hasBusinessAttachedAction(step) {
+	if (!["prompt", "scenario"].includes(step.type)) return false;
+	const data = step.data || {};
+	const channel = data.channelConfig || {};
+	const variants = [data, ...(channel.shared === false ? Object.values(channel.overrides || {}).map(patch =>
+		channel.mode === "independent" ? patch : { ...data, ...patch }) : [])];
+	const connection = (wrapper, staging) => {
+		const definition = staging && wrapper?.staging_tool ? wrapper.staging_tool : wrapper?.tool || (wrapper?.name ? wrapper : null);
+		return definition?.integration === "bland" && definition?.action === "press_button";
+	};
+	return variants.some(variant => (Array.isArray(variant.tools) ? variant.tools : []).some(tool => {
+		if (tool.toolType === "track") return (tool.steps || []).some(member => !connection(member.config?.tool, member.config?.isStaging));
+		if (tool.byReference === true && tool.toolId) return true;
+		return !connection({ tool: tool.definition, staging_tool: tool.stagingDefinition }, tool.isStaging);
+	}));
 }
 
 // Does the snapshot's pin (`got`) satisfy the source's (`want`)? Pins arrive
@@ -201,6 +239,8 @@ function main() {
 			wiringIssues.push(`${d.name || s.id}: start pill has no outgoing edge`);
 		}
 		for (const step of fn) {
+			// Native code variables are input mappings, not extraction rows.
+			if (upgrade && step.type === "customCode") continue;
 			for (const row of ((step.data || {}).variables || [])) {
 				if (typeof row.type !== "string" || typeof row.accurateSpelling !== "boolean") {
 					varRowOk = false;
@@ -413,6 +453,13 @@ function main() {
 	const snapCodeStepPairs = new Set();
 	const snapWebhookUrls = new Set();
 	const snapTransferNumbers = new Set();
+	const snapToolIds = new Set();
+	const knowledgeKey = (value) => {
+		const id = typeof value === "string" ? value.trim().replace(/^kb-/i, "") : "";
+		return id.includes("{{") ? id : id.toLowerCase();
+	};
+	const snapKbIds = new Set(((snap.knowledge || {}).kbIds || []).map(knowledgeKey));
+	const snapVariableKeys = new Set();
 	(function collect(o) {
 		if (Array.isArray(o)) return o.forEach(collect);
 		if (!o || typeof o !== "object") return;
@@ -420,6 +467,21 @@ function main() {
 		if (typeof o.snippetId === "string") {
 			snapPinPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
 			snapCodeStepPairs.add(`${o.snippetId}@${o.snippetVersion ?? ""}`);
+		}
+		if (o.data && typeof o.type === "string") {
+			for (const tool of o.data.tools || []) {
+				if (tool.toolType === "track") {
+					for (const member of tool.steps || []) {
+						const id = ((member.config || {}).tool || {}).tool_id;
+						if (typeof id === "string") snapToolIds.add(id);
+					}
+				} else if (typeof tool.toolId === "string") snapToolIds.add(tool.toolId);
+			}
+			if (o.type === "tool" && typeof o.data.toolId === "string") snapToolIds.add(o.data.toolId);
+			if (o.type === "knowledge") for (const id of o.data.kbIds || []) snapKbIds.add(knowledgeKey(id));
+			if (o.type !== "customCode") {
+				for (const row of o.data.variables || []) if (typeof row.type === "string" && typeof row.key === "string") snapVariableKeys.add(row.key);
+			}
 		}
 		if (typeof o.captureAs === "string" && typeof o.key === "string") bump(snapCaptureAs, `${o.key}=${o.captureAs}`);
 		if (o.type === "webhook" && o.data && typeof o.data.url === "string") snapWebhookUrls.add(o.data.url);
@@ -451,7 +513,7 @@ function main() {
 		})(src);
 		const toolIds = new Set(srcText.match(/TL-[0-9a-f-]{8,}/g) || []);
 		for (const tid of toolIds) {
-			if (!snapText.includes(tid)) missingTools.push(tid);
+			if (upgrade ? !snapToolIds.has(tid) : !snapText.includes(tid)) missingTools.push(tid);
 		}
 		for (const n of src.nodes || []) {
 			const nd = (n && n.data) || {};
@@ -462,7 +524,7 @@ function main() {
 				if (t.type === "code" && t.config && t.config.snippet_id) {
 					// must exist as a customCode STEP with the same id+version pair
 					const pair = `${t.config.snippet_id}@${t.config.snippet_version ?? ""}`;
-					if (!snapCodeStepPairs.has(pair)) codeToolsAsTools.push(`${nd.name || n.id}: ${t.name} not re-represented as code step (pair ${pair.slice(0, 12)}…)`);
+					if (!(upgrade ? snapPinPairs : snapCodeStepPairs).has(pair)) codeToolsAsTools.push(`${nd.name || n.id}: ${t.name} not re-represented as code step (pair ${pair.slice(0, 12)}…)`);
 				}
 			}
 			// v1 capture settings ({variable: target}) carry as the variable
@@ -495,7 +557,7 @@ function main() {
 		check("P2", "every source TL- tool id present", missingTools.length === 0, missingTools.join(", "));
 		check("P3", "every transfer number present on a transfer step", missingNumbers.length === 0, missingNumbers.join(", "));
 		check("P4", "every webhook URL present on a webhook step", missingUrls.length === 0, missingUrls.join("; "));
-		check("P5", "code-type attached tools re-represented as code steps", codeToolsAsTools.length === 0, codeToolsAsTools.join("; "));
+		check("P5", upgrade ? "code-type attached tools retain snippet pins (SERVER verifies executable definitions)" : "code-type attached tools re-represented as code steps", codeToolsAsTools.length === 0, codeToolsAsTools.join("; "));
 		check("P7", "global/persona prompt carried verbatim", promptContained, promptDetail);
 		// A v1 End Call with a code tool migrates as a wrap-up step that
 		// returns to the hub (an end-call step cannot run a snippet), so that
@@ -515,13 +577,14 @@ function main() {
 		// every End Call except the one kind an end-call step cannot express.
 		check(
 			"P10",
-			"a v1 End Call with a code tool has a root end-call to hang up after it",
-			wrapUpEndCalls.length === 0 || rootEndCall,
+			upgrade ? "a v1 End Call with a code tool retains termination (verify the lane in simulations)" : "a v1 End Call with a code tool has a root end-call to hang up after it",
+			wrapUpEndCalls.length === 0 || rootEndCall || (upgrade && reachableNestedEndCall),
 			wrapUpEndCalls.slice(0, 5).join(", "),
 		);
 		for (const [pair, want] of srcCaptureAs) {
 			const got = snapCaptureAs.get(pair) || 0;
-			if (got < want) missingCapture.push(`${pair} on ${got} of ${want} steps`);
+			const needed = upgrade ? 1 : want;
+			if (got < needed) missingCapture.push(`${pair} on ${got} of ${needed} steps`);
 		}
 		check("P9", "every v1 capture setting carried as captureAs", missingCapture.length === 0, missingCapture.slice(0, 5).join(", "));
 	}
@@ -587,6 +650,7 @@ function main() {
 		const missEdge = [];
 		const missVar = [];
 		const missKb = [];
+		const missContractVar = [];
 		const missGlobal = [];
 		// Nodes v1 itself never reaches (behind a route's always-true empty
 		// condition group) are dropped by the builder; the source proves it, so
@@ -605,6 +669,15 @@ function main() {
 			for (const n of nodes) nameCount.set(norm(n.data.name), (nameCount.get(norm(n.data.name)) || 0) + 1);
 			for (const n of nodes) {
 				const d = n.data;
+				// Upgrade may merge or replace the node; its capabilities still count.
+				if (upgrade) {
+					const kb = [...(Array.isArray(d.kbTool) ? d.kbTool : d.kbTool ? [d.kbTool] : []), ...(d.kbIds || d.kb_ids || [])];
+					for (const id of kb) if (typeof id === "string" && id && !snapKbIds.has(knowledgeKey(id))) missKb.push(`${d.name || n.id}:${id}`);
+					for (const row of d.extractVars || []) {
+						const key = Array.isArray(row) ? row[0] : row && row.name;
+						if (typeof key === "string" && key && !snapVariableKeys.has(key)) missContractVar.push(`${d.name || n.id}.${key}`);
+					}
+				}
 				const steps = stepsFor(d);
 				if (steps.length === 0 && n.type === "Custom Code" && initCarries(d)) {
 					carriedNode.set(n.id, true);
@@ -648,7 +721,7 @@ function main() {
 					if (!onStep) missVar.push(`${d.name || n.id}.${key}`);
 				}
 				const kb = Array.isArray(d.kbTool) ? d.kbTool : d.kbTool ? [d.kbTool] : [];
-				for (const id of kb) if (typeof id === "string" && id && !snapText.includes(id)) missKb.push(`${d.name || n.id}:${id.slice(0, 8)}`);
+				for (const id of kb) if (!upgrade && typeof id === "string" && id && !snapText.includes(id)) missKb.push(`${d.name || n.id}:${id.slice(0, 8)}`);
 				if (d.isGlobal === true) {
 					if (!carried(d.globalLabel)) missGlobal.push(`${d.name || n.id} label`);
 					if (!carried(d.globalDescription)) missGlobal.push(`${d.name || n.id} description`);
@@ -672,6 +745,7 @@ function main() {
 		check("P13", "every LLM-routed v1 edge description carried verbatim (deterministic edges route on conditions)", missEdge.length === 0, missEdge.slice(0, 5).join("; "));
 		check("P14", "every v1 extraction variable carried on the same step", missVar.length === 0, missVar.slice(0, 6).join(", "));
 		check("P15", "every v1 knowledge-base id carried", missKb.length === 0, missKb.slice(0, 6).join(", "));
+		if (upgrade) check("P17", "every extraction contract key has a native variable row (location may change)", missContractVar.length === 0, missContractVar.slice(0, 6).join(", "));
 		check("P16", "every v1 global node trigger (label + description) carried verbatim", missGlobal.length === 0, missGlobal.slice(0, 6).join(", "));
 	}
 
@@ -791,16 +865,23 @@ function main() {
 		// core-logic step types, ≤ 1/3 of all steps (a Start of ≤4 steps is
 		// always within budget — small pathways skew the share), and an exit
 		// to the hub.
-		if (entryTarget && entryTarget.type !== "agent") {
-			const st = flowSteps(entryTarget);
-			const core = st.filter((x) => CORE_LOGIC.has(x.type));
-			const share = totalSteps ? st.length / totalSteps : 0;
-			const hasExit = exitReachable(entryTarget);
+		const hubNode = nodes.find(n => n.type === "agent");
+		const initConfig = snap.initialization || {};
+		const autoIds = new Set([entryTarget?.id, ...(upgrade ? [hubNode?.data?.entryScenarioId] : []),
+			...(upgrade && initConfig.enabled === true && initConfig.step?.snippetId ? (initConfig.routes || []).filter(r => String(r.key || "").trim()).map(r => r.targetId) : [])]);
+		const autoFlows = nodes.filter(n => autoIds.has(n.id) && n.type !== "agent");
+		if (autoFlows.length) {
 			const problems = [];
+			for (const automatic of autoFlows) {
+			const st = flowSteps(automatic);
+			const core = st.filter((x) => CORE_LOGIC.has(x.type) || (upgrade && ["webhook", "tool", "customCode"].includes(x.type) && !isConnectionToolStep(x)) || (upgrade && hasBusinessAttachedAction(x)));
+			const share = totalSteps ? st.length / totalSteps : 0;
+			const hasExit = exitReachable(automatic);
 			if (core.length) problems.push(`core-logic step(s) in Start: ${core.map((x) => `${name(x)} (${x.type})`).slice(0, 4).join(", ")} — knowledge, scheduling, verification and transfers (department handoffs included) are hub children`);
-			if (st.length > 4 && share > 1 / 3) problems.push(`${st.length}/${totalSteps} steps (${Math.round(share * 100)}%) in Start — budget is a third; Start handles screeners / voicemail / IVR / availability, the call body is the hub's`);
+			if (!upgrade && st.length > 4 && share > 1 / 3) problems.push(`${st.length}/${totalSteps} steps (${Math.round(share * 100)}%) in Start — budget is a third; Start handles screeners / voicemail / IVR / availability, the call body is the hub's`);
 			if (!hasExit) problems.push("no exit pill — the call can never reach the hub");
-			check("A1", "Start scenario holds only connection gating (no knowledge/scheduling/verification/transfer steps; ≤ a third of steps; exits to hub)", problems.length === 0, `"${name(entryTarget)}": ${problems.join("; ")}`);
+			}
+			check("A1", "Automatic entry holds only connection gating and returns to the hub", problems.length === 0, problems.join("; "));
 		} else {
 			check("A1", "Start scenario holds only connection gating", true, "inbound edge targets the hub");
 		}
@@ -809,7 +890,7 @@ function main() {
 		// be at least two hub-enterable siblings (scenarios or root end-calls),
 		// and no single flow may hold more than 60% of all steps.
 		// (No size cap on a single task scenario: v2-authoring allows one
-		// continuous task behind a thin hub; caller CHOICES are what must not
+		// strict workflow with focused steps; caller CHOICES are what must not
 		// live inside it, and that is a region-map judgment, not a step count.)
 		const siblings = nodes.filter((n) => (n.type === "scenario" || n.type === "complex-scenario" || n.type === "end-call") && (!entryTarget || n.id !== entryTarget.id));
 		check("A2", "intents are hub children (≥2 hub-enterable siblings beside Start)", siblings.length >= 2, `${siblings.length} sibling(s)`);
@@ -882,7 +963,7 @@ function main() {
 				// with its tag.
 				const unreachable = unreachableBehindEmptyGroups(src.nodes, src.edges);
 				for (const n of src.nodes || []) {
-					if (n && unreachable.has(n.id)) continue;
+					if (!upgrade && n && unreachable.has(n.id)) continue;
 					const t = ((n && n.data) || {}).tag;
 					if (t && typeof t.name === "string" && t.name.trim()) srcTags.add(t.name.trim());
 				}
@@ -897,8 +978,8 @@ function main() {
 			// Tags on nodes the report DROPS (with reachability evidence) are
 			// declared in --dropped-tags <json: [{"tag","reason"}] or ["tag"]>;
 			// the hook passes .norm/dropped-tags.json when present.
-			const missingTags = [...srcTags].filter((t) => !snapTags.has(t) && !declaredDropTags.has(t));
-			check("A6", "every v1 node tag carried as settings.tag (or declared dropped in --dropped-tags)", missingTags.length === 0, missingTags.join(", "));
+			const missingTags = [...srcTags].filter((t) => !snapTags.has(t) && (upgrade || !declaredDropTags.has(t)));
+			check("A6", upgrade ? "every v1 node tag carried as settings.tag, including rewritten/dropped nodes" : "every v1 node tag carried as settings.tag (or declared dropped in --dropped-tags)", missingTags.length === 0, missingTags.join(", "));
 		}
 	}
 

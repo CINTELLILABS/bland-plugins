@@ -29,51 +29,62 @@ Before changing apparently disconnected JSON, read the
 
 ## What a scenario represents (the core design decision)
 
-A scenario is a **self-contained job with a deliberate entry**: ordinary entry
-through its wrapper resolves the Start pill's outgoing edge, not array order.
-Keep tightly interleaved phases together. Do not assume arbitrary mid-flow entry
-or force every exit through the hub; globals and explicit routes require their
-own mapping and trace verification.
+The hub is the conversational home. Keep most business logic, questions,
+knowledge answers, simple tool actions, intent changes and follow-ups there.
+Multiple caller goals may share the hub. Consolidate as far as required behavior
+allows; do not build a node per question, tool call, department or test case.
 
-Boundary rule: **draw scenario boundaries only at one-way seams.**
-- Separate departments/tasks that never loop into each other mid-conversation → one scenario each (an insurance triage agent: Sales, Customer Service, Claims).
-- Phases that interleave (collect ↔ resolve ↔ schedule with "actually, different
-  vehicle" jumps) → ONE scenario containing all of them. Ordinary wrapper entry
-  follows the configured Start edge; splitting a loop across scenarios does not
-  preserve an arbitrary mid-flow resume point.
-- Reference content is knowledge, not a scenario. FAQs, policies, hours,
-  pricing, product facts: when answering only reads facts (no tool, no
-  variable write, no outcome of its own), the content goes into a knowledge
-  source, and many topics share one source. Never one scenario per FAQ topic.
-  A topic earns a scenario only when it needs its own steps, tools, writes,
-  or exit. Where to attach the source: agent-wide `knowledge.kbIds` for
-  reference any phase may need; a `knowledge` step when a phase must always
-  consult it. Inbound phone calls, test chat and simulations may not consult
-  agent-wide sources, so an inbound voice agent answers questions from one
-  "Answer questions" scenario holding a single `knowledge` step
-  ([how knowledge reaches a call](../knowledge-sources/references/how-it-works.md)).
-- Scenario count is not a quality metric. A single-scenario agent with a thin hub is correct when the call is one continuous task. The hub still buys you: root end-call semantics, a fixed entry pathway when every call opens the same way, and additive growth (new lanes later = new scenarios, no surgery).
+A scenario normally holds a bounded business workflow that needs strict ordered behavior:
+for example scheduling (check availability, confirm, book) or complex identity
+verification. Its steps exist to enforce a prerequisite, action, decision or
+recovery boundary. Tool use alone does not require a scenario. For each separate
+conversational node, name the required ordered permission/action boundary that a
+supported hub tool guard cannot enforce, or show repeated comparative evidence
+that the split improves reliability. Ordinary status lookups and simple actions
+stay in the hub by default, including speaking approved tool-returned wording.
 
-Entries are routing contracts for eligible generated routes from the hub and
-root siblings. Write concrete, mutually-distinguishing criteria, not marketing
-copy. Explicit incoming routes change auto-entry eligibility. Preserve one
-intent per exit edge on the way out.
+Before splitting a hub that seems dense, remove duplicate instructions, clarify
+tools and state, and move reference material into correctly scoped knowledge.
+Density alone is not evidence. Compare an optional split with the consolidated
+version on the same frozen cases, request fixtures, tool-response conditions and
+judges, with at least three runs per case on each exact version. Report every
+attempt, required outcome/conduct regressions and the specific failure improved.
+Until then the split is provisional. Keep the simpler design when results are
+comparable; a mandatory permission or write boundary does not wait for a failure
+before being enforced.
+
+Reference content belongs in knowledge sources: FAQs, policies, hours, pricing
+and product facts can share a source; never create a scenario per FAQ topic.
+Use agent-wide `knowledge.kbIds` for reference any phase may need, and a
+`knowledge` step when a workflow must consult it. Verify retrieval on every
+required channel before relying on agent-wide references. Older runtimes may
+need a tested knowledge-step fallback; report that limitation explicitly
+([how knowledge reaches a call](../knowledge-sources/references/how-it-works.md)).
+
+On completion, return to the hub for the next caller need. For an intent change,
+exit safely, preserve collected information and resolve unfinished work. An FAQ
+need not exit a workflow. Re-entry follows the configured Start edge; explicitly
+persist and test any resume state instead of assuming a saved program counter.
+Never disable the hub by sending every call into one catch-all scenario.
 
 ## Standard skeleton for a new agent
 
-1. **Start** (only if something must happen before the hub routes): pick one row from the table below. Most agents need none.
-2. **Hub**: thin. Greeting/persona live in systemPrompt or the entry flow; hub prompt = routing rules only ("route between turns; the scenarios own all tool/system lookups, transfers and closes; never handle content at the hub") — reference questions are answered from knowledge sources per the boundary rule, not by a scenario per topic + hard rules SCOPED to what they protect.
-3. **Scenarios** per the boundary rule, each: entry description → steps → one exit edge per distinct outcome.
-4. **Root end-calls**: "End call — goodbye" + "End call — silent" (for after a flow already spoke its close). In-flow goodbyes can be wrap-up steps; verify continuation reaches a real termination action instead of assuming a fixed extra turn.
+1. **Start:** empty by default. Use only when necessary for call screening or
+   automated pickup/IVR navigation. It hands control to the hub once connected.
+2. **Hub:** owns ordinary conversation and simple business actions. Explicitly
+   route into a strict workflow when eligible; do not duplicate that workflow's
+   protected actions in hub prose or promise success without tool evidence.
+3. **Scenarios:** bounded workflows that need strict steps, or boundaries with
+   demonstrated reliability benefits under the comparison above. State each
+   one's justification, entry, outcome, state, cancellation/failure exits and
+   return to hub.
+4. **End call:** a real termination action when the caller is finished. Workflow
+   completion alone is not a reason to hang up.
 
-| Need | Use |
-|---|---|
-| Run code before anyone speaks | `initialization`: a pinned snippet; optional `routes` open a root scenario on a returned value |
-| Always open in one pathway | `entryScenarioId` on the hub (a root `complex-scenario`); it returns to the hub when done |
-| Gate the connection (screener, IVR) | Start's slot: point the `inbound` edge at that node |
-
-They run in that order. Never ask the hub to stay silent by prompt. Rules are
-in the [snapshot skill](../v2-snapshot/SKILL.md#where-a-call-starts).
+Initialization is separate pre-answer setup: use a pinned snippet only when
+required before speaking. Do not move the call body into initialization routes,
+Start, or `entryScenarioId`. These are runtime mechanisms, not shortcuts around
+the hub-first design. Keep global facts and conduct in their supported scopes.
 
 ## The standard conduct-rule set (systemPrompt)
 
