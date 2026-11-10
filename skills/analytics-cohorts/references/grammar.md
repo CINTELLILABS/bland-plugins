@@ -1,9 +1,8 @@
 # The `where` predicate grammar
 
-`predicate.where` on `POST /v2/analytics/cohorts` is a tree of nodes. The
-offline checker `scripts/validate-predicate.cjs` applies every rule on this
-page. The API stays the authority when its allowlist moves ahead of the
-packaged copy.
+`predicate.where` on `POST /v2/analytics/cohorts` is a tree of nodes. The API
+applies every rule on this page and stays the authority when its allowlist
+moves ahead of the packaged copy.
 
 ## Nodes
 

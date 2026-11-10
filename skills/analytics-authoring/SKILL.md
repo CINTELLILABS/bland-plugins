@@ -47,8 +47,9 @@ route searches or unrelated APIs.
    stages unless asked otherwise, exact member ids, plumbing left out, siblings
    sharing a `stage` for parallel branches, stable ids when only relabeling.
    Caps: at most 7 groups, each member in exactly one group, stages dense from 1.
-5. **Validate offline** with `node ${CLAUDE_PLUGIN_ROOT}/skills/analytics-authoring/scripts/validate-definition.cjs <definition.json> <members.json>`
-   (in this skill). Fix every named violation before the first write.
+5. **Check before writing** against the rules in
+   [contract](references/contract.md) and the member list from the read. Fix
+   every violation before the first write.
 6. **Save pending** (PUT `…/pathway/definition/pending`) with
    `expected_fingerprint` from the read. A 422 names ids to fix; a 409 means the
    pin moved: read the definition again, then resend.

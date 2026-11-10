@@ -6,7 +6,7 @@ resume it without changing acceptance criteria. Native `/norm:build` shares the
 hub-first authoring guidance, not this upgrade acceptance contract.
 
 This contract overrides conflicting verbatim-carriage, source-bug-preservation,
-scenario-count, hub-shape, materializer-only authoring and retry-to-green guidance
+scenario-count, hub-shape, converter-only authoring and retry-to-green guidance
 in `v2-migration`, its traps, `/norm:migrate`, `/norm:validate`, and `/norm:simulate`.
 Read those references for dialect, capabilities and runtime traps, plus
 `v2-authoring`, `v2-snapshot`, `v2-runtime`, and `v2-testing`. Apply native authoring
@@ -49,7 +49,7 @@ until the authorized secure replacement pin and its contract have been verified.
 Design a native v2 agent around that map. Rewrite prompts, merge repetitive
 questions, move extraction, and change scenario boundaries and routing where they
 improve calls. Preserve mandated wording and integration contracts. Use the
-materializer as a starting point when useful; editing the snapshot directly is
+platform converter as a starting point when useful; editing the snapshot directly is
 allowed in this mode. Scenario counts and an arbitrary hub layout are not proof
 of quality. Keep reachable termination, safe routing and valid native structures.
 Configure native capture fields (including `captureAs` and applicable capture
@@ -57,14 +57,17 @@ settings) before the final candidate push. Avoid redundant prompt-driven readbac
 when native capture handles confirmation. Evaluate the final capture configuration
 on that exact version; do not append an automatic capture edit after scoring.
 
-Run the audit with `--upgrade`. Checks P7, P8, P11, P12, P13, P14, P16, A2 and
-A3 are explicitly skipped. A1 remains mandatory: every automatic entry path
+Run `/norm:validate` in upgrade mode. These checks are explicitly skipped:
+verbatim carriage of the global/persona prompt, persona conditions, node prompts,
+hold conditions, LLM-routed edge descriptions and global-node triggers; each
+extraction variable staying on the same step; the two-hub-siblings rule; and
+root end-call reachability. The Start-scenario rule remains mandatory: every automatic entry path
 (inbound, entryScenarioId, initialization routes) is connection gating only.
 Upgrade mode imposes no step-count ratio or minimum scenario count. Capability checks remain: source pins/tools/transfers/
-webhooks/code tools (P1–P5), KB IDs (P15), and tags (A6), including capabilities on
+webhooks/code tools, KB IDs, and tags, including capabilities on
 renamed, merged or dropped source nodes. A dropped-node declaration cannot excuse
-lost capabilities. P9 preserves each distinct variable-to-capture mapping once;
-P17 preserves extraction keys without fixing their step location. P10 accepts
+lost capabilities. Preserve each distinct variable-to-capture mapping once, and
+preserve extraction keys without fixing their step location. Accept
 reachable in-flow termination as well as root termination; simulations must prove
 the actual terminal lane. Structural and routing checks still apply.
 
@@ -80,9 +83,8 @@ snapshot JSON:
 | P20 | A reachable transfer retains its destination and transport settings, including applicable warm-transfer behavior. |
 | P21 | A reachable SMS step retains its message and sender. |
 
-Local `norm-migrate-audit.cjs --upgrade` is a weaker advisory check and does not
-implement every SERVER compiled-contract check. A green local audit is not
-platform acceptance. The design checks in
+A green local `/norm:validate` is a weaker advisory check and does not
+cover every SERVER compiled-contract check. It is not platform acceptance. The design checks in
 [upgrade-design-v1.md](upgrade-design-v1.md) and frozen evaluation evidence are
 additional requirements, not substitutes for executable capability checks.
 
@@ -95,11 +97,10 @@ leakage. Ordinary goals may share the hub. Strict workflows retain separate
 conversational ownership; optional boundaries require the comparative evidence in
 the design reference. No goal needs an artificial split. Unresolved scope prevents completion.
 
-After every candidate push, run `record-design --file design.json` with the
-returned `head_version_id` and mirror `state.design` into managed state. Run the audit and mirror the design before simulations. End the managed turn
+After every candidate push, store the design map with the returned
+`head_version_id` as `design` in `.norm/migration.json` and mirror it into managed state. Run `/norm:validate` and mirror the design before simulations. End the managed turn
 for platform preflight; repair architecture or capability failures before
-spending on the frozen repeated suite. The local
-hook checks current-head metadata; the platform verifies the compiled design.
+spending on the frozen repeated suite. The platform verifies the compiled design.
 Metadata does not prove semantic coverage: review the source classification and
 run assertions proving answers, continuation and absence of scoped leakage.
 
@@ -118,17 +119,8 @@ numeric quality results are reported as unscored. A tone placeholder or an unimp
 is not evidence. Meaningful criteria must explain success and failure, including
 the customer's specific outcome and conduct requirements.
 
-Initialize and record the complete suite before pushing the first candidate:
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migration-state.cjs init \
-  --upgrade --snapshot snapshot.json --source v1-export.json --agent <agentId>
-node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migration-state.cjs record-evaluation \
-  --scenario <scenarioId> --scenario <anotherScenarioId>
-node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migrate-audit.cjs \
-  --upgrade --snapshot snapshot.json --source v1-export.json
-```
-
+Create the loop state (`/norm:migrate` → the convergence loop) and record the
+complete suite before pushing the first candidate, then run `/norm:validate`.
 The state contains `mode: "outcomes-v1"` and
 `evaluation: {"scenario_ids": ["..."]}`. Keep this in the managed runner's mirrored
 `.norm/migration.json` too. The platform freezes the first valid list in its
@@ -162,13 +154,11 @@ version. If a fixture or assertion was wrong, report the invalidated evidence an
 new evaluation/migration run with the corrected suite. A new candidate version
 alone does not authorize editing the frozen tests.
 
-`record-sims --head <versionId> --passed true|false` is a local advisory record.
-The Stop hook checks the live audit, local push freshness, current-head design
-metadata and that sim record; it does not independently retrieve or verify
-assertion evidence or establish semantic requirement coverage. Managed completion is
-subject to the platform's independent checks of the frozen suite and all
-persisted attempts. The hook records `released: "local_complete"` in upgrade mode: local readiness is
-not proof of platform acceptance.
+The `sims` record in `.norm/migration.json` is a local advisory record; it does
+not verify assertion evidence or establish semantic requirement coverage.
+Managed completion is subject to the platform's independent checks of the frozen
+suite and all persisted attempts. Set `released: "local_complete"` in upgrade
+mode: local readiness is not proof of platform acceptance.
 
 ## Good and bad call benchmark
 

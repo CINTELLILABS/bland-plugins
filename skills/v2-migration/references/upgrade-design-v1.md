@@ -133,7 +133,7 @@ Do not force terminal handoffs or hangups back through a speaking hub turn.
 
 For each selected agent scenario, the brief states its entry, owned outcome,
 working state, completion/failure exits and its required-control or measured-
-reliability justification. The brief is review evidence; the structural audit
+reliability justification. The brief is review evidence; passing `/norm:validate`
 does not establish that the justification is true.
 For each internal step state its distinct purpose; combine consecutive prompt
 steps when separation adds no state, action, permission or recovery benefit.
@@ -236,19 +236,14 @@ source knowledge capability and classify its scope with evidence:
   the upgrade. Neither a start-node flag nor a global-node flag alone establishes
   conversation-wide knowledge. Never lift KBs automatically.
 
-After each push, save the map as `design.json` with that exact returned head and
-record it:
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migration-state.cjs record-design --file design.json
-```
-
-The command stores `state.design`; mirror it into the managed runner's
-`.norm/migration.json` too. A new push requires design evidence for the new head.
-Before simulations, run the architecture/capability audit and record the exact
-candidate design. End the managed turn so the platform can verify it before
-launching the frozen suite. The local hook checks the head and arrays and blocks
-unresolved knowledge. The
+After each push, set the map's `head_version_id` to that exact returned head and
+store it as `design` in `.norm/migration.json` (mirror it into the managed
+runner's copy too). It needs a non-empty `responsibilities` array and a
+`knowledge` array. A new push requires design evidence for the new head.
+Before simulations, run the `/norm:validate` architecture and capability checks
+and record the exact candidate design. End the managed turn so the platform can
+verify it before launching the frozen suite. Do not launch while any knowledge
+scope is unresolved. The
 platform authoritatively verifies source coverage, compiled reachability,
 hub ownership, bounded workflow separation, scoped retrieval options, root knowledge and frozen
 scenario references. Metadata alone does not establish semantic coverage:

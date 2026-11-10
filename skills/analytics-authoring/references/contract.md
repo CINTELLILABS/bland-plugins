@@ -114,8 +114,8 @@ group id, or `#definition` for whole-definition rules.
 | `stage_not_dense` | Stages in use must be 1..N with no gap. Renumber. |
 
 Loop: read the violations, fix exactly the named ids, resend the same route.
-The offline checker `scripts/validate-definition.cjs` applies these rules to a
-definition and a saved `members` list so most loops never reach the API.
+Check a definition against these rules and the read's `members` list before
+the first write so most loops never reach the API.
 
 ## Preview
 

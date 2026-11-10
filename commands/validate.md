@@ -2,9 +2,7 @@
 description: Audit a v2 agent snapshot before saving — schema, references, routing hazards, and tool pins; apply migration-specific architecture and carriage checks only to migrations.
 argument-hint: "<path to snapshot JSON (and optionally the v1 source JSON to audit against)>"
 allowed-tools:
-  - "mcp__plugin_norm_bland__*"
   - "Read"
-  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migrate-audit.cjs *)"
   - "Glob"
   - "Grep"
 ---
@@ -47,7 +45,7 @@ The SERVER design gate also binds hub ownership to reachable compiled nodes.
 3. Every `complex-scenario` has the required entry/name/flow fields for the supported schema. Each flow's Start edge targets its intended entry. Start-first/End-last array ordering is an authoring convention, not executable entry selection.
 4. Every node, flow node, edge, rule, condition, and variable row has a unique `id`. No duplicate ids anywhere in the document.
 5. Every flow edge's `source`/`target` exist in that flow; every route `targetNodeId`/`fallbackNodeId` exists in that flow.
-6. For migration doctrine, require an `end-call`: at the root, or as a step inside a flow that its Start can reach (a v1 End Call migrates to the in-flow form). A flow that returns to the hub so it can route onward needs no hang-up of its own. The exception is a v1 End Call with a code tool, which migrates as a wrap-up step that returns to the hub: it needs a root `end-call` (audit P10). Otherwise verify the intended termination action/continuation; a missing root end-call is not a failure.
+6. For migration doctrine, require an `end-call`: at the root, or as a step inside a flow that its Start can reach (a v1 End Call migrates to the in-flow form). A flow that returns to the hub so it can route onward needs no hang-up of its own. The exception is a v1 End Call with a code tool, which migrates as a wrap-up step that returns to the hub: it needs a root `end-call`. Otherwise verify the intended termination action/continuation; a missing root end-call is not a failure.
 
 ## Routing-crash checks
 
@@ -58,14 +56,11 @@ The SERVER design gate also binds hub ownership to reachable compiled nodes.
    Being first in the array or having an inbound edge is not proof: an isolated
    cycle can satisfy both. Consult the
    [builder/runtime mapping](../skills/v2-runtime/references/builder-runtime-map.md).
-   The bundled migration script's incoming-target check is only a structural
-   heuristic, not this full analysis. Report unsupported validation separately;
+   Report unsupported validation separately;
    do not add cosmetic edges to silence it or call an unresolved check passed.
 10. Steps with no outgoing edge and no route onward must be intentional terminals (wrap-ups before the end pill count only via their exit edge).
 
-The audit script checks the next one mechanically.
-
-27. **Deterministic edge rows** (audit R5, needs no source): every row of a deterministic edge or entry has `operator` `AND` or `OR` (the join to the previous row) and `conditionOperator` one of `contains`, `does not contain`, `equals`, `not equals`, `greater than`, `less than`, `is`. A comparison written into `operator` saves cleanly and never matches. Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/norm-migrate-audit.cjs --snapshot <file>` and read R5's detail line.
+27. **Deterministic edge rows** (needs no source): every row of a deterministic edge or entry has `operator` `AND` or `OR` (the join to the previous row) and `conditionOperator` one of `contains`, `does not contain`, `equals`, `not equals`, `greater than`, `less than`, `is`. A comparison written into `operator` saves cleanly and never matches. Check every row.
 
 ## Content carriage (when the v1 source is provided)
 
@@ -80,13 +75,11 @@ The audit script checks the next one mechanically.
 16. Every attached tool has `toolType` `custom_tool` or `track`, and responsePathways rows use the field skew correctly (`label`=trigger, `variable`=operator, `condition`=value) with resolvable `targetId`s (empty target = continue, must be intentional).
 17. No unknown/extra keys on tool objects.
 
-The audit script checks the next one mechanically.
-
-28. **No hollow tools** (audit S9, needs no source): a tool with a `toolId` either has `byReference: true` (the library tool runs by id; node overrides go in `toolOverrides`) or embeds a full definition with a `description` and a `body`. A stand-in definition runs instead of the library tool and does nothing.
+28. **No hollow tools** (needs no source): a tool with a `toolId` either has `byReference: true` (the library tool runs by id; node overrides go in `toolOverrides`) or embeds a full definition with a `description` and a `body`. A stand-in definition runs instead of the library tool and does nothing.
 
 ## v2 architecture (migration doctrine — FAIL, not warn)
 
-These six have a deterministic twin in `scripts/norm-migrate-audit.cjs` (checks A0–A6: start code → initialization, Start scenario = connection gating + budget + exit, hub siblings, root end-call reachability, hold escapes, parking lots, tags). The migration Stop hook runs that audit on every stop attempt, so a snapshot that fails them cannot be released — read the audit's detail line and re-architect, do not argue with it.
+Check each of these against the snapshot JSON itself, not from memory of what you authored. A snapshot that fails any of them is not ready to push — re-architect, do not argue with the check.
 
 20. **Start is the Initialization code step; a Start scenario handles connection gating only.** When the v1 start node is Custom Code it must appear as `initialization` (enabled, same snippet pin) — not as a step inside a scenario — and the inbound edge targets the hub. If the inbound edge targets a scenario instead, that scenario needs a written reason in the plan and may hold only connection gating — call screeners, IVR / menu navigation, voicemail detection and message, carrier intercepts, availability checks — which it may speak for. No knowledge, scheduling, verification (OTP / identity), transfer or pathway-transfer steps, ≤ a third of all steps (a Start of four steps or fewer is always within budget), and an exit to the hub. The call body — questions, offers, caller-chosen outcomes — in Start is the call captive in one flow with the hub switched off — FAIL and re-architect.
 21. **Intents are hub children.** Each caller-chosen outcome (qualify / callback / transfer / not interested / opt out, or the source's equivalents) is a sibling scenario or root `end-call` with its own entry. Choices *inside one continuous task* ("actually, a different vehicle", reschedule, pick a plan) stay in that task's scenario: entering another scenario restarts it at its Start, so splitting a loop across scenarios loses the caller's place. A flow whose internal edges carry caller OUTCOMES (not sequence or in-task choices) is a v1 pathway in a v2 costume — FAIL and re-architect.

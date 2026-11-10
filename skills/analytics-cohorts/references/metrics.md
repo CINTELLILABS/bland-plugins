@@ -81,8 +81,8 @@ Budget: one read. A question never writes.
 1. **Read** `GET …/metrics` for the scope. Note the customer count (the cap is
    10 and overrides count), each `key`, and the row being edited.
 2. **Write the definition** ([the definition](#the-definition)). For a query
-   metric, validate `spec.where` offline as a cohort `where`:
-   `node ${CLAUDE_PLUGIN_ROOT}/skills/analytics-cohorts/scripts/validate-predicate.cjs` on `{ "where": … }`.
+   metric, check `spec.where` as a cohort `where` against [grammar](grammar.md) and
+   [tables](tables.md).
 3. **Confirm a judgment save.** A judgment create, or an edit that changes
    `kind`, `source`, `denominator` or `spec` and leaves or makes the metric a
    judgment metric, starts scoring the last 90 days of calls with the

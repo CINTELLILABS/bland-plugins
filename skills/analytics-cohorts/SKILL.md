@@ -49,8 +49,9 @@ tile: follow [metrics](references/metrics.md#attached-target).
    (`outcomes`, `metric`, `day`, `hour_utc`) when they say it exactly. Put
    column conditions in `where`, naming only columns in
    [tables](references/tables.md).
-3. **Validate offline** with `node ${CLAUDE_PLUGIN_ROOT}/skills/analytics-cohorts/scripts/validate-predicate.cjs <request.json>`
-   (`scripts/` in this skill). It checks `where` and reports `cost_class`.
+3. **Check before sending** against [grammar](references/grammar.md) and
+   [tables](references/tables.md): every node shape, column, operator and
+   limit. The API answers a refused predicate with a 400 naming the node.
 4. **Create** with `call_bland_api` POST `/v2/analytics/cohorts`, body
    `{ "agent_key": "<agent>", "window": { "start": "…", "end": "…" }, "predicate": { … } }`.
    A 202 returns `{ id, status: "building" }`.

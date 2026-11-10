@@ -32,8 +32,8 @@ Suspected policy mistakes are reported for owner review. The
 [upgrade contract](skills/v2-migration/references/outcomes-v1.md) overrides legacy
 verbatim and source-bug preservation only in this mode.
 
-State `init --upgrade` records `mode: "outcomes-v1"`. Create target-agent scenarios
-and record the complete suite with `record-evaluation --scenario <id>` (repeatable)
+The loop state records `mode: "outcomes-v1"`. Create target-agent scenarios
+and record the complete suite as `evaluation.scenario_ids` in `.norm/migration.json`
 before the first push. In managed runs, mirror the suite and end the turn for a
 platform checkpoint acknowledgement before pushing. Tests stay frozen for the
 whole job; correcting tests requires a new evaluation/migration run. Each scenario needs required
@@ -43,8 +43,8 @@ version-pinned simulation sets. All attempts count, including earlier failures;
 changes require a new version and full sweep. Tone placeholders and unimplemented
 webhook assertions provide no evidence. Text runs leave voice/audio unverified.
 
-The local Stop hook checks mode-specific audit and advisory push/sim records;
-upgrade local readiness is recorded as `local_complete`. Managed completion
+The session keeps mode-specific audit and advisory push/sim records in
+`.norm/migration.json`; upgrade local readiness is recorded as `local_complete`. Managed completion
 independently verifies persisted versions and assertions.
 Without `--upgrade` (including old state without a mode), legacy migration keeps
 its existing contract. `/norm:build` is unchanged.
@@ -85,26 +85,24 @@ The session discovers the pathway, proposes the scenario architecture for your a
 | `/norm:analytics` | Analytics page work for the agent in view: build, edit or simplify the Sankey through a waypoint definition, or build a conversation cohort ("show me the calls where…") and open it on the Conversations page. |
 | `/norm:simulate` | Simulation + test-chat verification loop with safety rails for live integrations and engine-trace grading. |
 
-## The convergence loop (enforced)
+## The convergence loop
 
-The Stop hook checks the live audit and local progress records. The following diagram describes legacy migration; upgrade uses its mode-specific audit and releases as `local_complete`, subject to independent platform evaluation:
+`/norm:migrate` keeps going until three gates hold on the same version. The following diagram describes legacy migration; upgrade uses its mode-specific checks and releases as `local_complete`, subject to independent platform evaluation:
 
 ```
-author snapshot ──► gate 1: AUDIT  (hook re-runs scripts/norm-migrate-audit.cjs live:
-        ▲                          structure + routing-crash + byte-parity vs the v1 source)
+author snapshot ──► gate 1: AUDIT  (/norm:validate: structure + routing-crash
+        ▲                          + parity vs the v1 source)
         │                 ▼ green
-   failures re-fed    gate 2: PUSH  (a version recorded AFTER the last snapshot edit —
-   as next            ▼ green        editing the snapshot stales the head automatically)
-   instruction        gate 3: SIMS  (full suite recorded green ON that exact head)
+   fix and            gate 2: PUSH  (a version pushed AFTER the last snapshot edit)
+   repeat             ▼ green
+        │             gate 3: SIMS  (full suite green ON that exact version)
         │                 ▼ green
         └────────────  RELEASE (complete)
 ```
 
-- `scripts/norm-materialize.cjs` — the deterministic BUILDER: the agent authors only judgment (a small `plan.json` — scenario membership, entries, hub + system prompt) and this script carries every byte of content from the v1 export(s) into the snapshot: prompts, extraction variables, route rules (flat = OR, isGroup = AND, fallbacks from source), transfers, webhooks, snippet pins, attached tools, automatic code-tool re-representation, id namespacing, per-label exit edges. Proven by rebuilding a shipped production migration from raw JSON alone: byte-class identical structure (same step census, same pins), passes the platform's own validator, and compiles to the identical graph (82 nodes / 143 edges) the in-repo pipeline produced.
-- **Hardening hooks in the plan** — `promptAppends`, `variableAppends`, `silentPills`: evidence-based fixes discovered during the sim loop live in plan.json (reviewable), never as hand-edits to the snapshot. `silentPills` is the construct fix for a carried silent-router that fabricates speech as an in-flow step — proven in production when escalating prompt rules failed four runs straight.
-- `scripts/norm-migrate-audit.cjs` — the deterministic checker: machine checks including hollow by-reference tools, edge-condition vocabularies, pin-presence against every v1 snippet/tool id, OR-collapse and null-fallback scans, code-tool re-representation, verbatim prompt carriage. No model judgment.
-- `scripts/norm-migration-state.cjs` — loop state (`.norm/migration.json`): `init` / `record-evaluation` (upgrade) / `record-push` / `record-sims` / `ack-uncovered` / `status` / `stop`.
-- `scripts/hook-migrate-loop.cjs` — the Stop gate. Fail-soft (never wedges a session); releases on complete, max-iter, stall (same failures 3 evaluations running), or 24h TTL — legacy releases other than "complete" are incomplete. Upgrade "local_complete" is advisory readiness, not platform acceptance.
+- **Mechanical carriage** comes from the platform's deterministic converter (`POST /v2/agents/migrate/pathways` with `create: false`): prompts, extraction variables, route rules, transfers, webhooks, snippet pins and attached tools, converted without creating anything. The session authors the judgment: architecture, hub, entries and system prompt.
+- **Loop state** lives in `.norm/migration.json`, written by the session: pushed head, sim results, uncovered lanes, iteration count. It stops at max iterations or after the same failures three sweeps running; any release other than "complete" is reported as an incomplete migration.
+- In this directory build the gates are followed by the session, not enforced by a hook. The full build, with a local deterministic builder, audit script and Stop-hook gate, installs from Bland's own marketplace: `/plugin marketplace add CINTELLILABS/bland-plugins`, then `/plugin install norm@bland`.
 
 ## Skills (the knowledge base)
 
@@ -159,20 +157,19 @@ every feature is enabled or every future endpoint is documented offline.
 
 ## Organization safety
 
-- The plugin's MCP server is distinctly named (`plugin_norm_bland` on hosts without automatic prefixing), and every `/norm:*` command allowlists ONLY the plugin's own namespaced server — never a bare `mcp__bland__*` wildcard that could resolve to a project-scoped server in another organization.
-- `bland_api_key` is OPTIONAL — but understand the keyless mode: the plugin's own MCP server cannot authenticate without it, so commands run in local-tools mode (builder, audit, loop) and any API phase either needs the key configured or an explicit per-call human approval of a project-supplied Bland connection (such tools are outside the commands' allowlists ON PURPOSE — the human approval prompt IS the cross-org safety gate).
+- The plugin's MCP server is distinctly named (`plugin_norm_bland` on hosts without automatic prefixing). Commands pre-approve only `Read`, `Glob` and `Grep`; every API call goes through your normal permission prompt.
+- `bland_api_key` is OPTIONAL — but understand the keyless mode: the plugin's own MCP server cannot authenticate without it, so any API phase either needs the key configured or an explicit per-call human approval of a project-supplied Bland connection (the human approval prompt IS the cross-org safety gate).
 - Commands run an org-identity smoke check (`list_agents` through the plugin's server, confirm the target lives there) before the first write — identity is validated by evidence, not namespace.
 
 ## Other hosts
 
-This release is the Claude Code build. Manifests for Codex, Cursor, and Grok ship from the `v2/` folder of the [main repository](https://github.com/CINTELLILABS/bland-plugins); those hosts don't run hooks, so there the convergence loop is advisory (run `scripts/norm-migrate-audit.cjs` and the state manager manually per the /norm:migrate procedure).
+This release is the Claude Code build. Manifests for Codex, Cursor, and Grok ship from the `v2/` folder of the [main repository](https://github.com/CINTELLILABS/bland-plugins); those hosts don't run hooks, so there the convergence loop is advisory (run that folder's `scripts/norm-migrate-audit.cjs` and state manager manually per its /norm:migrate procedure).
 
 ## Security and network access
 
 - **Network endpoints.** Everything goes to the Bland API at `https://api.bland.ai`: the hosted MCP server at `/v1/mcp` and, through its tools, the documented `/v1/*` REST endpoints. The plugin makes no other network calls and sends no telemetry.
 - **Credentials.** One Bland API key, held by the host's plugin config and sent only as a `Bearer` header to that server. It is never printed or written into the conversation.
-- **Local scripts.** Everything under `scripts/` is plain, unminified Node with no dependencies and no network access. The scripts read v1 exports and snapshot JSON from the project directory and write only the snapshot and the loop state file (`.norm/migration.json`). `scripts/norm-materialize.cjs` copies webhook header rows from the v1 export file you give it into the snapshot as data; it never reads a credential from your machine or environment.
-- **Hooks.** One Stop hook (`scripts/hook-migrate-loop.cjs`) reads `.norm/migration.json`, re-runs the local audit script, and blocks the turn only while a `/norm:migrate` loop is active. It never runs commands from tool input.
+- **No local code.** This build ships only Markdown, JSON and an image: no scripts, no hooks. The session reads v1 exports and snapshot JSON from the project directory and writes only the snapshot and the loop state file (`.norm/migration.json`).
 - **Privacy.** See the [Bland privacy policy](https://www.bland.ai/legal/privacy).
 
 ## Relationship to the `bland` plugin

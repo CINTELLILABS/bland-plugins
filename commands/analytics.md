@@ -5,9 +5,6 @@ allowed-tools:
   - "Read"
   - "Glob"
   - "Grep"
-  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/analytics-authoring/scripts/validate-definition.cjs *)"
-  - "Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/analytics-cohorts/scripts/validate-predicate.cjs *)"
-  - "mcp__plugin_norm_bland__*"
 ---
 
 # /norm:analytics: the Sankey or a conversation cohort
@@ -37,7 +34,8 @@ follow its workflow exactly:
 
 1. Translate the ask into a predicate with the skill's grammar. If it cannot
    be expressed, say the rule and hand off; do not build a lookalike.
-2. Validate offline with the skill's `scripts/validate-predicate.cjs`.
+2. Check the predicate against the skill's [grammar](../skills/analytics-cohorts/references/grammar.md)
+   and [tables](../skills/analytics-cohorts/references/tables.md) before sending.
 3. `call_bland_api` POST `/v2/analytics/cohorts`. On a 400, fix exactly the
    named node and resend.
 4. `bland_api_get` the cohort until `ready` or `failed`: a few seconds apart
@@ -58,8 +56,8 @@ and follow its workflow exactly:
    on traffic.
 3. **If the request is a question, stop here and answer from the reads.** No
    design, no pending save, no publish unless a change was asked for.
-4. Design the groups; validate offline with the skill's
-   `scripts/validate-definition.cjs`.
+4. Design the groups; check them against the rules in the skill's
+   [contract](../skills/analytics-authoring/references/contract.md) before saving.
 5. `call_bland_api` PUT the pending draft with `expected_fingerprint`; fix any
    422 by the named ids; on 409 re-read and resend.
 6. **Preview first** through `?definition=<pending id>` on the same `window`
