@@ -1,0 +1,148 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "SIA issues v1",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["version", "runId", "cohortId", "issues"],
+	"properties": {
+		"version": { "const": 1 },
+		"runId": { "type": "string", "minLength": 1 },
+		"cohortId": { "type": "string", "minLength": 1 },
+		"issues": { "type": "array", "items": { "$ref": "#/$defs/issue" } }
+	},
+	"$defs": {
+		"test": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["name", "status", "evidence"],
+			"properties": {
+				"name": { "type": "string" },
+				"status": {
+					"enum": ["passed", "failed", "inconclusive", "not_run"]
+				},
+				"evidence": { "type": "string" }
+			}
+		},
+		"issue": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"id",
+				"bucket",
+				"owner",
+				"priority",
+				"confidence",
+				"confirmedCount",
+				"suspectedCount",
+				"representativeCallIds",
+				"cause",
+				"distinguishingEvidence",
+				"alternatives",
+				"baseline",
+				"evidenceReferences",
+				"tests"
+			],
+			"properties": {
+				"id": { "type": "string", "minLength": 1 },
+				"bucket": {
+					"enum": [
+						"agent_fix",
+						"customer_fix",
+						"system_fix",
+						"other_unknown"
+					]
+				},
+				"owner": { "type": "string" },
+				"priority": { "type": "integer", "minimum": 1 },
+				"confidence": { "type": "string" },
+				"confirmedCount": { "type": "integer", "minimum": 0 },
+				"suspectedCount": { "type": "integer", "minimum": 0 },
+				"representativeCallIds": {
+					"type": "array",
+					"maxItems": 3,
+					"uniqueItems": true,
+					"items": { "type": "string" }
+				},
+				"cause": { "type": "string" },
+				"distinguishingEvidence": {
+					"type": "array",
+					"items": { "type": "string" }
+				},
+				"alternatives": {
+					"type": "array",
+					"items": { "type": "string" }
+				},
+				"baseline": {
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["version", "sha256"],
+					"properties": {
+						"version": { "type": "string" },
+						"sha256": {
+							"type": "string",
+							"pattern": "^[a-f0-9]{64}$"
+						}
+					}
+				},
+				"evidenceReferences": {
+					"type": "array",
+					"items": { "type": "string" }
+				},
+				"tests": {
+					"type": "array",
+					"items": { "$ref": "#/$defs/test" }
+				},
+				"agentFix": {
+					"type": "object",
+					"additionalProperties": false,
+					"required": [
+						"candidate",
+						"changedJsonPointers",
+						"diff",
+						"visual"
+					],
+					"properties": {
+						"candidate": { "type": "string" },
+						"changedJsonPointers": {
+							"type": "array",
+							"items": { "type": "string", "pattern": "^/" }
+						},
+						"diff": { "type": "string" },
+						"visual": { "type": "string" }
+					}
+				},
+				"customerFix": {
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["action", "draftMessage"],
+					"properties": {
+						"action": { "type": "string" },
+						"draftMessage": { "type": "string" }
+					}
+				},
+				"gap": { "type": "string" }
+			},
+			"allOf": [
+				{
+					"if": {
+						"properties": { "bucket": { "const": "customer_fix" } },
+						"required": ["bucket"]
+					},
+					"then": { "required": ["customerFix"] }
+				},
+				{
+					"if": {
+						"properties": { "bucket": { "const": "agent_fix" } },
+						"required": ["bucket"]
+					},
+					"then": {
+						"anyOf": [
+							{ "required": ["agentFix"] },
+							{ "required": ["gap"] }
+						]
+					}
+				}
+			]
+		}
+	}
+}

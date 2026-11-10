@@ -1,0 +1,47 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "SIA per-call coverage v1",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["version", "runId", "cohortId", "calls"],
+	"properties": {
+		"version": { "const": 1 },
+		"runId": { "type": "string" },
+		"cohortId": { "type": "string" },
+		"calls": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": [
+					"callId",
+					"status",
+					"issueIds",
+					"observation",
+					"evidenceReferences"
+				],
+				"properties": {
+					"callId": { "type": "string" },
+					"status": {
+						"enum": [
+							"not_reviewed",
+							"screened",
+							"reviewed",
+							"evidence_unavailable"
+						]
+					},
+					"issueIds": {
+						"type": "array",
+						"uniqueItems": true,
+						"items": { "type": "string" }
+					},
+					"observation": { "type": "string" },
+					"evidenceReferences": {
+						"type": "array",
+						"items": { "type": "string" }
+					}
+				}
+			}
+		}
+	}
+}
