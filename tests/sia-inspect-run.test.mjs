@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { constants } from "node:fs";
 import {
 	mkdtemp,
 	mkdir,
-	readFile,
+	open,
 	rm,
 	stat,
 	writeFile,
@@ -107,12 +108,17 @@ async function artifact(root, output) {
 		receipt.path,
 		/^working\/private\/inspection-output\/view-[a-zA-Z0-9]+\/result\.json$/,
 	);
-	const file = join(root, receipt.path);
-	assert.equal((await stat(file)).mode & 0o777, 0o600);
-	assert.equal((await stat(dirname(file))).mode & 0o777, 0o700);
-	const bytes = await readFile(file);
-	assert.equal(bytes.length, receipt.bytes);
-	return { receipt, data: JSON.parse(bytes) };
+	const path = join(root, receipt.path);
+	const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+	try {
+		assert.equal((await file.stat()).mode & 0o777, 0o600);
+		assert.equal((await stat(dirname(path))).mode & 0o777, 0o700);
+		const bytes = await file.readFile();
+		assert.equal(bytes.length, receipt.bytes);
+		return { receipt, data: JSON.parse(bytes) };
+	} finally {
+		await file.close();
+	}
 }
 
 test("every inspection view writes a private artifact and prints only its receipt", async (t) => {
