@@ -150,6 +150,8 @@ Put correctness-critical tool-result decisions in supported deterministic
 constructs. Use global/scoped knowledge according to evidence; an incidental FAQ
 must not restart a booking or erase its state. Test a question during the task,
 a correction after a lookup, an intent change and a failed action where relevant.
+Produce the failed action or other specific tool result with the scenario's mock
+settings ([Mock every scenario's tools](outcomes-v1.md#mock-every-scenarios-tools)).
 
 ## Improve against evidence, not graph aesthetics
 

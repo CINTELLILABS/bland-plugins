@@ -28,7 +28,9 @@ failed architecture or capability check. Use the frozen cases on the exact
 version, three repetitions each; count every attempt. Read independent outcome
 and SERVER Bland Tone hook verdicts separately. Add correction, intent-change,
 workflow-completion-then-new-request and state-resume probes before freezing;
-node visits alone do not establish a good call.
+node visits alone do not establish a good call. Every upgrade scenario runs with
+mocked tools ("Mock every scenario's tools" in `outcomes-v1.md`). The safety
+analysis and drain steps below (2 and 7) describe scenarios without mock settings.
 
 Load the `v2-testing` skill (API contracts, WS recipe, grading discipline) and `v2-runtime` (to predict correct behavior). Then:
 

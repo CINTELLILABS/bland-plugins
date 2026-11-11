@@ -106,7 +106,9 @@ run assertions proving answers, continuation and absence of scoped leakage.
 ## Freeze the evaluation before the first candidate push
 
 Create reusable test scenarios targeting the v2 agent. Store fixture request data
-on those scenarios, with safe test data and approved integration boundaries. Each
+on those scenarios, with safe test data. Set mock settings in each scenario's
+`metadata` in the request that creates it, as
+[Mock every scenario's tools](#mock-every-scenarios-tools) requires. Each
 scenario needs required assertions named `outcome: ...` and `conduct: ...`. The
 suite also needs at least one required `recovery: ...` assertion. Optional
 `quality: ...` assertions report conversational quality separately. Use supported
@@ -144,6 +146,72 @@ builder's suite covers every business requirement. Include independent cases
 and report scenario provenance (customer-authored, independent, or builder-authored);
 independence is a review requirement, not an automatically enforced claim.
 
+## Mock every scenario's tools
+
+No simulation in an upgrade may call the customer's systems. The platform refuses
+to create or launch a scenario that has no mock settings. Create each target-agent
+scenario through the API passthrough (`call_bland_api` with
+`POST /v1/agent-testing/scenarios` and `agent_id`) and set at least one of these
+`metadata` keys in that request:
+
+- `tool_response_generation`: an object. `{}` generates responses with the
+  defaults. An optional `instructions` string of up to 4000 characters describes
+  realistic responses for this agent's tools. Optional `examples` show the
+  response a tool returns.
+- `tool_fixtures`: an array of `{ tool_id | method + url (+ expected_body),
+  response: { status_code, body } }` entries, each a saved response for one tool.
+
+Either key turns mocks on. `tool_fixtures: []` alone makes every tool without a
+saved fixture fail the run.
+
+Choose the settings for each scenario from what its lane needs:
+
+- Use `{}` when the default generated responses are enough for the lane.
+- Use `instructions` to describe the customer's systems realistically: what each
+  tool returns for this caller and this request data.
+- Use `tool_fixtures` or `examples` when the lane depends on a specific tool
+  outcome, such as no availability or a failure status. This makes the lane
+  deterministic. Recovery lanes for a failed tool or lookup need one.
+- Never put secrets or real customer data in instructions, examples or fixtures.
+  Use fictional accounts and values.
+
+A copy of a customer scenario follows the mock rule in
+[upgrade-input-state-v1.md](upgrade-input-state-v1.md#preserve-customer-tests-before-freezing).
+
+With mocks on, webhooks, custom tools, integration actions, inline
+`custom-code/run_snippet` tools, custom-code nodes, SMS nodes and the built-in
+SMS tool return a saved or generated result and reach nobody. A pathway auth
+one-time code is recorded as suppressed, not texted. Automation triggers do not
+fire. A persona can therefore complete a write lane such as a booking: the write
+returns a mocked response and reaches nobody.
+
+Every transfer records a tool call and ends the conversation without dialing or
+loading anything: pathway-transfer tools, the Transfer Pathway node action, the
+`transfer_pathway` action, cold and warm transfer tools, and
+`transfer_conversation`. A simulation never exercises what happens after a
+transfer, including the destination pathway of a pathway transfer. Test the
+destination's behavior with its own scenario. A Transfer Call node completes the
+run. The end-call tool ends the conversation with its configured closing message.
+Skills run in process on the loaded graph.
+
+Knowledge-base lookups (KB node, KB tool, `query_kb`) are not generated. They
+query Bland's own knowledge base for real and can add entries to the org's
+knowledge-gap list. Keep KB probe questions realistic and few.
+
+These actions are unsupported under mocks, and the run fails if a scenario
+reaches one: a pathway transfer carrying a live-agent webhook URL, code tools in
+a tool chain, auth verification built-ins, Calendly built-ins, DTMF/press-button,
+scheduling and outbound-call node actions, and other Bland runtime actions. Check
+each lane for them before freezing, because a frozen scenario that reaches one
+fails on every attempt. Report a lane that needs one as uncovered. Do not fake
+its coverage.
+
+There is no fallback to a live service. An invalid generated response, a missing
+fixture or an unsupported action fails the run. Diagnose these under
+[upgrade-input-state-v1.md](upgrade-input-state-v1.md#diagnose-before-repairing).
+A simulation set fails any repetition whose scenario had mock settings at launch
+and has lost them. Do not edit mock settings between launch and completion.
+
 ## Run the pinned suite and count every attempt
 
 After a successful audit, push the candidate using the normal org identity and
@@ -179,7 +247,9 @@ Read [call-quality-v1.md](call-quality-v1.md) for the common outcome rubric. Use
 Report required pass numerator/denominator, required failures, optional quality
 scores separately, candidate version, evidence run IDs, requirement coverage,
 behavioral changes and suspected rule mistakes. List uncovered lanes and why they
-remain unverified. Mark voice latency and audible interruptions **unverified**
+remain unverified, including each lane that needs an action mocks do not support.
+State that tools were mocked: saved and generated responses do not prove the
+customer's live integrations. Mark voice latency and audible interruptions **unverified**
 when only text simulations were run. Never describe tone placeholders, untested
 webhooks, or a green local record as proven call behavior. Automated capture edits
 after the evaluated version invalidate that evidence and require review.

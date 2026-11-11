@@ -37,6 +37,12 @@ authoring. For every source scenario, create exactly one target scenario with
   REGEX_MATCH and STRING_CHECK. Names must still satisfy outcome/conduct/recovery
   category conventions; add independent assertions if necessary.
 - Attached evaluation judge IDs and pinned versions as dependencies to verify.
+- Mock settings. A source scenario that has `metadata.tool_response_generation`
+  or `metadata.tool_fixtures` keeps exactly those keys and contents. A source
+  scenario that has neither key gets `metadata.tool_response_generation` added
+  to its copy, chosen as
+  [Mock every scenario's tools](outcomes-v1.md#mock-every-scenarios-tools)
+  describes. The platform refuses a copy without mock settings.
 
 Source NODE_REACHED/NODES_VISITED/TRAVERSAL_MATCH checks describe old topology;
 report them as uncovered source checks and design replacement outcome probes.
@@ -105,8 +111,13 @@ execution errors, assertion results and persisted `turn_details` first. Separate
 configuration, authentication, execution, missing-evidence and possible behavior
 failures. A failed call alone does not identify the cause. HTTP/tool errors can
 also be caused by bad arguments; inspect evidence before choosing a repair.
+Tools are mocked and never fall back to a live service
+([Mock every scenario's tools](outcomes-v1.md#mock-every-scenarios-tools)). A run
+that fails on an invalid generated response, a missing fixture or an unsupported
+action is a test-setup error. Diagnose it as one before changing agent behavior.
 Only change agent behavior when the trace and business checks support that change.
-Fixture changes after freezing require a new upgrade run. After agent changes,
+Fixture changes after freezing, including mock settings, require a new upgrade
+run. After agent changes,
 push a new version and rerun the full repeated suite on that exact ID.
 
 ## Explain what was built
