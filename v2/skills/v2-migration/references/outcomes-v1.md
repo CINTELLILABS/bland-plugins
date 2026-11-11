@@ -178,28 +178,39 @@ Choose the settings for each scenario from what its lane needs:
 A copy of a customer scenario follows the mock rule in
 [upgrade-input-state-v1.md](upgrade-input-state-v1.md#preserve-customer-tests-before-freezing).
 
-With mocks on, webhook nodes, custom tools, registered third-party integration
-actions, `custom-code/run_snippet`, custom-code nodes and SMS return saved or
-generated responses. Nothing is sent and no snippet runs. A pathway auth one-time
-code is not texted. Simulations never place calls, send SMS or bill the customer.
-A persona can therefore complete a write lane such as a booking: the write
+With mocks on, webhooks, custom tools, integration actions, inline
+`custom-code/run_snippet` tools, custom-code nodes, SMS nodes and the built-in
+SMS tool return a saved or generated result and reach nobody. A pathway auth
+one-time code is recorded as suppressed, not texted. Automation triggers do not
+fire. A persona can therefore complete a write lane such as a booking: the write
 returns a mocked response and reaches nobody.
 
-Some actions are not generated. Knowledge-base lookups query Bland's own
-knowledge base for real. Pathway transfers and skills run in-process. A reached
-transfer tool records a transfer request and ends the conversation; nobody is
-dialed. A Transfer Call node completes the run.
+Every transfer records a tool call and ends the conversation without dialing or
+loading anything: pathway-transfer tools, the Transfer Pathway node action, the
+`transfer_pathway` action, cold and warm transfer tools, and
+`transfer_conversation`. A simulation never exercises what happens after a
+transfer, including the destination pathway of a pathway transfer. Test the
+destination's behavior with its own scenario. A Transfer Call node completes the
+run. The end-call tool ends the conversation with its configured closing message.
+Skills run in process on the loaded graph.
+
+Knowledge-base lookups (KB node, KB tool, `query_kb`) are not generated. They
+query Bland's own knowledge base for real and can add entries to the org's
+knowledge-gap list. Keep KB probe questions realistic and few.
 
 These actions are unsupported under mocks, and the run fails if a scenario
-reaches one: code tools inside tool chains, auth verification built-ins, Calendly
-built-ins, press-button, and scheduling or outbound-call actions. Check each lane
-for them before freezing, because a frozen scenario that reaches one fails on
-every attempt. Report a lane that needs one as uncovered. Do not fake its
-coverage.
+reaches one: a pathway transfer carrying a live-agent webhook URL, code tools in
+a tool chain, auth verification built-ins, Calendly built-ins, DTMF/press-button,
+scheduling and outbound-call node actions, and other Bland runtime actions. Check
+each lane for them before freezing, because a frozen scenario that reaches one
+fails on every attempt. Report a lane that needs one as uncovered. Do not fake
+its coverage.
 
 There is no fallback to a live service. An invalid generated response, a missing
 fixture or an unsupported action fails the run. Diagnose these under
 [upgrade-input-state-v1.md](upgrade-input-state-v1.md#diagnose-before-repairing).
+A simulation set fails any repetition whose scenario had mock settings at launch
+and has lost them. Do not edit mock settings between launch and completion.
 
 ## Run the pinned suite and count every attempt
 
