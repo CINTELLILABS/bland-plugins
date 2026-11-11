@@ -200,3 +200,16 @@ test("an uncached workspace creates missing private output directories", async (
 	const { data } = await artifact(root, result.stdout);
 	assert.equal(data.uncached_calls, 1);
 });
+
+test("an uncached call retains scoring answers in the private artifact", async (t) => {
+	const { root, put, manifest } = await fixture(t);
+	delete manifest.evidence;
+	await put("manifest.json", manifest);
+	const result = run(root, "call", "call");
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(result.stderr, "");
+	assert.ok(!result.stdout.includes(privateText));
+	const { data } = await artifact(root, result.stdout);
+	assert.equal(data.evidence_state, "not_cached");
+	assert.deepEqual(data.scorer_answers, { reason: privateText });
+});

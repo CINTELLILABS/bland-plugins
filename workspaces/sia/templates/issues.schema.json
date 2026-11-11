@@ -73,7 +73,7 @@
 					"items": { "type": "string" }
 				},
 				"baseline": {
-					"type": "object",
+					"type": ["object", "null"],
 					"additionalProperties": false,
 					"required": ["version", "sha256"],
 					"properties": {
@@ -83,6 +83,14 @@
 							"pattern": "^[a-f0-9]{64}$"
 						}
 					}
+				},
+				"recommendationStatus": {
+					"enum": [
+						"needs_evidence",
+						"needs_execution",
+						"behavior_checked",
+						"no_supported_fix"
+					]
 				},
 				"evidenceReferences": {
 					"type": "array",
@@ -124,6 +132,13 @@
 			},
 			"allOf": [
 				{
+					"if": { "properties": { "baseline": { "type": "null" } } },
+					"then": {
+						"required": ["gap"],
+						"not": { "required": ["agentFix"] }
+					}
+				},
+				{
 					"if": {
 						"properties": { "bucket": { "const": "customer_fix" } },
 						"required": ["bucket"]
@@ -136,6 +151,7 @@
 						"required": ["bucket"]
 					},
 					"then": {
+						"required": ["recommendationStatus"],
 						"anyOf": [
 							{ "required": ["agentFix"] },
 							{ "required": ["gap"] }

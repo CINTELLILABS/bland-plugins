@@ -41,7 +41,7 @@
 
 **Dependencies:** {{Overlapping edits or interactions with other proposals; each candidate is independent, combined behavior untested.}}
 
-{{Repeat the fix section for each supported Agent Fix.}}
+{{Repeat the fix section for each supported Agent Fix. For an Agent Fix with a gap and no candidate, give the gap and recommendation status.}}
 
 ## {{Issue ID}} — Customer Fix
 

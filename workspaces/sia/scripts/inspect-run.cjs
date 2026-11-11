@@ -406,13 +406,16 @@ class Batch {
 
 function callView(batch, args) {
 	const cached = batch.call(args.callId);
+	const scored = {
+		...batch.row(args.callId),
+		scorer_answers: batch.rows.get(args.callId).scorer_answers,
+	};
 	if (cached === null)
-		return { call_id: args.callId, evidence_state: "not_cached" };
+		return { ...scored, evidence_state: "not_cached" };
 	const turns = cached.data.transcript;
 	return {
-		...batch.row(args.callId),
+		...scored,
 		source: cached.source,
-		scorer_answers: batch.rows.get(args.callId).scorer_answers,
 		evidence_state: turns.length
 			? "nonempty_transcript"
 			: "empty_transcript",
