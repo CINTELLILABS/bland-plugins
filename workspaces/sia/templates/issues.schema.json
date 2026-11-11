@@ -132,6 +132,31 @@
 			},
 			"allOf": [
 				{
+					"if": {
+						"properties": {
+							"recommendationStatus": { "const": "behavior_checked" }
+						},
+						"required": ["recommendationStatus"]
+					},
+					"then": {
+						"required": ["agentFix"],
+						"properties": {
+							"bucket": { "const": "agent_fix" },
+							"tests": {
+								"type": "array",
+								"contains": {
+									"type": "object",
+									"properties": {
+										"status": { "const": "passed" },
+										"evidence": { "type": "string", "minLength": 1 }
+									},
+									"required": ["status", "evidence"]
+								}
+							}
+						}
+					}
+				},
+				{
 					"if": { "properties": { "baseline": { "type": "null" } } },
 					"then": {
 						"required": ["gap"],

@@ -21,7 +21,7 @@ Check `memory/README.md` and relevant notes before Triage or Diagnose + Repair. 
 
 Work through Agent Fix issues in priority order. Each candidate starts from the immutable baseline, never another issue's candidate. Do not force a fix for an unresolved cause. Record its missing evidence and continue; a missing behavioral runner does not stop remaining diagnoses. Flag overlapping edits and dependencies; independently tested fixes are not a tested combined candidate.
 
-Batch independent reads, reuse cached evidence and stop a query once it answers the question. Record an auth/capability failure once; retry only after a concrete condition changes. Switch issue after two actions yield no new evidence. Allow at most three revisions per issue unless the manifest says otherwise. Honor explicit run limits and retain unfinished issues. Record start/end times, model and measured usage; do not invent cost when billing is unavailable.
+Batch independent reads, reuse cached evidence and stop a query once it answers the question. Record an auth/capability failure once; retry only after a concrete condition changes. Switch issue after two actions yield no new evidence. Allow at most three revisions per issue unless the manifest says otherwise. Honor explicit run limits and retain unfinished issues. Record start/end times and measured usage; do not invent cost when billing is unavailable.
 
 ## State and boundaries
 

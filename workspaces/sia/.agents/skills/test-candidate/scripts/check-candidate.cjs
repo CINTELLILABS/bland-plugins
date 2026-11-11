@@ -37,6 +37,26 @@ function loadSnapshot(filename) {
 	return { value: JSON.parse(bytes), sha256: hash(bytes) };
 }
 
+function loadAllowedPointers(filename) {
+	const allowed = JSON.parse(fs.readFileSync(filename, "utf8"));
+	if (
+		!Array.isArray(allowed) ||
+		allowed.length === 0 ||
+		allowed.some(
+			(p) =>
+				typeof p !== "string" ||
+				p.length < 2 ||
+				!p.startsWith("/") ||
+				/~(?![01])/u.test(p),
+		)
+	) {
+		throw new Error(
+			"allowed-changes.json must be a nonempty array of JSON Pointers; the root is not allowed",
+		);
+	}
+	return allowed;
+}
+
 async function validateSnapshot(snapshot) {
 	if (!process.env.BLAND_API_URL)
 		return {
@@ -96,6 +116,12 @@ function validationResult(response, result) {
 	};
 }
 
+function validationUnavailable({ baseline_validation, candidate_validation }) {
+	return [baseline_validation, candidate_validation].some(
+		({ status }) => status === "unavailable",
+	);
+}
+
 async function checkCandidate(
 	baselinePath,
 	candidatePath,
@@ -106,22 +132,7 @@ async function checkCandidate(
 		throw new Error("Baseline and candidate must be separate files");
 	const baseline = loadSnapshot(baselinePath);
 	const candidate = loadSnapshot(candidatePath);
-	const allowed = JSON.parse(fs.readFileSync(allowedPath, "utf8"));
-	if (
-		!Array.isArray(allowed) ||
-		allowed.length === 0 ||
-		allowed.some(
-			(p) =>
-				typeof p !== "string" ||
-				p.length < 2 ||
-				!p.startsWith("/") ||
-				/~(?![01])/u.test(p),
-		)
-	) {
-		throw new Error(
-			"allowed-changes.json must be a nonempty array of JSON Pointers; the root is not allowed",
-		);
-	}
+	const allowed = loadAllowedPointers(allowedPath);
 	const changed = changedPaths(baseline.value, candidate.value);
 	const unexpected = changed.filter(
 		(p) => !allowed.some((a) => p === a || p.startsWith(`${a}/`)),
@@ -130,10 +141,15 @@ async function checkCandidate(
 		validateSnapshot(baseline.value),
 		validateSnapshot(candidate.value),
 	]);
+	const validation = {
+		baseline_validation: baselineValidation,
+		candidate_validation: candidateValidation,
+	};
 	return {
 		passed:
 			changed.length > 0 &&
 			unexpected.length === 0 &&
+			!validationUnavailable(validation) &&
 			candidateValidation.status === "passed",
 		scope: "snapshot_validation_and_edit_scope",
 		agent_id: agentId,
@@ -143,8 +159,7 @@ async function checkCandidate(
 		changed_paths: changed,
 		unexpected_paths: unexpected,
 		no_changes: changed.length === 0,
-		baseline_validation: baselineValidation,
-		candidate_validation: candidateValidation,
+		...validation,
 	};
 }
 
@@ -183,7 +198,7 @@ if (require.main === module) {
 			process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 			process.exitCode = result.passed
 				? 0
-				: result.candidate_validation.status === "unavailable"
+				: validationUnavailable(result)
 					? 2
 					: 1;
 		} catch (error) {

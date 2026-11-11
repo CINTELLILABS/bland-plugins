@@ -8,7 +8,7 @@
 | --------- | --------------------------------------------------------------------------------- |
 | Scope     | {{org_id · agent_id · call-time version · baseline hash}}                         |
 | Inputs    | {{manifest link · call window · sampling rule · eligible/selected counts}}        |
-| Execution | {{start/end UTC · duration · model · workspace revision}}                         |
+| Execution | {{start/end UTC · duration · workspace revision}}                                 |
 | Usage     | {{input/cached/output tokens · measurement scope · measured cost or unavailable}} |
 | Coverage  | {{selected · screened · execution-reviewed · unavailable · not reviewed}}         |
 | Output    | {{supported proposals · unresolved issues · capability gaps}}                     |
