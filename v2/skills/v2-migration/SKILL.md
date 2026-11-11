@@ -93,5 +93,5 @@ Carriage is mechanical for CONTENT; the ARCHITECTURE is v2's, never v1's. A migr
 - Diagnosing behavior from judge text or transcripts alone: get the engine's per-turn decision trace first.
 - Any content you typed rather than copied.
 - "Attach the number to try it" — cutover is one-way; never attach during migration work.
-- Testing flows that fire real side effects (gate-opening snippets, CRM writes, schedulers, live transfer lines) without an explicit safety plan: synthetic caller data, personas that stop short of write branches, customer sign-off for one coordinated smoke.
+- Testing flows that fire real side effects (gate-opening snippets, CRM writes, schedulers, live transfer lines) without an explicit safety plan: synthetic caller data, personas that stop short of write branches, customer sign-off for one coordinated smoke. Upgrade scenarios carry mock settings instead; see [Mock every scenario's tools](references/outcomes-v1.md#mock-every-scenarios-tools).
 - A sim lane that passes because it never reached the code you changed — check the trace shows the lane you think you tested.

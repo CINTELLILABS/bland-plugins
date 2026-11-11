@@ -2,7 +2,11 @@
 
 A simulated caller talks to the real agent and judges assert outcomes. The
 agent runs with its real integrations, so classify every integration first
-([safety before any test](../SKILL.md#safety-before-any-test)). Persistent
+([safety before any test](../SKILL.md#safety-before-any-test)). A scenario
+whose `metadata` has `tool_response_generation` or `tool_fixtures` runs with
+mocked tools instead. The keys, what they cover and what they do not are in
+[Mock every scenario's tools](../../v2-migration/references/outcomes-v1.md#mock-every-scenarios-tools).
+Persistent
 judges and `/simulate` scoring live in the
 [evaluations skill](../../evaluations/SKILL.md). Which version runs, who
 speaks first and what the caller can see are in

@@ -9,7 +9,9 @@ Before server work, read [API tool selection](../api-workspace/references/api.md
 
 > **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland`, `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools; they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
-Every surface runs real integrations; safety comes first. What each surface
+Every surface runs real integrations; safety comes first. The exception is a
+platform simulation whose scenario has mock settings
+([simulations](references/simulations.md)). What each surface
 runs, which version, and why results differ:
 [how agent testing works](references/how-it-works.md). Pick by what it runs:
 

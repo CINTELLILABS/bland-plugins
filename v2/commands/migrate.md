@@ -60,7 +60,9 @@ authoring guidance; it does not inherit the upgrade acceptance contract.
 
 For upgrade, create reusable target-agent test scenarios and run
 `record-evaluation --scenario <id>` (repeat for every scenario) **before the first
-candidate push**. Mirror `evaluation: {scenario_ids: [...]}` into managed state;
+candidate push**. Create every scenario with mock settings in `metadata`, as
+"Mock every scenario's tools" in `outcomes-v1.md` requires; the platform refuses
+a scenario without them. Mirror `evaluation: {scenario_ids: [...]}` into managed state;
 the platform freezes the first list. In managed runs, mirror it and end the turn
 for a platform checkpoint acknowledgement before the first push. Tests stay
 frozen for the whole job; corrections require a new evaluation/migration run.

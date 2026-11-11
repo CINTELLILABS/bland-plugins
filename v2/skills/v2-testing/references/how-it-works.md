@@ -33,7 +33,8 @@ It is not:
 - **A voice test.** Simulations and test chat are text. They prove routing,
   wording, tool use and variables, not latency, interruption or audio.
 - **A sandbox.** The agent runs its real integrations. Webhooks and tools
-  fire for real in every surface.
+  fire for real in every surface. The exception is a simulation whose test
+  case has mock settings ([simulations](simulations.md)).
 - **A load test.** Conversations in one simulation run one after another.
 
 ## Objects and how they relate
@@ -127,7 +128,8 @@ failing assertion is a failing test.
 
 - **The agent side is real.** The same step-by-step runtime the builder's
   test chat uses: routing, extraction, tools, webhooks, knowledge. Tool and
-  webhook steps make their real requests. A transfer does not dial anyone.
+  webhook steps make their real requests, unless the test case has mock
+  settings. A transfer does not dial anyone.
 - **It is the voice graph in text.** It does not run the messaging brief,
   and voice settings (speech, interruptions, latency) have no effect.
 - **The simulated caller sees little.** Only its persona name, its persona
@@ -239,7 +241,8 @@ sides are model-driven, so wording and routing vary. That is why a case
 runs several conversations and a judge passes on a majority.
 
 **Do webhooks fire during tests?** Yes, in simulations, test chat and the
-messaging preview. Classify every integration before the first run.
+messaging preview, except in a simulation whose test case has mock settings
+([simulations](simulations.md)). Classify every integration before the first run.
 
 **Does deleting a test case keep its history?** No. Its conversations and
 transcripts are deleted with it. Confirm first.
