@@ -9,6 +9,7 @@ Do not write fetch scripts and do not search the docs for these routes.
 
 - [Test chat (the builder WebSocket)](#test-chat-the-builder-websocket)
 - [Messaging preview: version-pinned, sends nothing](#messaging-preview-version-pinned-sends-nothing)
+- [Pathway chat API: turn by turn from an external driver](#pathway-chat-api-turn-by-turn-from-an-external-driver)
 - [API chat: the production messaging path](#api-chat-the-production-messaging-path)
 - [Live text: a number the user owns](#live-text-a-number-the-user-owns)
 - [Real phone call](#real-phone-call)
@@ -62,6 +63,42 @@ Probes are for scripted mechanics (does the greeting fire, does lane X route, do
   message}]`) on the next turn.
 - `channel` is `sms`, `imessage` or `whatsapp`.
 
+## Pathway chat API: turn by turn from an external driver
+
+The supported path when another agent or a customer's own harness drives a
+v2 agent one turn at a time over HTTP and checks each turn's variables. It
+runs the agent's graph node by node, as the test-chat socket does, and needs
+no socket target.
+
+1. Open a chat: `call_bland_api` POST `/v1/pathway/chat/create`
+   `{"agent_id": "<agent id>", "agent_version": "<selector>", "request_data": {"from": "+15555550100"}}`.
+   `agent_version` takes `production`, `staging`, `dev`, `latest`, a
+   semver or `branch:<name>`. Without it the chat runs the production pin.
+   `start_node_id` and `pathway_version` are refused with `agent_id`: an
+   agent chat always starts at the agent's entry. Read `data.chat_id`.
+2. Send each turn: POST `/v1/pathway/chat/<chat id>` `{"message": "<caller turn>"}`.
+   Send `{}` first to get the greeting. The response carries
+   `assistant_responses`, `current_node_id`, `current_node_name`,
+   `variables` (the full snapshot), `variable_changes` and `completed`.
+3. Stop when `completed` is `true`: the agent ended the conversation.
+
+`variable_changes` is `{added, modified, removed}`: the agent variables this
+turn changed compared with the turn before. Runtime keys (`now`, `call_id`,
+the channel keys) and the keys you sent in `request_data` are left out,
+including the fields of a `request_data` that is one `data` field. It is
+`null` when the server cannot tell request data from agent output (a chat
+created before the field existed, past its first turn). Servers released
+before the field existed omit it. In both cases diff consecutive `variables`
+snapshots yourself and ignore those same keys.
+
+- It is not side-effect free: webhook, tool and custom-code steps run for
+  real. Classify them before the first turn, and use a synthetic `from`.
+- Each message is billed, and the chat is listed on the agent's
+  Conversations page.
+- A 422 `ROUTE_NO_MATCH_NO_FALLBACK` names the node with no matching route.
+  A 429 is the org's chat rate limit: wait, then retry the same turn.
+- `GET /v1/pathway/chat/<chat id>` returns the history and the variables.
+
 ## API chat: the production messaging path
 
 `POST /v1/chat` `{agent_id, end_user_id, request_data?, new_conversation?}`
@@ -110,6 +147,7 @@ live side effects under the read/write classification. The contract is in the
 ## Keyless installs
 
 A keyless (OAuth) connection refuses `/v1/pathway/session`, the
-`/v1/pathway/test_agent/**` routes, `/v1/chat/**`, `/v1/sms/**` and the tool
-routes with `oauth_path_not_allowed`. Say which probe is unavailable on this
-connection, fall back to platform simulations, and report the gap.
+`/v1/pathway/test_agent/**` and `/v1/pathway/chat/**` routes, `/v1/chat/**`,
+`/v1/sms/**` and the tool routes with `oauth_path_not_allowed`. Say which
+probe is unavailable on this connection, fall back to platform simulations,
+and report the gap.
