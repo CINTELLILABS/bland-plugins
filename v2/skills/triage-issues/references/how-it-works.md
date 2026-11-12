@@ -83,7 +83,7 @@ version onto an issue that had none.
 
 | Page | What it shows |
 | -- | -- |
-| `/dashboard/triage` | Every issue in the organisation: list with search, status, severity and category filters, and a detail pane |
+| `/dashboard/triage` | Every issue in the organization: list with search, status, severity and category filters, and a detail pane |
 | `/dashboard/agent/<agent id>/triage` | The same, pinned to one agent |
 | Detail pane: Activity | The timeline, the comment box and live triage-run output |
 | Detail pane: Evidence | Attached calls, threads and files, and their flags |
@@ -118,7 +118,7 @@ Calls are also flagged into issues from the Conversations page detail panel
 | List page | `limit` 1 to 100, cursor paging | 400 |
 | Flag before attach | call must be attached first | 409 `call_not_attached` |
 | New flag type | needs a `note` | 409 `New flags require a description` |
-| Evidence id | must belong to the organisation | 404 `Call not found` / `SMS conversation not found` |
+| Evidence id | must belong to the organization | 404 `Call not found` / `SMS conversation not found` |
 | Duplicate attach | returns the existing link | 201, no second link |
 | Duplicate category | refused | 409 `Category already exists` |
 | Eval analysis on an issue with no agent | refused | 400 `AGENT_REQUIRED` |
@@ -135,7 +135,7 @@ Calls are also flagged into issues from the Conversations page detail panel
 | A comment started a run nobody asked for | The text contained `@norm` | A triage-run entry in the activity | Review and revert what it changed; never quote `@norm`. |
 | Eval analysis scored unrelated calls | Fewer than two calls attached, so recent org calls were used | `call_count` and the run's calls | Attach the relevant calls first, then run it. |
 | `Issue not found` for a known issue | Wrong id (a `T-n` used as an id), another org, or deleted | Search by `T-n` | Use the `id` from the search result. |
-| 409 `Alert bindings are not configured` | Alerts are not available to this organisation | The error | Stop and say so. |
+| 409 `Alert bindings are not configured` | Alerts are not available to this organization | The error | Stop and say so. |
 | Assignee surprised by an email | Assignment always emails | The assignee change in activity | Tell the user before assigning. |
 
 ## Questions people ask

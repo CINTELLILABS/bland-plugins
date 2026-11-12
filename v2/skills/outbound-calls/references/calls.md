@@ -72,7 +72,7 @@ The selector grammar and the per-channel table live in
 
 - Accepted selectors: `production`, `staging`, `dev`, `latest`, a minted
   semver `X.Y.Z`, `branch:<name>`.
-- **An unrecognised selector is refused.** A typo such as `prod`, or a bare
+- **An unrecognized selector is refused.** A typo such as `prod`, or a bare
   number, returns a 400 that lists the accepted forms, and nothing dials. Echo
   the exact selector back before dialing anyway.
 - `dev` and `latest` both mean the newest save on the main line, not a branch

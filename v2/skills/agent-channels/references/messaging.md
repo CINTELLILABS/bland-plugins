@@ -186,7 +186,7 @@ the brief before blaming the graph.
 Check in order; stop at the first failure.
 
 1. **Bound?** The number is in `/v2/agents/<agent id>/inbound` `numbers`.
-2. **Promoted?** The behaviour the user expects is in production, not only on
+2. **Promoted?** The behavior the user expects is in production, not only on
    dev or staging.
 3. **Thread state.** `GET /v1/sms/conversations/<id>`: a thread in handoff
    gets no agent replies until resumed; an ended or timed-out thread is

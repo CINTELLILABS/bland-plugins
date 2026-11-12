@@ -69,7 +69,7 @@ NEVER print, echo, or log the API key — the passthrough reads it from the envi
 
 ## Capability gaps
 
-Reporting a platform capability gap is a separate concern from triage and has **no `/v1/triage` endpoint** — there is no passthrough equivalent on this surface for filing or listing capability gaps. If, while triaging, you conclude the PLATFORM genuinely cannot do something the user needs (not an agent misconfiguration), do not invent a triage call for it: capture it as a clearly-labelled triage comment or a dedicated issue describing the missing capability, and tell the user that filing a formal product capability gap is out of scope for this surface so they can raise it through the proper channel.
+Reporting a platform capability gap is a separate concern from triage and has **no `/v1/triage` endpoint** — there is no passthrough equivalent on this surface for filing or listing capability gaps. If, while triaging, you conclude the PLATFORM genuinely cannot do something the user needs (not an agent misconfiguration), do not invent a triage call for it: capture it as a clearly-labeled triage comment or a dedicated issue describing the missing capability, and tell the user that filing a formal product capability gap is out of scope for this surface so they can raise it through the proper channel.
 
 ## Reporting
 

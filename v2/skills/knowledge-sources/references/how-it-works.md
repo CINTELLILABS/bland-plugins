@@ -235,7 +235,7 @@ under `/dashboard/agent/<agentId>/knowledge-bases/`.
 | Questions | Open, Resolved, Dismissed; source filter; occurrences with links to the call or text conversation. The agent copy lists Questions touching its agent-wide sources. | CSV export of every match. |
 | Query Logs | Time, Query, Status, Source, Context, Call; a 7-day default window; detail with the passages and scores. The agent copy lists every lookup attributed to the agent, step lookups included. | |
 | Source testing | A chat over chosen sources: the answer written from the passages, the search written, each passage with its score, "Boosted result" when a boosted field matched, and an Answer banner on a miss. Logged as API. The agent copy tests the agent-wide sources of the environment and branch shown, as loaded in the builder, which may be unsaved. | |
-| Knowledge map | Sources as hexagons sized by share of lookups and coloured by coverage; open and resolved Questions as circles linked to their sources. See [Knowledge map](#knowledge-map). | The picture itself; `GET /v1/knowledge/map` returns the data. |
+| Knowledge map | Sources as hexagons sized by share of lookups and colored by coverage; open and resolved Questions as circles linked to their sources. See [Knowledge map](#knowledge-map). | The picture itself; `GET /v1/knowledge/map` returns the data. |
 
 Coverage counts the lookups that were not misses when they ran. Resolved
 coverage also counts misses whose Question was later answered. Contexts
@@ -332,8 +332,8 @@ listed as "Knowledge map" in the sidebar.
   **Misses** and **Coverage**, and "View source". Click a circle: its status,
   the question, "Asked n times", the date it was resolved, and "View
   question", which opens the Questions list (not that one question).
-- Grey sources gather in one cluster. Their lines are not drawn, and a
-  Question raised only against grey sources is hidden.
+- Gray sources gather in one cluster. Their lines are not drawn, and a
+  Question raised only against gray sources is hidden.
 - The Legend button shows or hides the key; the browser remembers the
   choice.
 
@@ -379,7 +379,7 @@ progress for about a day reads Failed, as on Sources.
 - The page reuses what it loaded for a short while and does not redraw
   after a write. A Question answered or a source added since appears after
   a reload.
-- A new source stays grey until something searches it.
+- A new source stays gray until something searches it.
 - "No queries in the last 30 days." replaces the drawing when nothing in
   scope was searched in that window.
 
@@ -412,7 +412,7 @@ When someone asks "what is the agent weakest on?":
 4. For the weak source, list
    `GET /v1/knowledge/gaps?status=OPEN&kb_id=<id>&sort_by=occurrences_desc`
    and answer or edit the source from the user's facts.
-5. A grey source the agent lists was never searched. That is a lookup
+5. A gray source the agent lists was never searched. That is a lookup
    problem, not a content one: see
    [agent-wide sources](#agent-wide-sources).
 6. High coverage with unhappy callers: Hits include lookups that failed or
@@ -428,7 +428,7 @@ When someone asks "what is the agent weakest on?":
 | An answered Question still looks open | The page has not reloaded | `GET /v1/knowledge/gaps/<id>` reads RESOLVED | Reload the page |
 | The Question count says "(of first 5,000 returned)" | More than 5,000 open and resolved Questions | `gaps_truncated: true` | Use Questions with a source filter; dismiss or resolve old ones |
 | "No queries in the last 30 days." | Nothing in scope was searched in 30 days | Query Logs for the window | Attach, promote, describe the source by what it answers |
-| A Question is on Questions but not on the map | Dismissed; or every source it was raised against is grey or deleted | The Question's status and `kb_ids` | Expected; read Questions |
+| A Question is on Questions but not on the map | Dismissed; or every source it was raised against is gray or deleted | The Question's status and `kb_ids` | Expected; read Questions |
 
 ## Agent memory
 

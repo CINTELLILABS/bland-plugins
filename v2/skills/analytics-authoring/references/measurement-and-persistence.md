@@ -38,7 +38,7 @@ Record the returned `definition_id`, confirm with a chart read on the page's
 `window` that `waypoints.customer.lifecycle` is `published`, and report
 generated, validated, saved, and served as separate facts: `served` can be
 false after a successful publish (under 5 conversations on the structure, or
-the organisation's serve mode), and that is not a failed save. Never
+the organization's serve mode), and that is not a failed save. Never
 retry an ambiguous write before re-reading; never touch the agent's versions,
 deployments, or the inferred definition rows to change a chart.
 
@@ -77,7 +77,7 @@ Translate the user's words into an inspectable local outcome specification:
   materially changes the answer; otherwise state the assumption;
 - set the cohort, stable call-ID deduplication key, denominator, time basis,
   unknown handling and evidence references. Percentages over classified calls
-  and over all selected calls are different and must be labelled;
+  and over all selected calls are different and must be labeled;
 - keep input data, per-call labels, aggregated results and a reproducible counting
   script separate. Existing platform schemas may not support the proposed
   outcome predicates; a local specification is not executable saved analytics.
@@ -91,7 +91,7 @@ criteria for partial completion were also observed. Human-versus-AI identity
 requires supporting evidence, not a guess from polite or repetitive wording.
 For DNC, distinguish a request to stop contact from a request to stop talking;
 retain the supporting turn and node if available. Time position needs timestamps
-or an explicitly labelled transcript-relative approximation.
+or an explicitly labeled transcript-relative approximation.
 
 Use `call-analysis` when per-call classification is required. A completeness
 ledger must reconcile selected = classified + inconclusive + retrieval_failed +

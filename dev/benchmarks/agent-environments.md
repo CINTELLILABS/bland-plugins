@@ -74,7 +74,7 @@ so.
 - **Prompt 6:** refuses the dotted key (keys are letters, digits and
   underscores; the resolver splits on dots), offers `API_HOST` and notes any
   `{{env.api.host}}` reference would never resolve.
-- **Prompt 7:** recognises the old rollout address redirects to Experiments
+- **Prompt 7:** recognizes the old rollout address redirects to Experiments
   and hands to the rollouts reference in `v2-lifecycle`; no rollout write
   without that skill's confirm.
 - **Prompts 8 to 10 (explain how it works):** read-only; may read the

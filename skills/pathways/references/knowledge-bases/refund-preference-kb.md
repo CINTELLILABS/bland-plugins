@@ -205,7 +205,7 @@ page or ask the caller to refresh as a way of accounting for a button that is si
 
 Flag this before they start. Callers without their student ID stall halfway.
 
-### Framing when the caller does not recognise the email
+### Framing when the caller does not recognize the email
 
 Their school partnered with Meridian Disbursements, Inc. to send financial aid refunds on the school's
 behalf, and the email explains how to choose the way they receive the money. Lead with the school.
@@ -227,7 +227,7 @@ caller enters the code to continue.
 - If the number itself is wrong: the preceding screen has **"Incorrect mobile phone?"** with an
   **Update Mobile Phone** button. Send them to that button rather than telling them to go back and
   retype the number.
-- The code entry field is labelled **Enter 6-digit code**, with **Go back** and **Submit**.
+- The code entry field is labeled **Enter 6-digit code**, with **Go back** and **Submit**.
 - They get **3 attempts.** After 3 failures the site tells them their refund will process as a paper
   check to the address the school provided.
 

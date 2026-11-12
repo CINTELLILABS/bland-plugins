@@ -68,7 +68,7 @@ the builder can show a Global badge without drawing incoming lines everywhere.
 |---|---|
 | `previous` | Automatic return behavior to the interrupted node |
 | `redirect` with `forwardingNode` | Redirect to the configured target; that target supplies the response |
-| `manual` | Auto-return disabled; authored onward routes stay relevant, with optional labelled return |
+| `manual` | Auto-return disabled; authored onward routes stay relevant, with optional labeled return |
 
 On executable steps, `settings.advanced.conditionOverridesGlobalPathway` lets
 an unmet loop/goal hold prevent the usual global-node diversion. It is not the

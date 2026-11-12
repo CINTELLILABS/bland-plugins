@@ -44,7 +44,7 @@ Rules that matter for design:
 
 - **At most 7 groups.** Seven is a cap, not a target.
 - **One group per member.** A definition partitions the waypoints once. Four
-  independent categorisations of the same calls are not expressible; that is a
+  independent categorizations of the same calls are not expressible; that is a
   dispositions problem.
 - **Order is conversation order.** Without `stage`, a group's stage is its list
   position. With `stage`, groups that share a number are **parallel branches**
@@ -84,7 +84,7 @@ Two kinds exist per agent and structure:
 (`definition_id`, `lifecycle`, `fingerprint`, `stale`, `missing_members`).
 
 `served` is true only for `view=simple` when the structure is ready (5+
-conversations since its first deployment) and the organisation's serve mode
+conversations since its first deployment) and the organization's serve mode
 allows it. A freshly published
 definition on a quiet structure is stored, reported, and not drawn.
 
@@ -93,7 +93,7 @@ definition on a quiet structure is stored, reported, and not drawn.
 Each conversation ends in one engine-assigned terminal: `contained`,
 `escalated_cold`, `escalated_warm`, `ai_abandoned`, `abandoned`, `agent_ended`,
 `voicemail`, `not_connected`, `errored`. The chart folds these to three outcome
-colours: completed by AI, transferred to staff, hung up. A definition cannot
+colors: completed by AI, transferred to staff, hung up. A definition cannot
 rename, split or reassign terminals. "Transferred because the caller asked"
 versus "transferred by design" is not visible here; the engine records both as
 an escalation. Per-call reasons belong in dispositions.

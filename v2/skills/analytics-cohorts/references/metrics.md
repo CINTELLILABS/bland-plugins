@@ -25,7 +25,7 @@ not search the docs for these routes.
 
 ## The tiles
 
-The metric routes are live for every organisation, self-serve included. They
+The metric routes are live for every organization, self-serve included. They
 are not enterprise-only.
 
 | Page label | System id | Kind | Counts |
@@ -190,7 +190,7 @@ refused for `rate` and `count`, and it must be a numeric `calls` column from
 | -- | -- | -- |
 | 201 / 200 | | Saved. `preview` is `{ num, den, window_days: 14 }` for a light query metric, else `null`. |
 | 400 | | Shape error. The message names the body path, for example `body.spec.value: …`. |
-| 403 | | The caller lacks the admin, owner, operator or prompter role for a judgment metric, or has no organisation context. |
+| 403 | | The caller lacks the admin, owner, operator or prompter role for a judgment metric, or has no organization context. |
 | 404 | | `agent not found` or `metric not found`. Also a foreign id. |
 | 409 | `METRIC_CAP` | 10 definitions in this scope; overrides count. Delete one first (with confirmation). |
 | 409 | `CONFLICT` | The row or the disposition's published version changed during the write. Read again, then retry once. |
@@ -198,7 +198,7 @@ refused for `rate` and `count`, and it must be a numeric `calls` column from
 | 422 | `INVALID_METRIC` | Top-level `violations: [{ path, message }]` lists every broken rule. |
 | 422 | `JUDGMENT_IS_AGENT_SCOPED` | A judgment metric was sent to `/org/metrics`. Use the agent route. |
 | 422 | `PROBE_TOO_EXPENSIVE` | The one-day trial scan was over the ceiling (`bytes`, `max_bytes`). Narrow the predicate. |
-| 429 | `ORG_BYTE_BUDGET` | The organisation spent its daily metric scan budget (`used_bytes`, `limit_bytes`). It resets at the UTC day change. |
+| 429 | `ORG_BYTE_BUDGET` | The organization spent its daily metric scan budget (`used_bytes`, `limit_bytes`). It resets at the UTC day change. |
 | 429 | | More than 30 metric writes in 60 seconds for this caller. Wait. |
 | 502 | `PROBE_FAILED` | The trial scan failed. Nothing was saved. |
 | 504 | `PROBE_TIMEOUT` | The trial scan ran out of time (`retry_after_ms`). One retry after that delay is fine. |
@@ -254,8 +254,8 @@ window before it).
 
 ## Access and limits
 
-- Every route needs an organisation context (403 `ORG_SCOPE_REQUIRED`
-  without one). Self-serve organisations are admitted.
+- Every route needs an organization context (403 `ORG_SCOPE_REQUIRED`
+  without one). Self-serve organizations are admitted.
 - Judgment create, judgment spec edits and judgment backfills need the role
   admin, owner, operator or prompter. Every metric write takes effect at
   once; say what changes before you send it.
@@ -266,7 +266,7 @@ window before it).
 
 ## Rails
 
-- **Confirm before DELETE.** The tile disappears for the whole organisation
+- **Confirm before DELETE.** The tile disappears for the whole organization
   and cannot be restored. Use:
 
   ```text
