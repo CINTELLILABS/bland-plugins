@@ -29,7 +29,7 @@ R read-only, ✗ refused with `oauth_path_not_allowed`.
 | GET `/v1/personas` | Every persona with `tags`, `name` and `inbound_numbers[]` (full number rows, including `agent_env_type`) | ✓ |
 | GET `/v1/inbound` | `{ inbound_numbers: [...] }`: the org's numbers with `pathway_id`, `fallback_number`, transfer and webhook fields. No `persona_id`, no `label`. | ✓ |
 | GET `/v1/inbound/<number>` | One number's row, unwrapped. 404 `"Number not found"` when it is not on the account or its subscription is not active. | ✓ |
-| GET `/v2/agents/<agentId>/inbound` | `{ agent_id, persona_id, pathway_id, numbers: [{ phone_number, agent_env_type }], staging_attach_supported }`. `agent_env_type` is `"staging"` or `null` (production). Both ids are null before the first attach. | ✓ |
+| GET `/v2/agents/<agentId>/inbound` | `{ agent_id, persona_id, pathway_id, numbers: [{ phone_number, agent_env_type }], staging_attach_supported, development_attach_supported }`. `agent_env_type` is `"dev"`, `"staging"` or `null` (production). Both ids are null before the first attach. | ✓ |
 
 Owner rules, in order:
 
@@ -52,9 +52,15 @@ number has an owner):
 { "inbound_numbers": ["<number>"], "only_if_unassigned": true }
 ```
 
-- `environment`: `"production"` or `"staging"`. Omitted keeps the staging
-  flag on a number already bound to this agent and starts every other number
-  on production.
+- `environment`: `"production"`, `"staging"` or `"dev"`. Omitted keeps the
+  environment of a number already bound to this agent and starts every other
+  number on production. `"dev"` makes inbound calls run the latest save on
+  Development main; add `branch_id` (a branch UUID, valid only with `"dev"`)
+  to run that branch's latest save instead. Texts on the number still run the
+  production copy. Staging and dev attaches need an enterprise org.
+- `only_if_bound: true` changes the environment of numbers already bound to
+  this agent and takes no number from another owner. A number that is no
+  longer bound returns `NUMBER_NOT_BOUND`; refresh and ask again.
 - `only_if_unassigned: true` binds only numbers with no persona and no
   pathway. A number running its own legacy prompt still counts as
   unassigned. If any number is taken, nothing is written and the call
@@ -76,14 +82,17 @@ number has an owner):
 | -- | -- | -- | -- |
 | 400 | `INVALID_BODY` | `inbound_numbers must be a non-empty array of phone numbers` | Send an array of strings. |
 | 400 | `INVALID_BODY` | `only_if_unassigned must be a boolean` | Send `true` or `false`. |
-| 400 | `INVALID_BODY` | `environment must be "production" or "staging"` | Fix the value. |
+| 400 | `INVALID_BODY` | `environment must be "production", "staging", or "dev"` | Fix the value. |
+| 400 | `INVALID_BODY` | `branch_id must be a branch ID and requires environment "dev"` | Send a branch UUID with `"environment": "dev"`. |
 | 400 | `INVALID_INBOUND_NUMBERS` | `Some phone numbers were not found or do not belong to you` | Re-read `/v1/inbound`; use the stored form. |
 | 400 | `NO_VERSIONS` | `Agent has no saved versions` (and a save hint) | Save a version first. |
 | 404 | `NOT_FOUND` | `Agent not found` | Check the agent id. |
 | 409 | `NUMBER_ALREADY_ASSIGNED` | `A selected number is no longer unassigned. Refresh and choose another number.` | Run the owner check; confirm before attaching without the flag. |
 | 422 | `COMPILE_FAILED` | `Could not compile the agent's latest version: <reason>` | Fix the version ([v2-snapshot](../../v2-snapshot/SKILL.md)). |
-| 403 | `ENTERPRISE_REQUIRED` | `This feature is only available for enterprise users` | Staging numbers need an enterprise org. |
-| 409 | `STAGING_NUMBER_UNSUPPORTED` | `Numbers can't be attached to staging on dedicated infrastructure` | Attach to production. |
+| 403 | `ENTERPRISE_REQUIRED` | `This feature is only available for enterprise users` | Staging and dev numbers need an enterprise org. |
+| 409 | `STAGING_NUMBER_UNSUPPORTED` | `Numbers can't be attached to staging on dedicated infrastructure that runs an older release` | Attach to production. |
+| 409 | `NUMBER_ENV_UNSUPPORTED` | `Numbers can't be attached to development on dedicated infrastructure` | Attach to production or staging. |
+| 409 | `NUMBER_NOT_BOUND` | `This number is no longer attached to this agent. Refresh and try again.` | Re-read the binding; the number moved. |
 | 409 | `AGENT_ENV_UNPINNED` | `Staging has no published version. Publish to staging first.` | Publish to staging, then attach. |
 | 409 | `AGENT_VARIABLE_UNRESOLVED` | names the variables missing a staging value | Set them for staging. |
 

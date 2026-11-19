@@ -37,7 +37,7 @@ test('named writes do not silently cross API generations', () => {
     { method: 'POST', path: '/v2/tools', name: 'create_tool' });
   assert.deepEqual(rows.find((row) => row.name === 'send_sms'),
     { method: 'POST', path: '/v1/sms/send', name: 'send_sms' });
-  assert.match(read('skills/tools/SKILL.md'), /NOT legacy `\/v1\/tools`/);
+  assert.match(read('skills/tools/SKILL.md'), /NOT the `\/v1\/tools` custom HTTP tools/);
   assert.doesNotMatch(read('skills/tools/SKILL.md'), /named tools .* are GONE/);
 });
 
@@ -65,17 +65,17 @@ test('partial proxy availability, approval and auth failures keep safe semantics
   }
 });
 
-test('Norm hands off the fallback contract and every workspace command loads it', () => {
-  for (const file of ['agents/norm.md', 'commands/norm.md']) {
-    assert.match(read(file), /skills\/api\/references\/tool-selection\.md/);
+test('every root skill and command loads the fallback contract', () => {
+  for (const name of readdirSync(resolve(root, 'skills'))) {
+    const file = `skills/${name}/SKILL.md`;
+    if (name === 'api' || !existsSync(resolve(root, file))) continue;
+    assert.match(read(file), /\(\.\.\/api\/references\/tool-selection\.md\)/, file);
   }
-  for (const name of ['clone', 'commit', 'status', 'test', 'validate', 'loop']) {
-    const text = read(`commands/${name}.md`);
-    assert.match(text, /Before server work, read \[API tool selection\]/);
-    assert.match(text, /mcp__bland__\*/);
-    assert.match(text, /mcp__plugin_bland_bland__\*/);
-  }
-  assert.match(read('commands/status.md'), /named-only tools mark this check SKIPPED/);
+  const status = read('commands/status.md');
+  assert.match(status, /Before server work, read \[API tool selection\]/);
+  assert.match(status, /mcp__bland__\*/);
+  assert.match(status, /mcp__plugin_bland_bland__\*/);
+  assert.match(status, /named-only tools mark this check SKIPPED/);
 });
 
 test('every standalone v2 specialist loads tool selection before server work', () => {

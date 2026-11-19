@@ -56,6 +56,7 @@ and [builder mapping](../../v2-runtime/references/builder-runtime-map.md).
 | `guardrails` | ACTIVE | Inline rails resolved at call time; see below. |
 | `disabledGuardrails` | EDITOR-ONLY | Built-in rails toggled off, kept for re-enable. An id or kind in both arrays is a validation error: move the entry, do not copy it. |
 | `nodeTurnTaking` | ACTIVE, import marker | Set by the 1:1 import. Makes every step's turn-taking trio compile. Leave it as found. |
+| `nativeToolCalling` | ACTIVE, platform-owned | `true` = the version runs [native function calling](../../v2-runtime/references/native-function-calling.md). New agents get it on their first save, and later saves inherit it from the version they build on. A save drops any value the request sends, so you cannot turn it on or off. Absent = legacy protocol. |
 | `importWarnings` | EDITOR-ONLY | `[{code, message, nodeId?, field?}]` the import could not carry. Read it when debugging a migrated agent. |
 
 Whole-snapshot cap: the validator rejects any snapshot over **2 MiB serialized**.
@@ -88,7 +89,7 @@ configuration applies.
 | Knob | Status | Behavior |
 |---|---|---|
 | `webChat.*` | EDITOR-ONLY | `enabled`, `widgetTitle`, `greetingMessage`, `allowedOrigins` do not configure any widget. The widget record owns title, greeting and domains. `webChat.enabled` only feeds reachability warnings. |
-| `apiChat.enabled` | ACTIVE, production | Opening an API chat refuses an agent whose flag is off (403 `CHANNEL_DISABLED`). The gate reads the **production** version, so a dev edit takes effect only after promote. |
+| `apiChat.enabled` | ACTIVE, production or staging | Opening an API chat refuses an agent whose flag is off (403 `CHANNEL_DISABLED`). A default open reads the **production** version; an open with `environment: "staging"` reads the staging pin. A dev edit takes effect only after promote (or publish to staging). |
 | `messaging.mode` | ACTIVE, messaging | `reasoning` (default when absent) answers texting turns from a brief of the whole agent; `pathway` runs the compiled graph node by node. Voice and web chat never read it. |
 | `messaging.reasoningEffort` | ACTIVE, messaging | `low`, `medium` (default), `high`. |
 | `messaging.progressUpdates` | ACTIVE, messaging | `auto` (default) or `off`. Plain SMS, RCS and WhatsApp never get one on `auto`. |

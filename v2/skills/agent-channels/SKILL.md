@@ -7,8 +7,8 @@ description: Use when someone wants to "embed chat on my site" or set up a "web 
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-A web chat widget, API chat and texts on a bound number all run the agent's
-**production** version, with no pin: promote to change them. Explain how
+Web chat, API chat and texts on a bound number run the **production**
+version, with no pin: promote to change them. Explain how
 or why from [how it works](references/how-it-works.md).
 Attaching a number belongs to
 [phone-numbers](../phone-numbers/SKILL.md),
@@ -46,7 +46,8 @@ API. Visible after a refresh."
 
 1. Read `settings.apiChat.enabled` on the dev head and the production pin.
 2. If dev is off, set it and save the full snapshot.
-3. Promote (the open reads production): name what else it ships; confirm.
+3. Promote (the open reads production, or staging when asked): name what
+   else it ships; confirm.
 4. Hand over open, message, end; `end_user_id` resume; 30-minute default
    timeout; tools run for real.
 

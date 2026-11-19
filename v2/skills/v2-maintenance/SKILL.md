@@ -18,6 +18,7 @@ The host enforces permissions; this skill does not grant them.
 |---|---|
 | Discover endpoints, use code and workspace files | [API workspace](../api-workspace/SKILL.md) |
 | Edit prompts, steps, tools, variables, edges, settings | [Snapshot dialect](../v2-snapshot/SKILL.md) |
+| Does the running version use native function calling; prompt and tool rules for it | [Native function calling](../v2-runtime/references/native-function-calling.md) |
 | Diagnose routing, repetition, interrupts, hidden canvas routes | [Runtime](../v2-runtime/SKILL.md) and [debugging procedure](../api-workspace/references/debugging.md) |
 | Reproduce safely with text, simulation, or actual speech | [Testing](../v2-testing/SKILL.md) |
 | Judges, test cases, calibration, run results | [Evaluations](../evaluations/SKILL.md) |
@@ -36,6 +37,9 @@ The host enforces permissions; this skill does not grant them.
 3. Make the smallest stable-ID patch. Preserve unrelated prompts, fields,
    integrations and layout. Do not rebuild the agent or insert routes just
    because the canvas hides generated behavior. A local edit alone is not a save.
+   When the version carries `settings.nativeToolCalling: true`, write the
+   patch to the native prompt and tool rules. Never add or remove that key;
+   the platform owns it.
 4. Parse and validate against the current supported schema; inspect the diff
    and referenced destinations, tools, snippet pins and variables. Migration
    audit conventions are not universal validity requirements: do not reshape an

@@ -7,7 +7,7 @@ description: Use when shipping a Bland v2 agent version to real traffic or askin
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-> **Server binding:** use only this plugin's MCP server (`plugin_norm_bland`), never the v1 plugin's or a project `bland` server; they may hold another org.
+> **Server binding:** use only the Bland MCP server of the plugin that loaded this skill (`plugin_norm_bland` in norm, `bland` in the bland plugin), never another installed or project-scoped Bland server; it may hold another org.
 
 Which version runs where, and how it reaches callers. The
 [lifecycle model](references/lifecycle.md) is the full model; read the
@@ -39,6 +39,13 @@ rollback ──────► production (only a version production ran before)
 
 Promotion enforces the staging check policy (`409 CHECKS_BLOCKED`); never
 add `force: true` to pass it. Promote errors: [API map](references/api.md#lifecycle).
+
+Roles: every role except Viewer can save versions. Publish, promote,
+rollback, the phone save, experiment and rollout writes, and repository
+releases need the owner, admin or operator role. A Prompter gets 403 on them,
+through the API, `/v1/mcp` and Norm alike. Report the refusal and name who can
+do it; do not retry through another path.
+
 Variables, checks and branches (the Environments page):
 [agent-environments](../agent-environments/SKILL.md).
 
@@ -49,9 +56,10 @@ Why: [how environments work](../agent-environments/references/how-it-works.md).
 | Channel | Runs | Override |
 |---|---|---|
 | Outbound `POST /v1/calls` with `agent_id` | production pin | `agent_version` selector |
-| Inbound voice | production pin, or an experiment arm | none |
+| Inbound voice | production pin, or an experiment arm | the number's environment: `staging` pin, or the latest `dev` save on main or a branch |
 | Builder test-chat socket | dev head | `version_id` query parameter |
-| Web widget, API chat, SMS | the twin, compiled from production | none |
+| API chat | the twin, compiled from production | `environment: "staging"` on the open |
+| Web widget, SMS | the twin, compiled from production | none |
 
 Selectors: `production`, `staging`, `dev`/`latest`, `X.Y.Z`, `branch:<name>`.
 The selector, not the version, picks whose variables resolve. A production

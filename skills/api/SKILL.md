@@ -57,9 +57,10 @@ an auth failure or a broken MCP connection.
   deletes and production promotion. Named tools do not relax these gates.
 - The API key belongs to the MCP connection. Never ask for it in chat, inspect
   credential stores, print it or put it in a request body/query.
-- Pathway workspace saves use `/v1/convo_pathway/*`, not `POST /v1/pathway/<id>`.
-  The named endpoint set does not supply those legacy saves/chat routes; v2
-  agent tools cannot substitute for them.
+- v1 pathway and persona routes are read-only in this plugin. Read them to
+  explain history or as a migration source; never create, update, save,
+  publish or delete through `/v1/convo_pathway/*`, `POST /v1/pathway/*` or the
+  persona write routes. Agent work uses `/v2/agents/*` ([agents](../agents/SKILL.md)).
 
 Report method + endpoint, target ID/version, safe request/result evidence,
 read-back status and remaining uncertainty. Never include credentials or claim

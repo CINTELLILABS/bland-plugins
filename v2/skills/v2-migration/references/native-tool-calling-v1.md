@@ -1,8 +1,12 @@
 # Native function calling: native-tool-calling-v1
 
-Read this reference only when the run brief says the agent uses native
-function calling. Otherwise skip it and follow the other references as
-written. This reference adds rules for writing prompts and tool definitions.
+In an upgrade run, read this reference only when the run brief says the agent
+uses native function calling. Otherwise skip it and follow the other
+references as written. Outside upgrade runs, read it whenever the version you
+edit or build carries `settings.nativeToolCalling: true`; see
+[native function calling](../../v2-runtime/references/native-function-calling.md)
+for how to check. This reference adds rules for writing prompts and tool
+definitions.
 It does not replace [outcomes-v1](outcomes-v1.md),
 [upgrade-design-v1](upgrade-design-v1.md),
 [call-quality-v1](call-quality-v1.md) or [bland-tone-v1](bland-tone-v1.md),

@@ -79,7 +79,7 @@ The session discovers the pathway, proposes the scenario architecture for your a
 
 | Command | What it does |
 |---|---|
-| `/norm:build` | Build a NEW v2 agent — starts with a human-in-the-loop gate (v1 pathway or v2 agent?); v1 answers route to the v1 plugin, v2 answers load the authoring doctrine and drive design → snapshot → push → verify. |
+| `/norm:build` | Build a NEW agent, always v2: design review → snapshot → push → verify. A request for a new v1 pathway or persona gets the v2 agent that does the same job. |
 | `/norm:migrate` | Full v1 pathway/persona → v2 agent hand migration: discover → architect → author verbatim → audit → push → simulate. One-shot oriented; every known trap is a pre-push check. |
 | `/norm:validate` | Mechanical audit of a snapshot JSON: structure, routing-crash checks, pin presence against the v1 source, exit-label discipline. |
 | `/norm:analytics` | Analytics page work for the agent in view: build, edit or simplify the Sankey through a waypoint definition, or build a conversation cohort ("show me the calls where…") and open it on the Conversations page. |
@@ -121,13 +121,14 @@ Written for agents WITHOUT access to the Bland platform source — everything is
 - **call-analysis** — bounded call retrieval, offset pagination, reproducible
   cohorts, workspace analysis, evidence-linked categories, and report artifacts.
 
-- **v2-authoring** — building NEW agents: hub-first consolidation and bounded strict business workflows, optional connection-gating Start, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
+- **v2-authoring** — building NEW agents (always v2, written for native function calling): hub-first consolidation and bounded strict business workflows, optional connection-gating Start, the standard conduct-rule set (every rule from a real production incident), deterministic-where-it-matters, and the v1→v2 mental shift table.
 - **[v2-maintenance](skills/v2-maintenance/SKILL.md)** — update and debug existing
   agents: minimal stable-ID edits, unsaved-draft reconciliation, concurrency
   fences, ambiguous-write recovery, exact-version tests, and lifecycle guidance.
 - **v2-snapshot** — the exact snapshot dialect (behavior graph, hub, scenarios, step types, tools, settings) and hand-authoring rules.
-- **v2-runtime** — routing and runtime behavior, plus the JSON → builder →
-  executable-pathway mapping: implicit entry/sibling/return routes, component
+- **v2-runtime** — routing and runtime behavior, native function calling
+  (`settings.nativeToolCalling`: who sets it, how to check it, what changes),
+  plus the JSON → builder → executable-pathway mapping: implicit entry/sibling/return routes, component
   boundaries, inspector-only routes, global-node returns, and audio versus
   routing interruptions. Documents retained settings that no longer execute.
 - **v2-migration** — the migration doctrine + the trap catalog accumulated across production migrations (`references/traps.md`).
@@ -165,13 +166,13 @@ every feature is enabled or every future endpoint is documented offline.
 
 ## Cross-host behavior (Claude Code, Codex, Cursor, Grok)
 
-Manifests ship for all four hosts (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `.grok-plugin/`), mirroring the v1 plugin's pattern — same skills, same MCP server, per-host auth style (Claude userConfig, Codex `bearer_token_env_var`, Cursor variables, Grok env expansion).
+Manifests ship for all four hosts (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `.grok-plugin/`), mirroring the `bland` plugin's pattern — same skills, same MCP server, per-host auth style (Claude userConfig, Codex `bearer_token_env_var`, Cursor variables, Grok env expansion).
 
 Two capabilities degrade gracefully off Claude Code:
 
-- **The v1-or-v2 question gate** (`/norm:build` step 0) uses Claude's AskUserQuestion when available; on every other host it's the same gate as a plain question — the instructions say ask ONE question and end the turn, which every interactive host supports.
+- **Human design review** (`/norm:build` phase 1) uses Claude's AskUserQuestion when available; on every other host it is a plain question that ends the turn, which every interactive host supports.
 - **The enforced convergence loop** (Stop hook) is Claude Code-only — other hosts don't run hooks. There, the loop is advisory: run `bin/norm-migrate-audit.cjs` and the state manager manually per the /norm:migrate procedure; the audit and builder are plain Node scripts and work everywhere.
 
 ## Relationship to the `bland` plugin
 
-The original `bland` plugin covers the v1 surface (pathways, personas, and the file-workspace Norm builder). This plugin is intentionally separate so v2 work never inherits v1 doctrine. Install both if you work on both; v1 concepts appear here only as migration inputs.
+Both plugins are v2-only. The `bland` plugin is the general entry point: calls, texts, analytics, evaluations, call review and debugging, with every agent task routed into this plugin's skills. This plugin adds the `/norm:*` commands, the migration builder and audit scripts, and the enforced convergence loop. v1 pathways and personas appear here only as read-only migration inputs; neither plugin creates, edits or publishes them.

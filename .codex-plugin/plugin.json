@@ -1,6 +1,6 @@
 {
   "name": "bland",
-  "version": "2.2.1",
+  "version": "3.0.0",
   "description": "Work with Bland voice agents through the hosted MCP server: inspect agent versions, review calls, query metrics, validate supplied pathway graphs, and evaluate calls.",
   "author": {
     "name": "Bland",
@@ -16,7 +16,7 @@
     "voice-agents",
     "conversational-ai",
     "calls",
-    "pathways",
+    "v2-agents",
     "analytics",
     "mcp"
   ],
@@ -48,7 +48,7 @@
             },
             {
               "description": "Docs lookup",
-              "prompt": "How do I add a knowledge base to a pathway in Bland?",
+              "prompt": "How do I add a knowledge base to an agent in Bland?",
               "tools_triggered": "search_bland_docs, get_bland_doc",
               "expected_behavior": "Searches the Bland docs and answers with the documented steps and a link to the page."
             },

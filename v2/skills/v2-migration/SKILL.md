@@ -7,7 +7,7 @@ description: The hand-migration doctrine for converting a Bland v1 pathway or pe
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-> **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
+> **Server binding:** all API work in this skill goes through the Bland MCP server of the plugin that loaded it (`plugin_norm_bland` in the norm plugin, `bland` in the bland plugin). Never switch to another installed or project-scoped Bland server, even though it exposes similar tools; it may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
 
 **Select the migration contract first.** For `/norm:migrate --upgrade` or state
@@ -27,6 +27,8 @@ and separate-conversational-owner instructions below.
 Hand-architected conversion beats automatic converters: a human-quality architecture (which nodes form which scenarios, what the hub says, what each entry means) plus **mechanical, verbatim carriage of every byte of content**. This skill is the doctrine; `references/traps.md` is the accumulated trap catalog — read it in full before authoring, and again before pushing.
 
 **Everything is additive.** The v1 pathway keeps serving live traffic untouched. The migration produces a new agent version in the owning org; number cutover is a separate, explicitly-human decision and is NOT part of this skill.
+
+**v1 is read-only.** Read v1 pathways and personas as sources; never create, edit, save or publish one. Every output is a v2 agent version. The tool protocol depends on how the target agent was created ([native function calling](../v2-runtime/references/native-function-calling.md)): an agent made with `create_agent` or `POST /v2/agents` runs native function calling from its first pushed version; an agent the platform created with its first version (the migration routes, as-is imports) keeps the legacy protocol; an upgrade run that the platform starts with native calling stamps its candidates. After the first push, read `settings.nativeToolCalling` on the saved version, report it, and run the native simulation checks when it is `true`.
 
 ## Inputs (raw JSON, read-only)
 

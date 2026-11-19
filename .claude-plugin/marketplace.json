@@ -11,7 +11,7 @@
     {
       "name": "bland",
       "source": "./",
-      "description": "Build, test, and run Bland voice agents from your coding agent: the hosted Bland MCP server, skills for every part of the platform, and the Norm agent builder.",
+      "description": "Build, test, and run Bland v2 voice agents from your coding agent: the hosted Bland MCP server and skills for every part of the platform. v2 agents only; v1 pathways and personas are read-only.",
       "category": "productivity",
       "license": "MIT",
       "homepage": "https://bland.ai",
@@ -21,7 +21,7 @@
         "voice-agents",
         "conversational-ai",
         "calls",
-        "pathways",
+        "v2-agents",
         "analytics",
         "mcp",
         "norm"
@@ -30,7 +30,7 @@
     {
       "name": "norm",
       "source": "./v2",
-      "description": "The v2-only Bland plugin: migrate v1 pathways/personas to v2 agents (/norm:migrate), audit snapshots (/norm:validate), and verify with simulations and test chats (/norm:simulate). Raw-JSON workflow with the full hand-migration doctrine and trap catalog; no v1 authoring doctrine.",
+      "description": "The v2 agent workbench: build v2 agents (/norm:build), migrate v1 pathways/personas into v2 agents (/norm:migrate), audit snapshots (/norm:validate), and verify with simulations and test chats (/norm:simulate), with an enforced convergence loop. v1 sources are read-only.",
       "category": "productivity",
       "license": "MIT",
       "homepage": "https://bland.ai",

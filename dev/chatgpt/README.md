@@ -20,7 +20,7 @@ An eligible organization owner or admin must complete consent. If Bland reports 
 - [Agents](skills/agents/SKILL.md): inspect v2 agent versions, prepare changes, and stage or promote selected saved versions. Saving requires a named tool that atomically rejects changes based on an outdated version; otherwise the skill presents the proposed changes for you to apply in Bland's editor.
 - [Calls](skills/calls/SKILL.md): review a known call, place a call, wait, or stop it.
 - [Analytics](skills/analytics/SKILL.md): aggregate call metrics with an explicit date range.
-- [Pathways](skills/pathways/SKILL.md): inspect and validate a supplied native graph.
+- [Pathways](skills/pathways/SKILL.md): inspect and validate a supplied legacy pathway graph, read-only.
 - [Evals](skills/evals/SKILL.md): inspect existing judges and runs; start requested scoring runs.
 - [Docs](skills/docs/SKILL.md): find and explain Bland documentation.
 

@@ -1,5 +1,50 @@
 # Changelog
 
+## bland 3.0.0 / norm 1.12.0 - 2026-11-19
+
+Both plugins are now v2-only. They create and change v2 agents and nothing
+else. v1 pathways, personas and their calls stay readable, to explain them or
+to migrate them.
+
+- **Removed from `bland`:** the v1 pathway file workspace. That is the
+  `pathways` and `persona` skills with the golden pathway references, the
+  `/bland:norm`, `/bland:loop`, `/bland:clone`, `/bland:validate`,
+  `/bland:test` and `/bland:commit` commands, the `norm` and `norm-judge`
+  agents, the SessionStart, lint, loop and dirty-workspace hooks, the offline
+  pathway codec (`norm-sync.cjs`, `engine.bundle.cjs`) and its benchmark and
+  bundling scripts.
+- **`bland` skills now route into the v2 wiki.** A new `agents` skill takes
+  every build, edit, test and publish request, including ones phrased as a
+  pathway or persona. `calls` dispatches only v2 agents (`agent_id`), and
+  `messaging`, `tools`, `knowledge`, `automations`, `triage`, `evals`,
+  `analytics`, `call-review` and `debug` follow the v2 skills. `/bland:status`
+  is the environment self-test only, with v2 agent reads in place of the
+  pathway compiler checks.
+- **Removed from `norm`:** the v1-or-v2 question in `/norm:build`. A request
+  for a new pathway or persona gets the v2 agent that does the same job.
+- **Native function calling.** New reference
+  `v2-runtime/references/native-function-calling.md`: what
+  `settings.nativeToolCalling` means, that the platform owns it (saves drop a
+  sent value and inherit the base version's), which agents are enrolled (new
+  agents through `create_agent` or `POST /v2/agents`, starter and
+  website-generated agents, native upgrade candidates) and which are not
+  (agents the migration routes create with their first version), the
+  organization-level override, and which steps keep the legacy protocol. The
+  prompt and tool rules now apply to every native agent, not only upgrades;
+  authoring, maintenance, migration, tool-library and the field dictionary
+  link them.
+- **Corrections from recent platform changes:** a Transfer Pathway step can
+  target another v2 agent (`agentId`, `agentVersion`); API chat opens on the
+  staging pin with `environment: "staging"`; a number can be attached to
+  `dev` (Development main or a branch with `branch_id`) and switched with
+  `only_if_bound`; Prompters can save but not publish, promote, roll back or
+  run rollouts; `query_analytics` has no row mode (the old analytics skill
+  documented one).
+- The skills' server-binding notes name the server of whichever plugin loaded
+  them, so the `bland` plugin can use the v2 skills.
+- The ChatGPT `pathways` skill validates a supplied legacy graph read-only and
+  no longer prepares edits.
+
 ## bland 2.2.1 / norm 1.11.1 - 2026-10-20
 
 - Prefer generic MCP proxies when available; otherwise select an exact named

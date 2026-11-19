@@ -1,57 +1,66 @@
 ---
 name: debug
-description: "Use when something on the Bland surface misbehaves and needs SYSTEMATIC root-cause debugging — a pathway routing wrong or looping, a variable extracting badly, a webhook/tool failing, an MCP tool or endpoint erroring, a widget not rendering, behavior contradicting the docs, or 'it worked yesterday'. It enforces the four-phase discipline (root-cause investigation → pattern analysis → single hypothesis → minimal fix with a failing repro first) hyper-specialized to pathways and agents: call-log evidence per pipeline boundary, version diffs, contract-confirmed hypotheses, and triage-ready escalation packs. Works for any user against production or a dev server."
+description: "Use when something on the Bland surface misbehaves and needs SYSTEMATIC root-cause debugging: a v2 agent routing wrong or looping, a variable extracting badly, a tool or webhook failing, a native tool call misfiring, an MCP tool or endpoint erroring, a channel not answering, behavior contradicting the docs, or 'it worked yesterday'. It enforces the four-phase discipline (root-cause investigation, pattern analysis, single hypothesis, minimal fix with a failing repro first) for v2 agents: call evidence per pipeline boundary, version diffs, exact-version tests, and triage-ready escalation packs. v1 pathways are read-only evidence; their fix is a v2 change or a migration."
 license: MIT
 ---
 
-You are the systematic-debugging specialist in the Bland plugin. If the `superpowers:systematic-debugging` skill is available in this session, invoke it first and treat everything below as its pathway/agent specialization; if it is not, this doctrine is self-contained — follow it exactly.
+# Systematic debugging for v2 agents
+
+Before server work, read [API tool selection](../api/references/tool-selection.md).
+
+Server binding: all API work goes through this plugin's own Bland MCP server (`bland`). Never switch to another installed or project-scoped Bland server; it may hold another organization.
+
+If the `superpowers:systematic-debugging` skill is available in this session, invoke it first and treat everything below as its Bland specialization. Otherwise this doctrine is self-contained. The v2 evidence procedure is in [debugging](../../v2/skills/api-workspace/references/debugging.md); read it before Phase 1.
 
 ## The Iron Law
 
-**NO FIXES WITHOUT ROOT-CAUSE INVESTIGATION FIRST.** A fix proposed before Phase 1 is complete is a guess, and guesses in pathways create the worst kind of bug: one that moves. "It's probably the prompt, let me reword it" is the red flag — stop, return to evidence.
+**NO FIXES WITHOUT ROOT-CAUSE INVESTIGATION FIRST.** A fix proposed before Phase 1 is complete is a guess, and guesses in agents create the worst kind of bug: one that moves. "It's probably the prompt, let me reword it" is the red flag. Stop and return to evidence.
 
-## Phase 1 — Root-cause investigation
+## Phase 1: root-cause investigation
 
-1. **Read the actual error, verbatim.** The failing envelope, `error_message` on the call, `introduced_errors` from validation, MCP codes (`-32000` = swept session, retry once; `-32003` = rate limit; 401/403/404 = auth/wrong server — check the URL with `node "${CLAUDE_PLUGIN_ROOT}/bin/norm-config.cjs"`, never the key). Chronic contract traps: `call_bland_api` bodies are native JSON objects, `bland_api_get` query values are strings.
-2. **Reproduce deterministically before theorizing.** Pathway behavior → a scripted chat-sim (`POST /v1/pathway/chat/create` — `start_node_id` + `request_data` let you start mid-flow with variables pre-seeded, the domain's unit test); real-call bugs → the call's own record (`get_call_log`, `/v1/calls/{id}`); API bugs → the exact failing tool call. Save the repro to `.norm/repro/<slug>.md` (request, expected, actual). A bug without a repro file is a rumor. On production, repro against throwaway resources and clean up — never mutate a live object to "test".
-3. **Check recent changes — the pathway version diff.** `bland_api_get /v1/pathway/{id}/versions`, fetch the last-known-good graph, then run change-aware `validate_pathway` with the OLD graph as `baseline`: `introduced_errors`/`introduced_warnings`/`relevant_to_changes` findings show exactly what the newest edit broke. This is the domain's `git diff` for behavior contracts — run it before reading a single prompt.
-4. **Gather evidence at each pipeline boundary.** The call record IS the instrumentation; read the right part per boundary:
+1. **Read the actual error, verbatim.** The failing envelope, `error_message` on the call, validation errors from the version save, MCP codes (`-32000` = swept session, retry once; `-32003` = rate limit; 401/403/404 = auth, role or wrong server; check the URL with `node "${CLAUDE_PLUGIN_ROOT}/bin/norm-config.cjs"`, never the key). Chronic contract traps: `call_bland_api` bodies are native JSON objects, `bland_api_get` query values are strings.
+2. **Confirm which version answered.** A v2 call record carries `agent_id` and `agent_version_id`. Read that version's snapshot. "The fix didn't take" is usually the wrong version, not routing ([which version runs](../../v2/skills/v2-runtime/SKILL.md)). Read `settings.nativeToolCalling` on it: a native version and a legacy version misfire in different ways ([native function calling](../../v2/skills/v2-runtime/references/native-function-calling.md)).
+3. **Reproduce deterministically before theorizing.** Agent behavior: a test chat or text simulation pinned to that exact version ([v2 testing](../../v2/skills/v2-testing/SKILL.md), [turn-by-turn probes](../../v2/skills/v2-testing/references/probes.md)). Real-call bugs: the call's own record. API bugs: the exact failing tool call. Save the repro to `.norm/repro/<slug>.md` (request, expected, actual). A bug without a repro file is a rumor. Simulations can run real integrations; classify side effects first. Never mutate a live object to "test".
+4. **Check recent changes: the version diff.** List versions (`GET /v2/agents/<id>/versions`), read the last-known-good snapshot and the failing one, and diff them in workspace files. This is the `git diff` for behavior. Run it before you read a single prompt.
+5. **Gather evidence at each pipeline boundary.** The call record is the instrumentation:
 
 | Boundary | Evidence source |
 |---|---|
-| What STT heard | transcript `user` turns (vs recording if STT itself is suspect) |
-| Route selection | `pathway_logs` decision entries (condition achieved? chosen edge) + edge labels/descriptions (the actual route metadata) |
-| Loop condition | loop entries (`Is Looping`; ≥3 = stuck) + the node's loop contract |
-| Variable extraction | `Current Variables` snapshots (the timeline) + extractVars descriptions |
-| Webhook / tool | webhook entries: status (non-2xx = finding), request/response bodies |
-| Dialogue generation | conversation entries + the node's prompt contract + **context windows** from `get_pathway_context` (`active=true/false` per stage tells you whether extraction/loop-eval even RAN on that node) |
-| Post-call | `analysis`, `dispositions[]`, post-call webhook record |
+| What speech recognition heard | transcript user turns (against the recording if recognition is the suspect) |
+| Route selection | the engine trace for the turn, edge labels and conditions, `route` rules |
+| Loop condition | the step's `loopWhile`, the repeated step in the trace |
+| Variable extraction | the variable timeline, the extraction rows' descriptions |
+| Tool or webhook | tool logs (`GET /v2/tools/logs?call_id=`), status, request and response bodies |
+| Native tool calls | which tool was offered on the step, the arguments the model sent, held drafts |
+| Post-call | dispositions, post-call webhook deliveries |
 
-5. **Trace bad values to their source.** A wrong value spoken in a recap traces backward through the `Current Variables` timeline → the extraction node, `request_data`, or a webhook overwrite. Fix at the SOURCE surface, never at the symptom (rewording the recap prompt to "fix" a bad extraction is symptom-patching).
+6. **Trace bad values to their source.** A wrong value spoken in a recap traces backward through the variable timeline to the extraction step, `request_data`, or a tool response. Fix at the source, never at the symptom.
 
-## Phase 2 — Pattern analysis
+For a past **v1 pathway** call, `pathway_logs`, `get_pathway_context` and `validate_pathway` with a baseline are still valid read-only evidence ([call-review](../call-review/SKILL.md)). Do not edit or save the pathway.
 
-Find what works before touching what doesn't: a sibling node in the same pathway whose loop releases fine, a previous version that behaved, or a PASSING call on the same pathway (filter `/v1/calls`, diff the two calls' logs — where do their decision entries diverge?). Compare against the authoritative references, completely: `get_pathway_schema` for shapes, `get_pathway_context` for the runtime contract (operation order, route-precedence, known stuck-reasons), docs via `search_bland_docs`. List every difference; don't assume "that can't matter".
+## Phase 2: pattern analysis
 
-## Phase 3 — Single hypothesis, tested minimally
+Find what works before touching what doesn't: a sibling step whose loop releases, a previous version that behaved, or a passing call on the same version. Diff the two calls' traces: where do their decisions diverge? Compare against the authoritative references completely: [snapshot dialect](../../v2/skills/v2-snapshot/SKILL.md), [runtime rules](../../v2/skills/v2-runtime/references/runtime-rules.md), [builder/runtime map](../../v2/skills/v2-runtime/references/builder-runtime-map.md), and the docs via `search_bland_docs`. List every difference; don't assume "that can't matter".
 
-State it in domain terms: "the loop never releases because the condition gates on `appointment_time`, which no node extracts." Then exploit the domain superpower: **`get_pathway_context` can often confirm a hypothesis statically** — its dependency inference and "likely stuck reasons" name exactly this failure without running anything. Test with the smallest probe (one mid-flow chat-sim, one contract read), ONE variable at a time. Hypothesis dead? Form a new one from the evidence — never stack a second speculative fix on top of the first.
+## Phase 3: single hypothesis, tested minimally
 
-## Phase 4 — Implementation
+State it in domain terms: "the loop never releases because the hold condition needs `appointment_time`, which no step extracts." Test with the smallest probe (one pinned test chat, one contract read), one variable at a time. Hypothesis dead? Form a new one from the evidence; never stack a second speculative fix on the first.
 
-1. **Failing repro first.** The repro file (or, for behavioral bugs, `/bland:loop --goal` with the bug as a not-met outcome — arm it, watch pass 1 fail) must fail BEFORE the fix so the fix has something to prove.
-2. **One minimal fix at the root surface** — pathway content (workspace files + change-aware `validate_pathway` + `/bland:commit`), account config through the passthrough (docs-first, confirm-gated), or the server codebase when the working tree contains one (follow THAT repo's own CLAUDE.md/skills for layout and rebuild/restart; ask once if absent; never guess internals — they are deliberately not baked into this plugin). No "while I'm here" improvements.
-3. **Verify with the original repro** — same call, corrected result; after a server restart retry the first MCP call once (swept session). Hand transcript grading to `norm_judge` conventions: evidence quotes, no self-grading benefit of the doubt.
-4. **The 3-fix rule.** Three failed fixes on the same symptom means the pathway/design is wrong, not under-tweaked — stop and question the structure (the classic: three prompt rewordings can't fix a webhook-grounding failure whose real cause is that `responseData` variables aren't substituted into the same node's dialogue on the firing turn — the fix is structural: deliver in the next node). Say so to the user; do not attempt fix #4 without that conversation.
+## Phase 4: implementation
+
+1. **Failing repro first.** The repro (or a frozen simulation scenario with the bug as a failing assertion) must fail BEFORE the fix, so the fix has something to prove.
+2. **One minimal fix at the root surface**: a stable-ID patch to the v2 agent version ([v2 maintenance](../../v2/skills/v2-maintenance/SKILL.md)), account configuration through the passthrough (confirm-gated), or the server codebase when the working tree holds one (follow that repo's own guidance; never guess internals). When the failing call ran on a v1 pathway, the fix is the same change on the v2 agent that replaces it, or a migration. No "while I'm here" improvements.
+3. **Verify with the original repro** on the newly saved version, plus a normal path and an adjacent regression case. Grade with evidence quotes, never self-graded benefit of the doubt.
+4. **The 3-fix rule.** Three failed fixes on the same symptom means the design is wrong, not under-tweaked. Stop and question the structure: when prose fails twice, change the construct, not the wording. Say so to the user; do not attempt fix #4 without that conversation.
 
 ## Escalation = triage, not surrender
 
-When the root cause is out of your reach (platform bug, no codebase present, needs a product decision) or honest investigation ends at "environmental/not reproducible": assemble the **triage pack** — repro file, call ids + pathway id/version, node/edge ids, the evidence table rows that matter, every hypothesis tested and its result — and hand it to the triage skill to file (severity + evidence links). A documented dead end with a clean pack is a successful outcome; "couldn't figure it out" without the pack is not.
+When the root cause is out of reach (platform bug, no codebase, needs a product decision) or honest investigation ends at "not reproducible": assemble the **triage pack**: repro file, call ids, agent id and version, step and edge ids, the evidence rows that matter, every hypothesis tested and its result. Hand it to the triage skill. A documented dead end with a clean pack is a successful outcome.
 
 ## Guardrails
 
-Never print, read, or pass the API key; URLs are not secrets, the key always is. Server writes stay confirm-gated. Edit a local server codebase freely but never commit/push unless asked. Before anything destructive, state which server the connection points at. Report honestly: a repro that stopped failing for unknown reasons is "not reproducible", not "fixed".
+Never print, read or pass the API key; URLs are not secrets, the key always is. Server writes stay confirm-gated, and saving a version is not publishing it. Edit a local server codebase freely but never commit or push unless asked. Before anything destructive, state which server the connection points at. Report honestly: a repro that stopped failing for unknown reasons is "not reproducible", not "fixed".
 
 ## Reporting
 
-Always report: the repro (path + one line), the phase trail (evidence → pattern → hypothesis → fix), root cause with the decisive evidence rows, the fix surface + what changed (and restarted), before/after envelopes, regression protection left behind — or the triage pack if escalated.
+Always report: the repro (path + one line), the phase trail (evidence → pattern → hypothesis → fix), the root cause with the decisive evidence rows, the fix surface and the saved version, before and after results on that exact version, and the regression protection left behind, or the triage pack if escalated.

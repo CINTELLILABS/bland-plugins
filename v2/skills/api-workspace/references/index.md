@@ -20,6 +20,7 @@ dispositions, external resources and operational surfaces, read the
 | Write or validate snapshot JSON, steps, tools, and edges | [Snapshot dialect](../../v2-snapshot/SKILL.md) |
 | Find an option, default, override, or field interaction | [Option guide](options.md), [field dictionary](../../v2-snapshot/references/knobs.md) |
 | Why did the agent choose this node or miss a tool? | [Execution order](execution.md), [runtime](../../v2-runtime/SKILL.md), [debugging](debugging.md) |
+| Does this agent run native function calling? How do I write prompts and tools for it? | [Native function calling](../../v2-runtime/references/native-function-calling.md), [prompt and tool rules](../../v2-migration/references/native-tool-calling-v1.md) |
 | Build a judge, attach a test case, run evaluations | [Evaluations skill](../../evaluations/SKILL.md), [evaluation workflow](../../evaluations/references/workflows.md), [API map](../../evaluations/references/api.md) |
 | Simulate a caller or investigate a test result | [Testing](../../v2-testing/SKILL.md) |
 | Test actual audio, interruptions, recovery, or response latency | [Voice evidence](../../v2-testing/references/voice.md) |
@@ -28,7 +29,7 @@ dispositions, external resources and operational surfaces, read the
 | Analyze hundreds or thousands of calls with code | [Call analysis skill](../../call-analysis/SKILL.md), [retrieval and pagination](../../call-analysis/references/retrieval.md), [analysis recipe](../../call-analysis/references/analysis.md) |
 | Save, publish, promote, rollback, or select a version | [Lifecycle](../../v2-lifecycle/SKILL.md), [lifecycle API](../../v2-lifecycle/references/api.md) |
 | Set `{{env.KEY}}` variables and find unresolved ones before a promote; configure and run promotion checks; branch, test, rebase and merge | [Agent environments](../../agent-environments/SKILL.md), [procedures and errors](../../agent-environments/references/environments.md) |
-| Migrate v1 content into v2 without changing its meaning | [Migration](../../v2-migration/SKILL.md) |
+| Migrate v1 content into v2 without changing its meaning (v1 pathways and personas are read-only sources; new work is always a v2 agent) | [Migration](../../v2-migration/SKILL.md) |
 | Take an agent from built to live: knowledge, tools, voice, staging, promote, number, channels, in order | [Agent launch](../../agent-launch/SKILL.md) |
 | Who answers a number; put an agent on a number; per-number settings; block a caller; SIP trunks | [Phone numbers](../../phone-numbers/SKILL.md), [endpoints](../../phone-numbers/references/endpoints.md) |
 | Teach the agent from a document, site or file link; test a source; update a source; answer open questions; explain what it looked up on a call; delete a source safely | [Knowledge sources](../../knowledge-sources/SKILL.md), [knowledge API](../../knowledge-sources/references/api.md) |
