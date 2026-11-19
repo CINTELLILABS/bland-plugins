@@ -53,8 +53,10 @@ The marker belongs to the platform, not to the author:
 - An agent that the platform creates together with its first version is not
   enrolled: the `/v2/agents` pathway, persona and widget migration routes,
   pathway translation and as-is imports. Its versions keep the legacy
-  protocol. A hand migration that pushes into an agent made with
-  `create_agent` is enrolled, so its first pushed version runs natively.
+  protocol. An agent made with `create_agent` is enrolled even when a hand
+  migration fills it, so its first pushed version runs natively. A verbatim
+  (legacy) migration must not target it; see the
+  [migration protocol gate](../../v2-migration/SKILL.md).
 - An upgrade run that the platform starts with native calling stamps every
   candidate it saves.
 
@@ -92,11 +94,13 @@ break an existing agent:
   prompts.
 - **Schemas.** An `input_schema` needs an object root. `$ref`, `$defs`,
   `oneOf`, `anyOf`, `allOf`, `not`, `if`/`then`/`else` and related keywords
-  make the runtime drop the whole tool. Every `required` name must be a
-  declared property.
-- **Names.** Letters, digits, `_` and `-`, at most 64 characters, unique
-  without regard to case. Do not name a custom tool `wait`, `finish` or
-  `press_button`; it replaces the built-in.
+  fail native normalization, and the tool is not offered. Every `required`
+  name must be a declared property.
+- **Names.** The runtime replaces characters other than letters, digits, `_`
+  and `-` with `_` and cuts the name at 64 characters. A later tool whose
+  normalized name matches an earlier one, ignoring case, is not offered.
+  Write names that need no change, so prompts match them. Do not name a
+  custom tool `wait`, `finish` or `press_button`; it replaces the built-in.
 - **Arguments.** `input_schema` holds only values the caller supplies. Fill
   system values through `{{variable}}` placeholders or schema defaults.
 - **Offered tools only.** Name a tool only in the prompt of a step it is

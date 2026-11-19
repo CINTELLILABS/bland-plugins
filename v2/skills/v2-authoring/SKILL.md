@@ -105,8 +105,8 @@ Write every prompt and tool definition to
 [the native rules](../v2-migration/references/native-tool-calling-v1.md):
 one tool call per response, no action names or JSON formats in prompts,
 filler speech on the tool rather than in the prompt, object-root schemas with
-no `$ref`/`oneOf`/`anyOf`/`allOf`, and only caller-supplied values in
-`input_schema`. When you add steps to an existing agent, read the marker on
+no `$ref`/`oneOf`/`anyOf`/`allOf` (or the tool is not offered), and only
+caller-supplied values in `input_schema`. When you add steps to an existing agent, read the marker on
 its running version first and follow the protocol it uses.
 
 ## Deterministic where it matters

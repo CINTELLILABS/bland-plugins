@@ -40,6 +40,7 @@ to migrate them.
   `only_if_bound`; Prompters can save but not publish, promote, roll back or
   run rollouts; `query_analytics` has no row mode (the old analytics skill
   documented one).
+- Migration protocol gate: a verbatim (legacy) migration determines the target's tool protocol before authoring and refuses a native target (any agent with no saved version, or a head with `settings.nativeToolCalling: true`); the user names a legacy-protocol agent or switches to `--upgrade`.
 - The skills' server-binding notes name the server of whichever plugin loaded
   them, so the `bland` plugin can use the v2 skills.
 - The ChatGPT `pathways` skill validates a supplied legacy graph read-only and

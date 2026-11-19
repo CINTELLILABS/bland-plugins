@@ -12,7 +12,7 @@ Read the [tool library reference](../v2-runtime/references/tool-library.md)
 before the first write; steps are in [procedures](references/workflows.md).
 Attaching edits a snapshot ([v2-snapshot](../v2-snapshot/SKILL.md)); test
 chats follow [v2-testing](../v2-testing/SKILL.md). No fetch scripts or route searches.
-[Native calling](../v2-runtime/references/native-function-calling.md) drops bad schemas.
+[Native calling](../v2-runtime/references/native-function-calling.md) skips tools with bad schemas.
 
 ## Page context
 

@@ -73,7 +73,7 @@ finish with the full simulation suite and the migration report.
 
 First paste on a fresh machine: Claude installs the plugin, then you enter your key (`/plugin configure norm@bland` — stored by the host, never in the conversation), restart, and paste the same prompt again to start the migration. Already set up: the first paste goes straight into the migration.
 
-The session discovers the pathway, proposes the scenario architecture for your approval, carries your content byte-for-byte into a v2 snapshot, audits it against the source, pushes it as a new agent version (asking first), and verifies it with simulations. Migration is additive: your v1 pathway, numbers, and live traffic are never modified. Full walkthrough: [docs.bland.ai — Migrate a v1 pathway to a v2 agent](https://docs.bland.ai/platform/migrate-v1-to-v2).
+The session discovers the pathway, proposes the scenario architecture for your approval, carries your content byte-for-byte into a v2 snapshot, audits it against the source, pushes it as a new agent version (asking first), and verifies it with simulations. Migration is additive: your v1 pathway, numbers, and live traffic are never modified. A verbatim migration needs a target agent that runs the legacy tool protocol. A brand-new agent runs native function calling, so the session stops at the protocol gate and asks you to name a legacy-protocol agent or rerun with `--upgrade` ([why](skills/v2-runtime/references/native-function-calling.md)). Full walkthrough: [docs.bland.ai — Migrate a v1 pathway to a v2 agent](https://docs.bland.ai/platform/migrate-v1-to-v2).
 
 ## Commands
 

@@ -11,7 +11,7 @@ bound. An open with `"environment": "staging"` runs the staging pin instead
 
 ## Contents
 
-- [The switch reads production](#the-switch-reads-production)
+- [The switch reads the target environment](#the-switch-reads-the-target-environment)
 - [Routes](#routes)
 - [Open or resume](#open-or-resume)
 - [Staging chats](#staging-chats)
@@ -20,7 +20,7 @@ bound. An open with `"environment": "staging"` runs the staging pin instead
 - [Side effects](#side-effects)
 - [Where the threads show](#where-the-threads-show)
 
-## The switch reads production
+## The switch reads the target environment
 
 `settings.apiChat.enabled` in the agent snapshot is the switch. A production
 open reads it from the **production pin**. If production was never pinned,
@@ -29,17 +29,25 @@ pin. The dashboard toggle saves to the dev head, so after the first promote a
 toggle does nothing until the next promote (or, for staging chats, the next
 publish to staging).
 
+Pick the target first: production (a default open) or staging (an open with
+`"environment": "staging"`).
+
 1. Dev head: `bland_api_get` `/v2/agents/<agent id>/versions/latest`, read
    `snapshot.settings.apiChat.enabled`.
-2. Production: `bland_api_get` `/v2/agents/<agent id>/environments`, take the
-   production `current_version.semver`, then `/v2/agents/<agent id>/versions/<semver>`.
+2. Target pin: `bland_api_get` `/v2/agents/<agent id>/environments`, take the
+   target environment's `current_version.semver`, then
+   `/v2/agents/<agent id>/versions/<semver>`.
 3. Report both values and which one differs.
 4. If dev is off, set it to `true` in the full snapshot from step 1 and save
    with `call_bland_api` POST `/v2/agents/<agent id>/versions`.
-5. Promote with POST `/v2/agents/<agent id>/promote`
-   ([v2-lifecycle](../../v2-lifecycle/SKILL.md)). Promote ships the whole
-   candidate to every channel, voice included. Name the other changes in it
-   and confirm first.
+5. Ship to the target only ([v2-lifecycle](../../v2-lifecycle/SKILL.md)):
+   - **Staging chat:** publish to staging with POST
+     `/v2/agents/<agent id>/publish`. It moves staging only.
+   - **Production chat:** promote with POST `/v2/agents/<agent id>/promote`,
+     and only when the user approved a production change. Promote ships the
+     whole candidate to every channel, voice included.
+
+   Name the other changes in the shipped version and confirm first.
 
 A missing `apiChat` key means off.
 
