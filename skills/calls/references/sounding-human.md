@@ -1,20 +1,20 @@
 # Sounding human on a call
 
-Read this before you write a `task`, a `first_sentence`, or a `personality_prompt`, and before you dispatch any call.
+Read this before you write a v2 agent's `settings.systemPrompt`, hub or step prompts, and before you place a call with the agent.
 
-A call that sounds like a robot reading a press release is a bad experience for the person who picks up, and they blame the business, not the model. Two things decide how a call sounds: the **settings you dispatch with** and the **way the prompt is written**. Both are below. Neither is optional.
+A call that sounds like a robot reading a press release is a bad experience for the person who picks up, and they blame the business, not the model. Two things decide how a call sounds: the **settings on the agent version** and the **way the prompts are written**. Both are below. Neither is optional.
 
-## 1. Dispatch settings
+## 1. Agent settings
 
-`create_call` takes only `phoneNumber`, `task`, `pathwayId`, `voice`, `from`, and `firstSentence`, and rejects every other field. So every setting in this table needs `call_bland_api` with `POST /v1/calls` instead. **If the call needs any of them, do not use `create_call`.**
+A v2 agent version owns these settings. Set them in the snapshot ([field dictionary](../../../v2/skills/v2-snapshot/references/knobs.md)), not on each call. A value sent on `POST /v1/calls` overrides the version for that call only.
 
-| Setting | Send | Why |
+| Setting | Set | Why |
 |---|---|---|
-| `noise_cancellation` | `true` | Filters background noise out of the caller's audio. **Send it explicitly.** `POST /v1/calls` applies `true` when the field is omitted, but the API reference documented `false` for a long time, so send the field rather than trusting a default that has already drifted once. |
-| `background_track` | `office` for a room-tone feel | Ambience under the agent. The default (`null`) is quiet phone static and `none` minimizes background noise, while `office`, `cafe`, and `restaurant` put a room behind the voice, which softens the jump between silence and speech. Pick one deliberately instead of letting it default. |
-| `keywords` | every proper noun the call depends on | The transcriber garbles names it has not heard, and the agent then confidently repeats the wrong one back. Business, product, and person names go here. |
-| `voicemail` | decide before dialing | The default is to hang up silently, and on cold outbound that can be most of your calls. |
-| `record` | `true` when the user will want to review it | A call has a recording only if it was dispatched with this. It cannot be added afterward. |
+| `settings.voiceCall.noiseCancellation` | `true` (the default) | Filters background noise out of the caller's audio. Leave it on unless the user has a reason. |
+| `settings.backgroundNoise` | `office` for a room-tone feel | Ambience under the agent: `off`, `office`, `coffee-shop` or `restaurant`. A room behind the voice softens the jump between silence and speech. Pick one deliberately. |
+| `settings.voiceCall.keywords` | every proper noun the agent depends on | The transcriber garbles names it has not heard, and the agent then confidently repeats the wrong one back. Business, product, and person names go here (at most 20). |
+| `settings.voiceCall.voicemailAction` | decide before dialing | The default is to hang up silently, and on cold outbound that can be most of your calls. |
+| `settings.voiceCall.record` | `true` when the user will want to review calls | A call has a recording only if recording was on. It cannot be added afterward. |
 
 ## 2. Bland tone: how the agent should talk
 
@@ -47,7 +47,7 @@ Read every line aloud in your head. If it sounds like an essay, rewrite it until
 
 ### Drop this into the prompt
 
-Paste this into the `task` or `personality_prompt` and then write the rest of the prompt's own lines the same way. Do not water it down into "be conversational", which is the instruction every robotic call was already given:
+Paste this into the agent's `settings.systemPrompt` and then write the rest of the prompt's own lines the same way. Do not water it down into "be conversational", which is the instruction every robotic call was already given:
 
 ```
 Talk like a person on a phone, not like written copy. Use contractions.
@@ -91,8 +91,7 @@ Rules:
 
 ## 5. Before you dial
 
-1. Dispatching through `POST /v1/calls` if the call needs anything beyond the six `create_call` fields.
-2. `noise_cancellation: true` sent explicitly.
-3. `background_track` chosen deliberately.
-4. Every proper noun in `keywords`.
-5. The prompt reads like a transcript, not like copy, and carries the tone rules above.
+1. The call runs a v2 agent: `POST /v1/calls` with `agent_id` (`create_call` cannot carry it).
+2. `noiseCancellation` and `backgroundNoise` chosen deliberately on the version that will run.
+3. Every proper noun in `settings.voiceCall.keywords`.
+4. The prompts read like a transcript, not like copy, and carry the tone rules above.

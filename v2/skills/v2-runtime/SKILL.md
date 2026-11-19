@@ -7,7 +7,7 @@ description: Use when predicting or debugging Bland v2 runtime behavior, explain
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-> **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland`, `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools; they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
+> **Server binding:** all API work in this skill goes through the Bland MCP server of the plugin that loaded it (`plugin_norm_bland` in the norm plugin, `bland` in the bland plugin). Never switch to another installed or project-scoped Bland server, even though it exposes similar tools; it may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
 A v2 snapshot becomes a runnable conversation graph at connect. Read
 [how it works](references/how-it-works.md) for the life of a call: version,
@@ -18,10 +18,10 @@ Before debugging behavior, confirm which version answered.
 
 | Channel | Runs |
 |---|---|
-| Inbound voice on a bound number | The **production pin**; the **staging pin** when the number is staging-attached; or an experiment variant. |
+| Inbound voice on a bound number | The **production pin**; the **staging pin** when the number is staging-attached; the latest save on Development main or on a branch when the number is attached to `dev`; or an experiment variant. |
 | Outbound call | The production pin or an experiment variant, unless the request names an `agent_version` selector. |
 | Published web chat widget (agent-backed) | The production version, refreshed on promote. No version override. |
-| API chat (`POST /v1/chat`) | The production version (the latest save if never promoted). `settings.apiChat.enabled` is read from production. |
+| API chat (`POST /v1/chat`) | The production version (the latest save if never promoted). With `environment: "staging"`, the staging pin. `settings.apiChat.enabled` is read from the version the chat runs. |
 | Builder test chat | The **dev head**, or the version the `version_id` selector names. |
 | Texts on a bound number | The production copy attached to the number; see the messaging runtime below. |
 
@@ -73,6 +73,10 @@ when missing. Details and the clock-variable gap:
 - [Tool library](references/tool-library.md): tool, secret and connection
   routes, the definition schema, the HTTP-0 trap, attach modes and blast
   radius, tool logs. Workflows: the [tool-library skill](../tool-library/SKILL.md).
+- [Native function calling](references/native-function-calling.md): whether
+  the version runs native tool calls (`settings.nativeToolCalling`), who sets
+  it, which steps use it, and the prompt and tool rules that follow. Check it
+  before you write a prompt or a tool for an existing agent.
 
 Document the [behavioral deltas](references/runtime-rules.md#behavioral-deltas-to-plan-for-v2-model-limits)
 per agent instead of discovering them in production.

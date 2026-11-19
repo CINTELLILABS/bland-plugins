@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "norm",
   "displayName": "Norm for v2 Agents",
-  "version": "1.11.1",
-  "description": "Build, migrate, debug, and test Bland v2 agents; create evaluations and analyze calls through the Bland API and coding workspace, with a task-indexed product wiki. v2-only; v1 requests belong to the bland plugin.",
+  "version": "1.12.0",
+  "description": "Build, migrate, debug, and test Bland v2 agents; create evaluations and analyze calls through the Bland API and coding workspace, with a task-indexed product wiki. v2-only: v1 pathways and personas are read-only migration inputs.",
   "author": {
     "name": "Bland",
     "email": "kyle@bland.ai",

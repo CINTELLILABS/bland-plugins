@@ -8,7 +8,7 @@
  * bridge for the Claude Desktop app). It is NOT used by any command or agent body
  * anymore: all command/agent server I/O goes through the MCP passthrough
  * (mcp__bland__bland_api_get / call_bland_api), where the MCP connection holds the
- * key. The offline norm-sync.cjs codec does NOT require this file. (The desktop app
+ * key. (The desktop app
  * does not pass plugin userConfig env to a launched stdio server, so the bridge
  * still needs to resolve the key from persisted config — hence this resolver.)
  *

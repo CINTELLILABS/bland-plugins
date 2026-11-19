@@ -1,40 +1,53 @@
 # API chat
 
 API chat lets the customer's own app hold a text conversation with a v2 agent
-over HTTP. It runs the agent's **production** version on the messaging
-pipeline, the same turn a text runs. It has no version pin. A production
-number attach recompiles the shared copy from the latest save, so API chat
-can run unpromoted edits until the next promote, unless a widget is bound.
+over HTTP. By default it runs the agent's **production** version on the
+messaging pipeline, the same turn a text runs. It has no version pin. A
+production number attach recompiles the shared copy from the latest save, so
+API chat can run unpromoted edits until the next promote, unless a widget is
+bound. An open with `"environment": "staging"` runs the staging pin instead
+([staging chats](#staging-chats)).
 [How it works](how-it-works.md) explains the copy and the text runtime.
 
 ## Contents
 
-- [The switch reads production](#the-switch-reads-production)
+- [The switch reads the target environment](#the-switch-reads-the-target-environment)
 - [Routes](#routes)
 - [Open or resume](#open-or-resume)
+- [Staging chats](#staging-chats)
 - [Send a message](#send-a-message)
 - [End and read](#end-and-read)
 - [Side effects](#side-effects)
 - [Where the threads show](#where-the-threads-show)
 
-## The switch reads production
+## The switch reads the target environment
 
-`settings.apiChat.enabled` in the agent snapshot is the switch. The open
-request reads it from the **production pin**. If production was never pinned,
-it reads the latest saved version. The dashboard toggle saves to the dev head,
-so after the first promote a toggle does nothing until the next promote.
+`settings.apiChat.enabled` in the agent snapshot is the switch. A production
+open reads it from the **production pin**. If production was never pinned,
+it reads the latest saved version. A staging open reads it from the staging
+pin. The dashboard toggle saves to the dev head, so after the first promote a
+toggle does nothing until the next promote (or, for staging chats, the next
+publish to staging).
+
+Pick the target first: production (a default open) or staging (an open with
+`"environment": "staging"`).
 
 1. Dev head: `bland_api_get` `/v2/agents/<agent id>/versions/latest`, read
    `snapshot.settings.apiChat.enabled`.
-2. Production: `bland_api_get` `/v2/agents/<agent id>/environments`, take the
-   production `current_version.semver`, then `/v2/agents/<agent id>/versions/<semver>`.
+2. Target pin: `bland_api_get` `/v2/agents/<agent id>/environments`, take the
+   target environment's `current_version.semver`, then
+   `/v2/agents/<agent id>/versions/<semver>`.
 3. Report both values and which one differs.
 4. If dev is off, set it to `true` in the full snapshot from step 1 and save
    with `call_bland_api` POST `/v2/agents/<agent id>/versions`.
-5. Promote with POST `/v2/agents/<agent id>/promote`
-   ([v2-lifecycle](../../v2-lifecycle/SKILL.md)). Promote ships the whole
-   candidate to every channel, voice included. Name the other changes in it
-   and confirm first.
+5. Ship to the target only ([v2-lifecycle](../../v2-lifecycle/SKILL.md)):
+   - **Staging chat:** publish to staging with POST
+     `/v2/agents/<agent id>/publish`. It moves staging only.
+   - **Production chat:** promote with POST `/v2/agents/<agent id>/promote`,
+     and only when the user approved a production change. Promote ships the
+     whole candidate to every channel, voice included.
+
+   Name the other changes in the shipped version and confirm first.
 
 A missing `apiChat` key means off.
 
@@ -86,6 +99,7 @@ The response:
 {
   "conversation_id": "<conversation id>",
   "agent_id": "<agent id>",
+  "environment": "production",
   "end_user_id": "<your user id>",
   "status": "active",
   "ended": false,
@@ -99,6 +113,25 @@ The response:
 ```
 
 `status` is `active`, `human_handoff`, `timeout` or `ended`.
+
+## Staging chats
+
+Add `"environment": "staging"` to the open to try a published staging version
+over API chat before you promote it. `"production"` or no value keeps the
+default.
+
+- Staging and production chats run under different agent numbers. A
+  conversation keeps its environment for every message. A staging open
+  resumes or replaces only a staging conversation; an active production chat
+  for the same person stays as it is.
+- A staging conversation keeps the staging version that was current when it
+  opened. A later publish to staging reaches the next new staging
+  conversation, not one being resumed.
+- A staging open is refused with `AGENT_ENV_UNPINNED` when staging pins
+  nothing, and with 403 `CHANNEL_DISABLED` when the staging version has
+  `settings.apiChat.enabled` off.
+- Tools, webhooks and memory still run for real. A staging chat is not a
+  dry run.
 
 ## Send a message
 

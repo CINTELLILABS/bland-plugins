@@ -16,7 +16,7 @@ The active hosted MCP connection reads credentials from the host that launches i
 - **Cursor:** `BLAND_API_KEY` and optional `BLAND_API_URL` plugin variables, substituted into `mcp.json`.
 - **Codex:** `BLAND_API_KEY` in the Codex process's environment, referenced by `bearer_token_env_var` in `.codex-plugin/plugin.json`. The URL is fixed to `https://api.bland.ai/v1/mcp`.
 
-These are separate credential sources, not a fallback chain. The bundled stdio bridge has a legacy resolver for old `norm@*` config and CLI profiles, but no active plugin manifest launches it. The offline pathway codec needs no credentials. Restart the host session after changing its credentials so MCP reconnects.
+These are separate credential sources, not a fallback chain. The bundled stdio bridge has a legacy resolver for old `norm@*` config and CLI profiles, but no active plugin manifest launches it. Restart the host session after changing its credentials so MCP reconnects.
 
 ## Rules
 

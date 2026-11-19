@@ -1,6 +1,6 @@
 # Selecting connected Bland API tools
 
-This contract applies to Norm, workspace commands, and domain skills. A procedure
+This contract applies to every skill and command in this plugin. A procedure
 that names `bland_api_get` or `call_bland_api` describes an API operation, not a
 requirement that every host expose a generic proxy.
 
@@ -48,7 +48,7 @@ remain read-only even when a route uses POST. A tool being listed is not consent
 Never request or inspect credentials, use curl/fetch as a fallback, or fabricate
 IDs, saved versions, transcripts or successful results.
 
-## Legacy pathway capability boundary
+## Legacy pathway boundary (read-only)
 
 The endpoint set added in SERVER PR #12407 does not cover the legacy workspace
 routes: `GET /v1/pathway`, `GET /v1/pathway/{id}`, its versions list,
@@ -58,9 +58,9 @@ Do not invent `list_pathways`, `save_pathway`, or chat tools for these routes.
 `list_agents` / `save_agent_version` operate on v2 agents, not v1 pathways;
 agent testing tools are not the turn-by-turn pathway chat simulation.
 
-Before clone, save, publish or simulate, check that the required operations have
-an actual equivalent connected tool. If not, report the missing method + route
-and which step is blocked. Continue independent reads or offline edits/structural
-checks where useful, and use `validate_pathway`, `get_pathway_schema`,
-`get_pathway_context` and `get_call_log` when present. Do not claim local edits
-were saved, an offline check was a server compile, or a simulation ran.
+This plugin does not write v1 pathways or personas. Read them only, to explain
+history or as a migration source. When a read has no equivalent connected tool,
+report the missing method + route and which step is blocked. `validate_pathway`,
+`get_pathway_schema`, `get_pathway_context` and `get_call_log` stay usable for
+read-only inspection when present. Do not claim a read, save or simulation that
+did not run.

@@ -7,8 +7,8 @@ description: Use when someone wants to "embed chat on my site" or set up a "web 
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-A web chat widget, API chat and texts on a bound number all run the agent's
-**production** version, with no pin: promote to change them. Explain how
+Web chat, texts and default API chat run **production**, unpinned: promote
+to change them. Explain how
 or why from [how it works](references/how-it-works.md).
 Attaching a number belongs to
 [phone-numbers](../phone-numbers/SKILL.md),
@@ -17,7 +17,7 @@ recipients to [analytics-cohorts](../analytics-cohorts/SKILL.md).
 
 ## Page context
 
-Call `get_dashboard_page_context` (`mode: "synced"`) first; there is no chip.
+Call `get_dashboard_page_context` (`mode: "synced"`) first; no chip.
 
 - `/dashboard/agent/$agentId/channels/chat[/$widgetId]`: agent id, widget id.
 - `/dashboard/agent/$agentId/channels/api-chat`: agent id.
@@ -42,11 +42,13 @@ API. Visible after a refresh."
 
 ## Workflow: turn on API chat
 
-[Contract](references/api-chat.md). Budget: three reads, one save, one promote.
+[Contract](references/api-chat.md). Budget: three reads, one save, one ship.
 
-1. Read `settings.apiChat.enabled` on the dev head and the production pin.
+1. Read `settings.apiChat.enabled` on the dev head and the target pin
+   (production, or staging for a staging chat).
 2. If dev is off, set it and save the full snapshot.
-3. Promote (the open reads production): name what else it ships; confirm.
+3. Staging chat: publish to staging. Production: promote, only when
+   approved. Name what else ships; confirm.
 4. Hand over open, message, end; `end_user_id` resume; 30-minute default
    timeout; tools run for real.
 
@@ -85,7 +87,7 @@ A2P status: `/v1/messaging/a2p`, not the page card.
 ## Why isn't it answering
 
 First failure wins ([checklist](references/messaging.md#why-a-channel-is-silent)):
-channel off in production (403 `CHANNEL_DISABLED`, widget host not listed);
+channel off on the target pin (403 `CHANNEL_DISABLED`, widget host not listed);
 number unbound; thread handed off or ended; `settings.messaging.mode`.
 
 ## Confirm before

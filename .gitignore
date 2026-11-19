@@ -3,5 +3,4 @@ node_modules/
 *.log
 .norm/
 .tmp-smoke-data/
-dev/benchmarks/pathway-creation/runs/
 .tmp-chatgpt-build/

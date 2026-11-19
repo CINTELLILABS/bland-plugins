@@ -1,7 +1,7 @@
 {
   "name": "bland",
-  "version": "2.2.1",
-  "description": "Build, test, and run Bland voice agents from Grok Build: the hosted Bland MCP server plus skills for calls, messaging, pathways, analytics, evals, call review, tools, personas, knowledge bases, and automations, and the Norm agent builder with a self-driving convergence loop.",
+  "version": "3.0.0",
+  "description": "Build, test, and run Bland v2 voice agents from Grok Build: the hosted Bland MCP server plus skills for agents, calls, messaging, analytics, evaluations, call review, debugging, tools, knowledge, automations, and triage. v2 agents only; v1 pathways and personas are read-only.",
   "author": {
     "name": "Bland",
     "email": "kyle@bland.ai",
@@ -14,7 +14,7 @@
     "bland",
     "bland ai",
     "bland voice agents",
-    "bland pathways",
+    "bland v2 agents",
     "bland mcp",
     "norm"
   ],

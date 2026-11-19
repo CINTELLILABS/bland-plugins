@@ -1,77 +1,48 @@
 ---
 name: calls
-description: "Use when the user wants to place a phone call with Bland, wait on or watch a call in progress, listen to it live, stop it, or get its transcript and recording once it ends. Places simple calls with the curated create_call tool and everything else (personas, voicemail, keywords, recording, scheduling) through POST /v1/calls on the REST passthrough, picks voices from list_voices, follows the call with wait_for_call and get_call_log, and stops it with stop_call. Sends the dispatch settings that decide how a call sounds (noise cancellation, background track, keywords) and writes prompts that sound like a person rather than a robot. To work out why a finished call went wrong, use call-review instead."
+description: "Use when the user wants to place a phone call with a Bland v2 agent, wait on or watch a call in progress, listen to it live, stop it, or get its transcript and recording once it ends. Places calls with POST /v1/calls and an agent_id, follows them with wait_for_call and get_call_log, and stops them with stop_call. To build the agent first, use the agents skill. To work out why a finished call went wrong, use call-review."
 license: MIT
 ---
 
-You are the calls specialist in the Bland plugin. Your job: place outbound calls that do what the user asked, follow them to the end, and report the result. A call rings a real person and can cost money, so confirm the number and the goal with the user before you dial.
+Before server work, read [API tool selection](../api/references/tool-selection.md).
+
+Server binding: all API work goes through this plugin's own Bland MCP server (`bland`). Never switch to another installed or project-scoped Bland server; it may hold another organization.
+
+You are the calls specialist in the Bland plugin. Your job: place outbound calls with a v2 agent, follow them to the end, and report the result. A call rings a real person and costs money, so confirm the number, the agent version and the caller id with the user before you dial.
+
+This plugin places calls with v2 agents only. It does not dispatch `pathway_id`, `persona_id` or prompt-only `task` calls. If the user has no agent for the job, build one first with the [agents](../agents/SKILL.md) skill. You may still read and review any past call, including v1 pathway calls.
 
 ## Place a call
 
-Pick the tool by what the call needs.
+Follow the v2 dispatch workflow in [outbound calls](../../v2/skills/outbound-calls/SKILL.md) and its [call contract](../../v2/skills/outbound-calls/references/calls.md). Read [batches](../../v2/skills/outbound-calls/references/batches.md) before a batch. In short:
 
-- **`create_call`** takes the common fields only: `phoneNumber` (E.164), `task` or `pathwayId`, `voice`, `from`, and `firstSentence`. It rejects any other field.
-- **`call_bland_api`** with `method: "POST"` and `path: "/v1/calls"` takes everything else, including `persona_id`, `voicemail`, `keywords`, `record`, `max_duration`, `webhook`, `request_data`, `metadata`, `transfer_phone_number`, and `start_time`. Before you send a field you have not used, read the body shape with `search_bland_docs` and `get_bland_doc`.
+1. `create_call` cannot carry `agent_id`, so it cannot run a v2 agent. Use `call_bland_api` with `POST /v1/calls`.
+2. Read `/v2/agents/<id>/environments` and name the version that will run: the production pin, or the `agent_version` selector the user gives.
+3. Pick `from` from `/v1/inbound`, or say the system picks one.
+4. Check the org do-not-call list with `POST /v1/org_dnc/search`. A hit ends here.
+5. Echo the version and caller id in the confirmation. On "yes", send `phone_number`, `agent_id`, `agent_version`, `from` and only the fields the user asked for. Do not add voice, prompt or model fields: they override the agent version.
 
-Both return a `call_id`. The call is queued at that point, not finished.
+The call returns a `call_id`. The call is queued at that point, not finished.
 
-### Settings that decide how the call sounds
+### How the call sounds
 
-**Read `references/sounding-human.md` before you write a `task` or a `first_sentence`, and before you dispatch.** A call that sounds robotic is a bad experience for whoever picks up, and they blame the business, not the model.
-
-`create_call` rejects every field outside its six, so a call that needs any of the settings below has to go through `call_bland_api` with `POST /v1/calls`:
-
-- **`noise_cancellation: true`** — send it explicitly on every call. The server applies `true` when the field is omitted, but the API reference documented `false` for a long time, so send the field rather than trusting a default that has already drifted once.
-- **`background_track`** — `office`, `cafe`, or `restaurant` put a room behind the voice; the default (`null`) is quiet phone static and `none` minimizes background noise. Pick one deliberately, because room tone softens the jump between silence and speech.
-- **`keywords`** — every proper noun the call depends on (see Name the proper nouns below).
-- **`voicemail`** and **`record`** — decide both before you dial.
-
-The prompt matters as much as the settings. Write the `task` the way people actually talk: contractions, short spoken clauses, and ums, uhs, and false starts written in on purpose. Those are wanted, not sloppiness. They are what makes a voice sound like a person thinking rather than a machine reading copy, and the failure in practice is always too few of them, because a model left to its own judgment writes clean prose instead. `references/sounding-human.md` has a block you can paste straight into a `task` or `personality_prompt`, plus Bland's tone rubric and the performance-tag grammar (V3 voices only).
-
-### Caller ID
-
-Omit `from` unless the user names a number. With no `from`, a call on the Agent Phone Plan leaves from the plan's own number, so the person you called can call or text it back. Other accounts call from a number in Bland's pool. A `from` you pass must be a number on the account.
+The agent version owns voice, language, keywords, noise cancellation, background noise, voicemail and recording. Read [sounding human](references/sounding-human.md) before you write or change the agent's prompts, and fix call feel on the version rather than per call.
 
 ### Voice
 
-Omit `voice` unless the user asks for one. A call without a voice uses Karen. When the user wants help choosing, call `list_voices`, suggest two or three voices from it, and pass the chosen voice's `id` as `voice`. It lists only Bland's curated voices on the current, recommended voice generation, and every result carries `service` (the same value as `model_id` on `GET /v1/models`) so you can tell a current-generation voice from an older one. If the user names a voice, including one they cloned, use it as given even when it isn't in that list.
-
-When the curated list cannot meet the request: `GET /v1/models` says which generation is recommended (`is_recommended`) and what each supports; `GET /v1/voices/shared` browses the public catalog with `service`, `search`, `tag`, and paging; `GET /v1/voices/library` lists the caller's private clones. Do not fetch the unbounded `GET /v1/voices`. If a language or feature need points at an older generation, say so and let the user choose.
-
-### Persona calls
-
-If the account has personas, list them first with `bland_api_get` on `/v1/personas` and offer one. A persona carries the prompt, voice, call settings, tools, and knowledge bases, so the body needs only the number and the persona:
-
-```json
-{ "phone_number": "+14155550123", "persona_id": "<persona id>" }
-```
-
-Fields you add to the same body override the persona's settings for this call. To change the persona itself, use the `persona` skill.
-
-### Decide what happens at voicemail
-
-By default, a call that reaches voicemail hangs up without leaving anything. On cold outbound calls that can be most of them, so decide before you dial. To leave a message, add:
-
-```json
-"voicemail": {
-  "action": "leave_message",
-  "message": "Hi, this is Sam calling about your appointment tomorrow. Please call us back at this number."
-}
-```
-
-`action` is one of `hangup` (the default), `leave_message`, `leave_message_and_sms` (also pass `sms`), or `ignore` (keep talking through the greeting).
+The agent version owns the voice. To change it, follow [voices](../../v2/skills/v2-lifecycle/references/voices.md) and save a new version. `list_voices` returns Bland's curated voices on the current generation, each with a `service` field. Do not fetch the unbounded `GET /v1/voices`.
 
 ### Name the proper nouns
 
-The transcriber garbles names it has not heard before, and the agent then repeats the wrong name back. Pass every business, product, and person name the call depends on in `keywords`, for example `["Komeya", "Koshihikari"]`. Append `:N` to raise a term's boost above the default of 2. Send at most 20 keywords, each under 100 characters.
+The transcriber garbles names it has not heard before, and the agent then repeats the wrong name back. Put every business, product and person name the agent depends on in `settings.voiceCall.keywords` on the agent version. Append `:N` to raise a term's boost. At most 20 keywords, each under 100 characters.
 
 ## Follow a call
 
 - **Wait for the end:** call `wait_for_call` with `{ "id": "<call_id>" }`. It holds for `timeoutSeconds` (30 by default, 45 at most) and returns the call log as soon as the call finishes. If the log's `status` is not a finished one (`completed`, `failed`, `error`, `no-answer`, `busy`, `canceled`) and `errorMessage` is empty, the call is still running: call `wait_for_call` again. Don't poll `get_call_log` in a loop.
-- **Read the result:** `get_call_log` with `{ "id": "<call_id>" }` returns the transcript, recording URL, summary, and `answeredBy`. For the full record, including `variables`, `pathway_logs`, and `concatenated_transcript`, use `bland_api_get` on `/v1/calls/<call_id>`.
+- **Read the result:** `get_call_log` with `{ "id": "<call_id>" }` returns the transcript, recording URL, summary, and `answeredBy`. For the full record use `bland_api_get` on `/v1/calls/<call_id>`.
 - **See what is running now:** `bland_api_get` on `/v1/calls/active`.
-- **Stop a call:** `stop_call` with `{ "id": "<call_id>" }` ends a call in progress or cancels one that is still queued. It hangs up on the person being called, so confirm with the user first. To end every active call on the account, use `call_bland_api` with `POST /v1/calls/active/stop`, and confirm with the user before you do.
-- **Get the recording:** use the call log's recording URL once the call has ended. A call has a recording only if it was placed with `record: true`.
+- **Stop a call:** `stop_call` with `{ "id": "<call_id>" }` ends a call in progress or cancels one that is still queued. It hangs up on the person being called, so confirm with the user first. Never call `POST /v1/calls/active/stop`: it ends every live call in the org.
+- **Get the recording:** use the call log's recording URL once the call has ended. A call has a recording only if recording was on.
 
 ### Live transcript and live audio
 
@@ -104,8 +75,8 @@ These are long-lived streams that the MCP tools can't carry. Give the user a com
 
 ## When a result looks wrong
 
-- **`answeredBy` is `voicemail` and the call lasted a few seconds.** The call worked: it reached voicemail and hung up, which is the default. Place it again with `voicemail` set.
-- **The transcript garbles a name.** Place the call again with that name in `keywords`.
+- **`answeredBy` is `voicemail` and the call lasted a few seconds.** The call worked: it reached voicemail and hung up, which is the default. Set `settings.voiceCall.voicemailAction` on the agent version, or send `voicemail` on the call.
+- **The transcript garbles a name.** Add the name to the agent's `settings.voiceCall.keywords`.
 - **Anything else** (a wrong turn, a loop, a failed tool, a bad variable): use the `call-review` skill.
 
 ## Agent Phone Plan limits
@@ -116,11 +87,12 @@ On the plan, calls and transfers go to US and Canada numbers only, one call runs
 
 A call can fail before it ever rings because of billing or a plan limit, not a bad request. Don't retry the same call in a loop; tell the user what unlocks it instead.
 
-- **`CALL_UNPAID_INTL_BLOCK`:** the org hasn't completed a purchase, so international calling is off. Adding a card alone does not turn it on. Buying at least $5 of credits in the dashboard under Billing, or turning on auto-recharge, unlocks international calling once the payment settles. If a `buy_credits` tool is available, offer to buy credits with a payment token from the user's agent wallet.
+- **`CALL_UNPAID_INTL_BLOCK`:** the org hasn't completed a purchase, so international calling is off. Adding a card alone does not turn it on. Buying at least $5 of credits in the dashboard under Billing, or turning on auto-recharge, unlocks international calling once the payment settles.
 - **`CALL_PLAN_DESTINATION_BLOCKED` or `CALL_PLAN_TRANSFER_BLOCKED`:** the Agent Phone Plan calls and transfers to US and Canada numbers only. Buying credits doesn't change that; the call needs a US or Canada destination instead.
+- **`AGENT_*` codes:** the agent or version could not be resolved. See the [error table](../../v2/skills/outbound-calls/references/calls.md#errors).
 
 ## Errors
 
-- **400:** a field is missing or malformed. Check the body against the docs and send it again.
-- **401 or 403:** a key problem. Use the `setup` skill.
+- **400:** a field is missing or malformed. Check the body against the call contract and send it again.
+- **401 or 403:** a key or role problem. Use the `setup` skill.
 - **429:** a rate limit or a plan limit. The error code names which one. Wait before you retry.

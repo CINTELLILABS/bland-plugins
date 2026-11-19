@@ -11,13 +11,13 @@ Bugs in this plugin have historically lived in **environment differences**, not 
 | **Org / data shape** | A tool can pass on one org's calls and 404 on another's (field-reported: `get_call_log`) | Run `/bland:status --check` under a SECOND org's API key (test org), not just your own |
 | **Server topology** | Single-instance dev servers cannot exhibit multi-instance state bugs (field-reported: the `-32000` session loss) | Server-side changes to `/v1/mcp` need the two-process round-robin A/B harness, not just localhost |
 | **Server target** | localhost/tunnel and prod differ in deploy age, gating, and edge behavior | Smoke against BOTH prod and a dev target |
-| **Working directory** | Hooks resolve state by walking up from the session's launch dir | Arm `/bland:loop` from a nested subdirectory once |
+| **Working directory** | The norm plugin's Stop hook resolves `.norm/` state by walking up from the session's launch dir | Arm a `/norm:migrate` loop from a nested subdirectory once |
 | **Write paths** | Reads exercise auth/transport; only writes exercise body forwarding per router (field-found: `/v1/automation` POST gap) | Each release, one reversible create→delete on a throwaway resource per newly-touched router |
 
 ## Release steps
 
 1. Bump the version in all four manifests — `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.codex-plugin/plugin.json`, `.grok-plugin/plugin.json` — and add a CHANGELOG entry (updates NO-OP without a version bump).
-2. `node --check` every changed `bin/*.cjs`; frontmatter sanity on changed md files.
+2. `node --check` every changed `bin/*.cjs` and `v2/bin/*.cjs`; frontmatter sanity on changed md files; `node --test dev/scripts/test-*.mjs tests/*.cjs`.
 3. Secret sweep: `git diff --cached | grep -c <your-key-prefix>` must be 0. No internal hostnames/paths in plugin text.
 4. Run **`/bland:status --check`** in your own session (fast regression floor).
 5. Run **`/bland:status --check`** in ONE varied environment from the table (rotate the dimension each release; latest-CC + marketplace install is the highest-yield default).

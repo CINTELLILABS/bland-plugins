@@ -7,7 +7,7 @@ description: The Bland v2 agent snapshot dialect, the exact JSON shape of an age
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-> **Server binding:** use only THIS plugin's MCP server (`plugin_norm_bland`); other `bland` servers may be signed in to another org.
+> **Server binding:** all API work in this skill goes through the Bland MCP server of the plugin that loaded it (`plugin_norm_bland` in the norm plugin, `bland` in the bland plugin). Never switch to another installed or project-scoped Bland server, even though it exposes similar tools; it may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
 An agent version is one JSON snapshot, run as a conversation graph
 ([how it works](../v2-runtime/references/how-it-works.md)).

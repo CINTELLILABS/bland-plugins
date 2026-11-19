@@ -61,7 +61,7 @@ copy "the twin".
 |---|---|---|---|
 | Widget | Org | No | `/v1/widget`, Channels > Web chat |
 | Number texting config | Number, per channel | No | `/v1/sms/number/update`, Channels > Messages |
-| `settings.apiChat.enabled` | Agent | Yes, read from production | Snapshot, Channels > API chat |
+| `settings.apiChat.enabled` | Agent | Yes, read from production (staging pin for a staging chat) | Snapshot, Channels > API chat |
 | `settings.messaging.*` | Agent | Yes | Snapshot, Messages > Behavior |
 | Messaging copy | Agent | Follows production | Bind, attach, promote, rollback |
 | Thread | Org | No | Created by the channel |
@@ -127,7 +127,7 @@ version) leaves the copy as it was.
 | Channel | Runs | Read when | Change felt |
 |---|---|---|---|
 | Web chat (bound widget) | Messaging copy, node by node | The current copy | After promote |
-| API chat | Messaging copy, text runtime | Each turn; the on/off switch at each open | After promote |
+| API chat | Messaging copy, text runtime; a staging chat runs the staging pin | Each turn; the on/off switch at each open | After promote; a staging chat after publish to staging, on its next new conversation |
 | Texts on a bound number | Messaging copy, text runtime | Each turn | After promote |
 | Number texting config | The number row | Each message and timer | Immediately, every environment |
 | Widget record (domains, look, timers) | The widget row | Page load and new threads | Immediately |
@@ -135,9 +135,10 @@ version) leaves the copy as it was.
 
 Rules that follow from the table:
 
-- **No version pin on text channels.** Web chat, API chat and texts run
-  production. Publishing to staging does not reach them, and a traffic split
-  between versions applies to calls only.
+- **No version pin on text channels.** Web chat, texts and default API chat
+  run production. Publishing to staging reaches only API chats opened with
+  `environment: "staging"`, and a traffic split between versions applies to
+  calls only.
 - **Open threads move with production.** Each turn reads the current copy,
   so a promote reaches an open text or API chat thread on its next message.
   The thread keeps its history and variables.
@@ -201,8 +202,9 @@ Notes:
   and change live traffic at once; the page banner says so. Behavior is agent
   config, saved with the version and felt after promote.
 - **The API chat switch saves to the dev head.** It is locked when viewing
-  Staging or Production. The open reads production, so a switch flipped after
-  the first promote does nothing until the next one.
+  Staging or Production. A default open reads production, so a switch flipped
+  after the first promote does nothing until the next one; a staging open
+  reads the staging pin, so it needs a publish to staging.
 - **The A2P card status is kept in the browser.** Report
   `GET /v1/messaging/a2p` instead.
 - **Channel priority is display-only.** Nothing reads it.
@@ -220,7 +222,7 @@ Notes:
 
 | Rule | Value or behavior | Error when crossed |
 |---|---|---|
-| API chat switch | `settings.apiChat.enabled` on production, else latest save | 403 `CHANNEL_DISABLED` |
+| API chat switch | `settings.apiChat.enabled` on production, else latest save; on the staging pin for a staging chat | 403 `CHANNEL_DISABLED` |
 | API chat idle end | 1800 seconds default, `0` off, whole numbers | 400 `CHAT_BAD_REQUEST` |
 | API chat message | 8,000 characters; empty asks for the greeting | 400 `CHAT_BAD_REQUEST` |
 | API chat `end_user_id` | 1 to 255 characters; one open at a time per person | 409 `CHAT_OPEN_IN_PROGRESS` |
@@ -251,7 +253,7 @@ Notes:
 | Texts or chat ignore a change | Saved but not promoted | Production `current_version` older than the dev head | Promote |
 | Texts run an unpromoted edit | A production number attach compiled the latest save | Recent attach, no promote since, no widget bound | Promote, or bind a widget |
 | Calls changed after promote, texts did not | Copy refresh failed: production cannot be prepared | The production version fails validation or has an unresolved production variable | Fix production, promote again |
-| API chat 403 `CHANNEL_DISABLED` | Switch on dev only | `settings.apiChat.enabled` differs between dev head and production | Promote |
+| API chat 403 `CHANNEL_DISABLED` | Switch on dev only | `settings.apiChat.enabled` differs between dev head and the target pin | Promote for production; publish to staging for a staging chat |
 | API chat reply `messages` empty | Folded into a reply already being written, handed off, or ended | `status` in the response | Read `GET /v1/chat/<id>` |
 | API chat body has `error: AGENT_TURN_FAILED` | The turn failed, possibly after a tool already ran | `GET /v1/chat/<id>`, and the system the tool writes to | Resend with a new `idempotency_key` only once the write is known not to have happened, or the user approves a repeat. The same key returns the failed turn |
 | No bubble on the site | Unpublished, or host not listed | `allowed_domains` empty or missing the host | PATCH domains with the full `config` |
@@ -270,6 +272,7 @@ Notes:
 can run the latest save until the next promote.
 
 **Can I pin a widget or API chat to a version?** No. Promote to change them.
+API chat can open on the staging pin instead with `environment: "staging"`.
 For a pinned probe that reaches nobody, use test chat.
 
 **Does changing the number's settings need a promote?** No. Number settings

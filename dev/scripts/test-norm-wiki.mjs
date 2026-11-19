@@ -283,8 +283,8 @@ function shippedDocs(dir, out = []) {
 test('public wiki pages name no internal vendors, models, infrastructure or server weaknesses', () => {
   const repo = resolve(root, '..');
   const files = [...shippedDocs(root), ...shippedDocs(resolve(repo, 'dev/benchmarks')),
-    ...shippedDocs(resolve(repo, 'skills')), ...shippedDocs(resolve(repo, 'agents')),
-    ...shippedDocs(resolve(repo, 'commands')), resolve(repo, 'CHANGELOG.md'), resolve(repo, 'dev/MIGRATION.md')];
+    ...shippedDocs(resolve(repo, 'skills')), ...shippedDocs(resolve(repo, 'commands')),
+    resolve(repo, 'CHANGELOG.md'), resolve(repo, 'dev/MIGRATION.md')];
   const hits = [];
   for (const file of files) {
     readFileSync(file, 'utf8').split('\n').forEach((line, i) => {

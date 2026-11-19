@@ -7,7 +7,7 @@ description: The hand-migration doctrine for converting a Bland v1 pathway or pe
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-> **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
+> **Server binding:** all API work in this skill goes through the Bland MCP server of the plugin that loaded it (`plugin_norm_bland` in the norm plugin, `bland` in the bland plugin). Never switch to another installed or project-scoped Bland server, even though it exposes similar tools; it may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
 
 **Select the migration contract first.** For `/norm:migrate --upgrade` or state
@@ -27,6 +27,16 @@ and separate-conversational-owner instructions below.
 Hand-architected conversion beats automatic converters: a human-quality architecture (which nodes form which scenarios, what the hub says, what each entry means) plus **mechanical, verbatim carriage of every byte of content**. This skill is the doctrine; `references/traps.md` is the accumulated trap catalog — read it in full before authoring, and again before pushing.
 
 **Everything is additive.** The v1 pathway keeps serving live traffic untouched. The migration produces a new agent version in the owning org; number cutover is a separate, explicitly-human decision and is NOT part of this skill.
+
+**v1 is read-only.** Read v1 pathways and personas as sources; never create, edit, save or publish one. Every output is a v2 agent version.
+
+**Decide the target's tool protocol before authoring** ([native function calling](../v2-runtime/references/native-function-calling.md)). Verbatim v1 prompts are written for the legacy protocol, and the legacy audit (P7, P11 to P13) requires them verbatim, so a legacy migration must not run on a native target.
+
+1. Target with a saved version: read `settings.nativeToolCalling` on its head. Saves inherit it, and you cannot change it.
+2. Target with no saved version: treat it as native. `create_agent` and `POST /v2/agents` enroll every new agent, and the first save gets the marker.
+3. **Legacy (verbatim) mode needs a legacy target**: an existing agent whose head has no marker. When the only target is native, do not push a verbatim snapshot into it. Stop and ask the user to choose: name a legacy-protocol agent, or switch to `--upgrade`, whose contract rewrites prompts for the target protocol and follows the [native rules](references/native-tool-calling-v1.md).
+4. **Upgrade mode** may target either protocol. On a native target, follow the native rules.
+5. After the first push, read the marker on the saved version. In legacy mode a `true` marker is a failed gate: stop and report it; do not simulate or iterate on that agent.
 
 ## Inputs (raw JSON, read-only)
 

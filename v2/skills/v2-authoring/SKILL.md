@@ -1,16 +1,15 @@
 ---
 name: v2-authoring
-description: Designing and building a NEW Bland v2 agent from scratch — scenario architecture (what scenarios represent and where boundaries belong), hub + entry authoring, step/edge/tool design, the standard conduct-rule set, and how v2 building differs from v1 pathway building. Use when creating a new v2 agent, designing its scenarios, or when someone asks how building in v2 differs from v1. If the user has not said v1 or v2, ASK before applying this doctrine.
+description: Designing and building a NEW Bland agent from scratch — always a v2 agent. Scenario architecture (what scenarios represent and where boundaries belong), hub + entry authoring, step/edge/tool design for native function calling, the standard conduct-rule set, and how v2 building differs from v1 pathway building. Use when creating any new voice, chat or text agent, designing its scenarios, or when someone asks for a new pathway or persona or how building in v2 differs from v1.
 ---
 
 # Building v2 Agents (from scratch)
 
 Before server work, read [API tool selection](../api-workspace/references/api.md#named-endpoint-fallback). Overrides proxy-only instructions.
 
-> **Server binding (v1/v2 isolation):** all API work in this skill goes through THIS plugin's MCP server only (`plugin_norm_bland` — `mcp__plugin_norm_bland__*` on Claude Code). Never call the v1 plugin's server or a project-scoped `bland` server, even though they expose similar tools — they may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
+> **Server binding:** all API work in this skill goes through the Bland MCP server of the plugin that loaded it (`plugin_norm_bland` in the norm plugin, `bland` in the bland plugin). Never switch to another installed or project-scoped Bland server, even though it exposes similar tools; it may be authenticated to a DIFFERENT organization. Identity is proven by the org smoke check, never by tool namespace.
 
-
-This is the authoring doctrine for NEW agents. The snapshot dialect lives in `v2-snapshot`; runtime behavior in `v2-runtime`. If the user hasn't chosen v1 vs v2, ask first — the disciplines don't mix.
+This is the authoring doctrine for NEW agents. The snapshot dialect lives in `v2-snapshot`; runtime behavior in `v2-runtime`. Every new agent is a v2 agent. New v1 pathways and personas are not supported: when someone asks for one, build the v2 agent that does the same job, and say so. An existing v1 pathway or persona is a read-only source; carry it over with [v2-migration](../v2-migration/SKILL.md).
 
 Before changing apparently disconnected JSON, read the
 [builder/runtime mapping](../v2-runtime/references/builder-runtime-map.md).
@@ -95,6 +94,20 @@ Every fabrication class below produced a real incident in production testing. In
 - **No side-effect promises the system can't keep**: no callbacks, notes, or "the team will reach out" unless a tool actually creates that artifact.
 - **Write-tool gates tie to the caller's LAST turn**: a confirmation argument may only be "yes" if the caller explicitly confirmed in their most recent turn — a deferral is never confirmation. Scope every such guard to the exact moment it protects ("applies ONLY at the final submit; never prevents checking availability") — unscoped guards leak into adjacent behavior.
 - AI disclosure (confirm plainly, continue), repeated-word person-chants ("agent, agent") → immediate human handling, language switch offered as a question and then sticky.
+
+## Write for native function calling
+
+An agent created with `create_agent` or `POST /v2/agents` runs native
+function calling from its first saved version (`settings.nativeToolCalling`,
+set by the platform; see
+[native function calling](../v2-runtime/references/native-function-calling.md)).
+Write every prompt and tool definition to
+[the native rules](../v2-migration/references/native-tool-calling-v1.md):
+one tool call per response, no action names or JSON formats in prompts,
+filler speech on the tool rather than in the prompt, object-root schemas with
+no `$ref`/`oneOf`/`anyOf`/`allOf` (or the tool is not offered), and only
+caller-supplied values in `input_schema`. When you add steps to an existing agent, read the marker on
+its running version first and follow the protocol it uses.
 
 ## Deterministic where it matters
 

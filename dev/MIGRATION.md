@@ -1,5 +1,7 @@
 # Migration plan: four plugins to one `bland` plugin
 
+> **Historical.** This plan describes the 2.0 consolidation. In bland 3.0.0 the v1 pathway file workspace it describes (the `pathways` and `persona` skills, the `/bland:*` workspace commands, the Norm builder agents and the pathway codec) was removed; the plugin is v2-only. See the CHANGELOG.
+
 ## Shipping status (2.0.2)
 
 The consolidation is implemented; the hosted CLI forwarder in Phase 3 remains planned. Current connections use HTTP with host-specific configuration: Claude's inline `userConfig` references, Cursor's `mcp.json` plugin variables, and Codex's inline production URL with `bearer_token_env_var`. Upgrades from `norm@bland` require key setup once under `bland@bland`; the legacy stdio resolver is not on the active connection path. Norm inherits the session's available tools so its domain skills can execute. The target layout and phase descriptions below describe the longer-term plan, including shared CLI authentication.
