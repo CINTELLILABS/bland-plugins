@@ -60,7 +60,7 @@ List query keys:
 Values:
 
 - `status`: `backlog`, `todo` (the default), `in_progress`, `in_review`,
-  `done`, `closed`.
+  `done`, `closed`, `duplicate`.
 - `severity`: `critical`, `high`, `medium`, `low`. Required on create.
 - `category`: a name, 1 to 64 characters. Required on create. Read
   [categories](#categories) first.
