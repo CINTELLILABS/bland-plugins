@@ -27,7 +27,7 @@ works](references/how-it-works.md) explains statuses and side effects. No fetch 
 Budget: two list reads, one create, one write per evidence item, one read.
 
 1. Dedupe: `bland_api_get` `/v1/triage/issues` with `agent_id` and `search`
-   set to the symptom; skip `done` and `closed`. If one covers it, extend it.
+   set to the symptom; skip `done`, `closed`, and `duplicate`. Extend a match.
 2. File: `call_bland_api` POST `/v1/triage/issues` with `title`, `severity`,
    `category`, `description` (expected, actual, repro, ruled out), `agent_id`,
    `agent_version_id`.
@@ -47,8 +47,8 @@ Budget: two list reads, one create, one write per evidence item, one read.
 - Assign: PATCH `assignee_id`. It notifies the person in the app and by email;
   say so.
 - Comment and link related issues as in steps 5 and 6.
-- Close: PATCH `status: "closed"` or `done`. One confirm per issue, even for
-  "close all the duplicates".
+- Close: PATCH `status: "closed"` or `done`. For repeats: add `duplicate_of`,
+  then PATCH `status: "duplicate"`. Confirm each issue, including duplicates.
 
 ## Workflow: alert and eval bindings
 

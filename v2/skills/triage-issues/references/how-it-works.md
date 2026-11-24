@@ -47,18 +47,22 @@ It is not:
 ## Lifecycle and states
 
 ```text
-                 ┌──────────────────── any status can move to any other ───────────────────┐
-                 ▼                                                                          │
- create ──► todo (default) ◄──► backlog ◄──► in_progress ◄──► in_review ◄──► done ◄──► closed
-                                                                                            │
- delete (from any status) ──► removed from every list and read; no route restores it ◄─────┘
+ any status can move to any other:
+ create ──► todo (default) ◄──► backlog ◄──► in_progress ◄──► in_review
+                                    ◄──► done ◄──► closed ◄──► duplicate
+
+ delete (from any status) ──► removed from every list and read; no route restores it
 ```
 
 - **Statuses**: `backlog`, `todo`, `in_progress`, `in_review`, `done`,
-  `closed`. A new issue is `todo` unless the body says otherwise.
+  `closed`, `duplicate`. A new issue is `todo` unless the body says otherwise.
+- **Duplicate is terminal.** Add a `duplicate_of` relation to the original
+  issue, then set the repeat to `duplicate`. The relation alone does not
+  change status. The default active list hides `done`, `closed`, and
+  `duplicate`; an explicit status filter can show them.
 - **Only a person moves status.** No status changes by itself: not when an
   alert resolves, not when a triage run finishes, not when an eval run
-  completes. `done` and `closed` are reversible by another edit.
+  completes. `done`, `closed`, and `duplicate` are reversible by another edit.
 - **Delete is final.** The issue leaves every list and its reads answer 404.
   Close it instead when the history matters.
 - **Activity** records every change: created, status, severity, category,
@@ -131,7 +135,7 @@ Calls are also flagged into issues from the Conversations page detail panel
 | -- | -- | -- | -- |
 | Issue missing from the agent's Issues page | Filed without `agent_id` and no call attached | `agent_id: null` on the issue | Attach a call from that agent; the issue takes its agent. |
 | 409 `call_not_attached` on a flag | Flag sent before the call was attached | The resources list lacks the call | PUT the call, then flag. |
-| Duplicate issues for one defect | No dedupe search before filing | Two issues with the same symptom | Relate one as `duplicate_of`, close it after a confirm. |
+| Duplicate issues for one defect | No dedupe search before filing | Two issues with the same symptom | Relate the repeat as `duplicate_of`, then set it to `duplicate` after a confirm. |
 | A comment started a run nobody asked for | The text contained `@norm` | A triage-run entry in the activity | Review and revert what it changed; never quote `@norm`. |
 | Eval analysis scored unrelated calls | Fewer than two calls attached, so recent org calls were used | `call_count` and the run's calls | Attach the relevant calls first, then run it. |
 | `Issue not found` for a known issue | Wrong id (a `T-n` used as an id), another org, or deleted | Search by `T-n` | Use the `id` from the search result. |
